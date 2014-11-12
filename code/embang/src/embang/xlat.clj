@@ -84,14 +84,12 @@
           assume (let [[name value] args]
                    `((let [~name ~(expression value)]
                        ~@(dlist ds))))
-          observe (cons `(observe ~@(map expression args)) (dlist ds))
+          observe (cons `(~'observe ~@(map expression args)) (dlist ds))
           predict (cons `(~'predict ~@(map expression args)) (dlist ds))
           (assert false (str "illegal dlist: " d)))))))
 
 (defn program
   "translates anglican program into clojure function"
   [& p]
-  `(fn [~'predict]
+  `(fn []
      ~@(dlist p)))
-
-(defn observe [prob expr] 0.0)
