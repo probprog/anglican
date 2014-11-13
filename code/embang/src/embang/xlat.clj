@@ -32,12 +32,6 @@
                    bindings)]
      ~@(elist body)))
 
-(defn aif
-  "translates if"
-  [[& exprs :as expr]]
-  (assert (#{2 3} (count exprs)) (str "illegal if: " expr))
-  `(if ~@(map expression exprs)))
-
 (defn acond [[& clauses :as expr]]
   (when (seq clauses)
     (let [[[c e] & clauses] clauses]
@@ -53,8 +47,8 @@
   [[& body]]
   `(do ~@(elist body)))
 
-(defn application
-  "translates function application"
+(defn aform
+  "translates compatible forms and function applications"
   [e]
   (map expression e))
 
@@ -67,11 +61,12 @@
           quote  e
           lambda (alambda args)
           let    (alet args)
-          if     (aif args)
           cond   (acond args)
           begin  (abegin args)
-          (application e)))
-      ()) ; be liberal, allow unquoted empty list
+          ;; other forms (quote, if, and, or, application)
+          ;; have compatible structure
+          (aform e)))
+      ()) ; anglican allows unquoted empty list
     e))
 
 (defn dlist
@@ -86,7 +81,7 @@
                        ~@(dlist ds))))
           observe (cons `(~'observe ~@(map expression args)) (dlist ds))
           predict (cons `(~'predict ~@(map expression args)) (dlist ds))
-          (assert false (str "illegal dlist: " d)))))))
+          (assert false (str "unrecognized directive: " d)))))))
 
 (defn program
   "translates anglican program into clojure function"
