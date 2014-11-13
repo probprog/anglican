@@ -16,6 +16,7 @@
 ;;   - the list of predicted values.
 
 (def ^:const ^:private PRIMITIVE-FUNCTIONS
+  "primitive functions, do not exist in CPS form"
   '[ ;; tests
     boolean? symbol? string?   proc? number?
     ratio?  integer?  float?  even?  odd?
@@ -44,4 +45,30 @@
 
     ;; data structures – documented
     list first second nth rest count
-    conj concat])
+    conj concat
+
+    ;; higher-order functions
+    map reduce apply mem
+
+    ;; ERPs
+    beta
+    binomial
+    categorical
+    dirac
+    dirichlet
+    discrete
+    discrete-cdf
+    exponential
+    flip
+    gamma
+    normal
+    mvn
+    wishart
+    poisson
+    uniform-continuous
+    uniform-discrete
+
+    ;; XRPs
+    crp
+    beta-flip
+    normal-with-known-std])
