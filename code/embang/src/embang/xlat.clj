@@ -5,23 +5,23 @@
 (defn elist
   "translates a list of expressions,
   replacing define with let"
-  [es]
-  (when (seq es)
+  [exprs]
+  (when (seq exprs)
     (lazy-seq
-      (let [[e & es] es]
-        (if (and (seq? e) (= (first e) 'define))
-          (let [[name value] (rest e)]
+      (let [[expr & exprs] exprs]
+        (if (and (seq? expr) (= (first expr) 'define))
+          (let [[name value] (rest expr)]
             `((let [~name ~(expression value)]
-                ~@(elist es))))
-          (cons (expression e) (elist es)))))))
+                ~@(elist exprs))))
+          (cons (expression expr) (elist exprs)))))))
 
 (defn alambda
   "translates lambda to fn"
-  [[args & body]]
+  [[parms & body]]
   `(fn
-     ~(if (list? args)
-        `[~@args]
-        `[& ~args])
+     ~(if (list? parms)
+        `[~@parms]
+        `[& ~parms])
      ~@(elist body)))
 
 (defn alet
@@ -32,14 +32,23 @@
                    bindings)]
      ~@(elist body)))
 
-(defn acond [[& clauses :as expr]]
+(defn aif
+  "translates if to its three-argument form"
+  [[cnd thn els :as args]]
+  (assert (#{2 3} (count args)) (str "illegal if: " `(~'if ~@args)))
+  `(~'if ~(expression cnd) ~(expression thn) ~(expression els)))
+
+(defn acond 
+  "translates cond to nested ifs"
+  [[& clauses :as args]]
   (when (seq clauses)
-    (let [[[c e] & clauses] clauses]
-      (if (= c 'else)
+    (let [[[cnd expr] & clauses] clauses]
+      (if (= cnd 'else)
         (do
-          (assert (empty? clauses) (str "else clause must be last: " expr))
-          (expression e))
-        `(if ~(expression c) ~(expression e)
+          (assert (empty? clauses)
+                  (str "else clause must be last: " `(~'cond ... ~@args)))
+          (expression expr))
+        `(~'if ~(expression cnd) ~(expression expr)
            ~(acond clauses))))))
 
 (defn abegin
@@ -49,25 +58,25 @@
 
 (defn aform
   "translates compatible forms and function applications"
-  [e]
-  (map expression e))
+  [expr]
+  (map expression expr))
 
-(defn expression [e]
+(defn expression [expr]
   "translates expression"
-  (if (list? e)
-    (if (seq e)
-      (let [[kwd & args] e]
+  (if (list? expr)
+    (if (seq expr)
+      (let [[kwd & args] expr]
         (case kwd
-          quote  e
+          quote  expr
           lambda (alambda args)
           let    (alet args)
+          if     (aif args)
           cond   (acond args)
           begin  (abegin args)
-          ;; other forms (quote, if, and, or, application)
-          ;; have compatible structure
-          (aform e)))
+          ;; other forms (and, or, application) have  compatible structure
+          (aform expr)))
       ()) ; anglican allows unquoted empty list
-    e))
+    expr))
 
 (defn dlist
   "translates directive list, replacing assume with let"
