@@ -4,6 +4,6 @@
   (:use embang.xlat))
 
 (defn -main
-  "transforms anglican to clojure"
+  "transforms anglican program to clojure code"
   [& args]
-  (pprint (apply program (read-string (str "(" (slurp *in*) ")")))))
+  (pprint (anglican (read-string (str "(" (slurp *in*) ")")))))

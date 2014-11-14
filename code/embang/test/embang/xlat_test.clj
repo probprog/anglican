@@ -51,3 +51,15 @@
                  (predict y)
                  (observe (normal x 1) 1)))))
         "assumes, predict, observe")))
+
+(deftest test-anglican
+  (testing "anglican"
+    (is (= (anglican
+            '[[assume x 1]
+              [assume y 2]
+              [predict (+ x y)]])
+           '(fn []
+              (let [x 1]
+                (let [y 2]
+                  (predict (+ x y))))))
+        "simple program")))
