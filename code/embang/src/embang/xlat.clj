@@ -65,7 +65,12 @@
           ;; other forms (if, and, or, application) have  compatible structure
           (aform expr)))
       ()) ; anglican allows unquoted empty list
-    expr))
+    (case expr
+      ;; replace variable names `do' and `fn' by `begin' and `lambda',
+      ;; to avoid name clashes in Clojure
+      do 'begin
+      fn 'lambda
+      expr)))
 
 (defn dlist
   "translates directive list, replacing assume with let"
