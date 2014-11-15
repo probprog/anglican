@@ -10,12 +10,15 @@
 
 (deftest test-alambda
   (testing "alambda"
-    (is (= (alambda '((a b c) a b c))
+    (is (= (alambda nil '((a b c) a b c))
            '(fn [a b c] a b c))
         "simple")
-    (is (= (alambda '(a a))
+    (is (= (alambda nil '(a a))
            '(fn [& a] a))
-        "variadic")))
+        "variadic")
+    (is (= (alambda 'foo '((x) (* x x)))
+           '(fn foo [x] (* x x)))
+        "named")))
 
 (deftest test-alet
   (testing "alet"
@@ -62,4 +65,19 @@
               (let [x 1]
                 (let [y 2]
                   (predict (+ x y))))))
-        "simple program")))
+        "simple program")
+    (is (= (anglican
+            '[[assume fact (lambda (n)
+                              (if (= n 1)
+                                1 
+                                (* n (fact (- n 1)))))]
+              [predict (fact 5)]])
+           '(fn []
+              (let [fact (fn fact [n]
+                           (if (= n 1)
+                             1 
+                             (* n (fact (- n 1)))))]
+                (predict (fact 5)))))
+        "auto-recursive function")))
+                            
+                            
