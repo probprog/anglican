@@ -15,15 +15,20 @@
 ;;   - the running sample weight
 ;;   - the list of predicted values.
 
-(
-
 (declare cps-of-expr)
-
-(declare cps-of-elist)
 
 (defn simple-expr?
   [expr]
   false)
+
+(defn cps-of-elist
+  [exprs cont]
+  (let [[fst & rst] exprs]
+    (if (seq rst)
+      (cps-of-expr fst
+                   `(~'fn [~'_]
+                      ~(cps-of-elist rst cont)))
+      (cps-of-expr fst cont))))
 
 (defn cps-of-fn
   [args cont]
@@ -33,7 +38,7 @@
           fncont (gensym "cont")]
       `(~cont (~'fn ~@(when name [name])
                 [~fncont ~parms]
-                ~(cps-of-expr body fncont))))))
+                ~(cps-of-elist body fncont))))))
 
 (defn cps-of-if
   "transforms cond to cps"
@@ -59,7 +64,15 @@
 (defn cps-of-do
   "transforms do to cps"
   [exprs cont]
-  `(~cont ~@exprs))
+  `(cps-of-elist exprs cont))
+
+(defn cps-of-predict
+  "transforms predict to cps,
+  predict appends current expression
+  and its value to $predicts"
+  [[expr] cont]
+  `(~'let [~'$predicts (~'conj ~'$predicts ['~expr ~expr])]
+     (~cont nil)))
 
 (defn cps-of-expr
   [expr cont]
@@ -69,13 +82,13 @@
      (let [[kwd & args] expr]
         (case kwd
           quote   `(~cont ~expr)
-          mem     `(~cont ~expr)
+          mem     `(~cont ~expr) ; TODO
           fn      (cps-of-fn args cont)
-          let     `(~cont ~expr)
+          let     `(~cont ~expr) ; TODO
           if      (cps-of-if args cont)
           cond    (cps-of-cond args cont)
-          do      `(~cont ~expr)
-          predict `(~cont ~expr)
+          do      (cps-of-do args cont)
+          predict (cps-of-predict args cont)
           observe `(~cont ~expr)
           ;; application
           `(~cont ~expr)))
