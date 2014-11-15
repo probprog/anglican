@@ -1,6 +1,6 @@
-(ns embang.trap-test
+(ns embang.simp-test
   (:require [clojure.test :refer [deftest testing is]])
-  (:use embang.trap))
+  (:use embang.simp))
 
 (deftest test-simplify
   (testing "simplify"

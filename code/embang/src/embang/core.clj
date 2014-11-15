@@ -2,7 +2,7 @@
   (:gen-class)
   (:require [clojure.pprint :refer [pprint]])
   (:use [embang.xlat :only [anglican]]
-        [embang.trap :only [simplify]]))
+        [embang.simp :only [simplify]]))
 
 (defn -main
   "transforms anglican program to clojure code"
