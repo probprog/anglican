@@ -16,19 +16,22 @@
           (cons (expression expr) (elist exprs)))))))
 
 (defn alambda
-  "translates lambda to fn"
-  [[parms & body]]
-  `(~'fn
-     ~(if (list? parms)
-        `[~@parms]
-        `[& ~parms])
-     ~@(elist body)))
+  "translates lambda to fn,
+  if name is not nil, fn is named"
+  [name [parms & body]]
+  (let [fnbody `(~(if (list? parms)
+                    `[~@parms]
+                    `[& ~parms])
+                  ~@(elist body))]
+    (if name
+      `(~'fn ~name ~@fnbody)
+      `(~'fn ~@fnbody))))
 
 (defn alet
   "translates let"
   [[bindings & body]]
   `(~'let [~@(mapcat (fn [[name value]]
-                     [name (expression value)])
+                     [name (expression value :name name)])
                    bindings)]
      ~@(elist body)))
 
@@ -51,20 +54,18 @@
   [expr]
   (map expression expr))
 
-(defn expression [expr]
+(defn expression [expr & {:keys [name] :or {name nil}}]
   "translates expression"
-  (if (list? expr)
-    (if (seq expr)
-      (let [[kwd & args] expr]
-        (case kwd
-          quote  expr
-          lambda (alambda args)
-          let    (alet args)
-          cond   (acond args)
-          begin  (abegin args)
-          ;; other forms (if, and, or, application) have  compatible structure
-          (aform expr)))
-      ()) ; anglican allows unquoted empty list
+  (if (seq? expr)
+    (let [[kwd & args] expr]
+      (case kwd
+        quote  expr
+        lambda (alambda name args)
+        let    (alet args)
+        cond   (acond args)
+        begin  (abegin args)
+        ;; other forms (if, and, or, application) have  compatible structure
+        (aform expr)))
     (case expr
       ;; replace variable names `do' and `fn' by `begin' and `lambda',
       ;; to avoid name clashes in Clojure
@@ -80,7 +81,7 @@
       (let [[[kwd & args :as d] & ds] ds]
         (case kwd
           assume (let [[name value] args]
-                   `((~'let [~name ~(expression value)]
+                   `((~'let [~name ~(expression value :name name)]
                        ~@(dlist ds))))
           (observe predict) (cons `(~kwd ~@(map expression args))
                                   (dlist ds))
