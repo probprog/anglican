@@ -19,13 +19,11 @@
   "translates lambda to fn,
   if name is not nil, fn is named"
   [name [parms & body]]
-  (let [fnbody `(~(if (list? parms)
-                    `[~@parms]
-                    `[& ~parms])
-                  ~@(elist body))]
-    (if name
-      `(~'fn ~name ~@fnbody)
-      `(~'fn ~@fnbody))))
+  `(~'fn ~@(when name [name])
+     ~(if (list? parms)
+        `[~@parms]
+        `[& ~parms])
+     ~@(elist body)))
 
 (defn alet
   "translates let"
@@ -37,7 +35,7 @@
 
 (defn acond 
   "translates cond to nested ifs"
-  [[& clauses :as args]]
+  [args]
   `(~'cond ~@(mapcat (fn [[cnd expr]]
                        [(if (= cnd 'else) :else
                           (expression cnd))
@@ -46,8 +44,8 @@
 
 (defn abegin
   "translates begin to do"
-  [[& body]]
-  `(~'do ~@(elist body)))
+  [exprs]
+  `(~'do ~@(elist exprs)))
 
 (defn aform
   "translates compatible forms and function applications"

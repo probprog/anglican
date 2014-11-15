@@ -1,12 +1,10 @@
 (ns embang.core
   (:gen-class)
   (:require [clojure.pprint :refer [pprint]])
-  (:use [embang.xlat :only [anglican]]
-        [embang.simp :only [simplify]]))
+  (:use [embang.xlat :only [anglican]]))
 
 (defn -main
   "transforms anglican program to clojure code"
   [& args]
-  (pprint (simplify 
-           (anglican 
-            (read-string (str "(" (slurp *in*) ")"))))))
+  (pprint (anglican 
+            (read-string (str "(" (slurp *in*) ")")))))

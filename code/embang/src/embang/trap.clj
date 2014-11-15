@@ -15,6 +15,72 @@
 ;;   - the running sample weight
 ;;   - the list of predicted values.
 
+(
+
+(declare cps-of-expr)
+
+(declare cps-of-elist)
+
+(defn simple-expr?
+  [expr]
+  false)
+
+(defn cps-of-fn
+  [args cont]
+  (if (vector? (first args))
+    (cps-of-fn `[nil ~@args] cont)
+    (let [[name parms & body] args
+          fncont (gensym "cont")]
+      `(~cont (~'fn ~@(when name [name])
+                [~fncont ~parms]
+                ~(cps-of-expr body fncont))))))
+
+(defn cps-of-if
+  "transforms cond to cps"
+  [[cnd thn els] cont]
+  (if (simple-expr? cnd)
+    `(~'if ~cnd
+       ~(cps-of-expr thn cont)
+       ~(cps-of-expr els cont))
+    (let [pcnd (gensym "cnd")]
+      (cps-of-expr cnd `(~'fn [~pcnd]
+                          (if ~pcnd
+                            ~(cps-of-expr thn cont)
+                            ~(cps-of-expr els cont)))))))
+                          
+(defn cps-of-cond
+  "transforms cond to cps"
+  [clauses cont]
+  (if clauses
+    (let [[cnd thn & clauses] clauses]
+      (cps-of-if [cnd thn `(~'cond ~@clauses)] cont))
+    (cps-of-expr nil cont)))
+
+(defn cps-of-do
+  "transforms do to cps"
+  [exprs cont]
+  `(~cont ~@exprs))
+
+(defn cps-of-expr
+  [expr cont]
+  (cond
+     (nil? expr) `(~cont ~expr)
+     (seq? expr) 
+     (let [[kwd & args] expr]
+        (case kwd
+          quote   `(~cont ~expr)
+          mem     `(~cont ~expr)
+          fn      (cps-of-fn args cont)
+          let     `(~cont ~expr)
+          if      (cps-of-if args cont)
+          cond    (cps-of-cond args cont)
+          do      `(~cont ~expr)
+          predict `(~cont ~expr)
+          observe `(~cont ~expr)
+          ;; application
+          `(~cont ~expr)))
+     :else `(~cont ~expr)))
+
 (def ^:const ^:private PRIMITIVE-FUNCTIONS
   "primitive functions, do not exist in CPS form"
   '[ ;; tests
