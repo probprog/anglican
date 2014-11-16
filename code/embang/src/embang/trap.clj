@@ -26,7 +26,7 @@
   (let [[fst & rst] exprs]
     (if (seq rst)
       (cps-of-expr fst
-                   `(~'fn [~'_]
+                   `(~'fn [& ~'_]
                       ~(cps-of-elist rst cont)))
       (cps-of-expr fst cont))))
 
@@ -34,11 +34,10 @@
   [args cont]
   (if (vector? (first args))
     (cps-of-fn `[nil ~@args] cont)
-    (let [[name parms & body] args
-          fncont (gensym "cont")]
+    (let [[name parms & body] args]
       `(~cont (~'fn ~@(when name [name])
-                [~fncont ~parms]
-                ~(cps-of-elist body fncont))))))
+                [cont# ~parms]
+                ~(cps-of-elist body cont#))))))
 
 (defn cps-of-if
   "transforms cond to cps"
@@ -48,8 +47,8 @@
        ~(cps-of-expr thn cont)
        ~(cps-of-expr els cont))
     (let [pcnd (gensym "cnd")]
-      (cps-of-expr cnd `(~'fn [~pcnd]
-                          (if ~pcnd
+      (cps-of-expr cnd `(~'fn [pcnd#]
+                          (if pcnd#
                             ~(cps-of-expr thn cont)
                             ~(cps-of-expr els cont)))))))
                           
