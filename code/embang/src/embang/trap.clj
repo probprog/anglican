@@ -26,7 +26,7 @@
   (let [[fst & rst] exprs]
     (if (seq rst)
       (cps-of-expr fst
-                   `(~'fn [& ~'_]
+                   `(~'fn [~'_]
                       ~(cps-of-elist rst cont)))
       (cps-of-expr fst cont))))
 
@@ -40,6 +40,22 @@
                 [~fncont ~parms]
                 ~(cps-of-elist body fncont))))))
 
+(defn cps-of-let
+  "transforms let tpo cps"
+  [[bindings & body] cont]
+  (if (seq bindings)
+    (let [[name value & bindings] bindings
+          rest (cps-of-let `(~bindings ~@body) cont)]
+      (if (simple-expr? value)
+        `(~'let [~name ~value]
+           ~rest)
+        (cps-of-expr value
+                     (let [value (gensym "value")]
+                       `(~'fn [~value]
+                          (~'let [~name ~value]
+                            ~rest))))))
+    (cps-of-elist body cont)))
+  
 (defn cps-of-if
   "transforms cond to cps"
   [[cnd thn els] cont]
@@ -85,14 +101,14 @@
           quote   `(~cont ~expr)
           mem     `(~cont ~expr) ; TODO
           fn      (cps-of-fn args cont)
-          let     `(~cont ~expr) ; TODO
+          let     (cps-of-let args cont)
           if      (cps-of-if args cont)
           cond    (cps-of-cond args cont)
           do      (cps-of-do args cont)
           predict (cps-of-predict args cont)
-          observe `(~cont ~expr)
+          observe `(~cont ~expr) ; TODO
           ;; application
-          `(~cont ~expr)))
+          `(~cont ~expr))) ; TODO
      :else `(~cont ~expr)))
 
 (def ^:const ^:private PRIMITIVE-FUNCTIONS
