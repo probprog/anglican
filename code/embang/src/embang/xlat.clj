@@ -35,7 +35,7 @@
 
 (defn acond 
   "translates cond to nested ifs"
-  [args]
+  [clauses]
   `(~'cond ~@(mapcat (fn [[cnd expr]]
                        [(if (= cnd 'else) :else
                           (expression cnd))

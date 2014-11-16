@@ -34,10 +34,11 @@
   [args cont]
   (if (vector? (first args))
     (cps-of-fn `[nil ~@args] cont)
-    (let [[name parms & body] args]
+    (let [[name parms & body] args
+          fncont (gensym "cont")]
       `(~cont (~'fn ~@(when name [name])
-                [cont# ~parms]
-                ~(cps-of-elist body cont#))))))
+                [~fncont ~parms]
+                ~(cps-of-elist body fncont))))))
 
 (defn cps-of-if
   "transforms cond to cps"
@@ -46,11 +47,12 @@
     `(~'if ~cnd
        ~(cps-of-expr thn cont)
        ~(cps-of-expr els cont))
-    (let [pcnd (gensym "cnd")]
-      (cps-of-expr cnd `(~'fn [pcnd#]
-                          (if pcnd#
-                            ~(cps-of-expr thn cont)
-                            ~(cps-of-expr els cont)))))))
+      (cps-of-expr cnd
+                   (let [cnd (gensym "cnd")]
+                     `(~'fn [~cnd]
+                        (if ~cnd
+                          ~(cps-of-expr thn cont)
+                          ~(cps-of-expr els cont)))))))
                           
 (defn cps-of-cond
   "transforms cond to cps"
