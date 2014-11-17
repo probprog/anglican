@@ -66,11 +66,12 @@
               (str "primitive procedure name as parameter: "
                    (some primitive-procedure? parms)))
       `(~cont (~'fn ~@(when name [name])
-                [~fncont ~@parms]
-                ~(cps-of-elist body fncont))))))
+                [~fncont ~'$state ~@parms]
+                ~(cps-of-elist body fncont))
+              ~'$state))))
 
 (defn cps-of-let
-  "transforms let tpo cps"
+  "transforms let to cps"
   [[bindings & body] cont]
   (if (seq bindings)
     (let [[name value & bindings] bindings
@@ -84,12 +85,14 @@
            ~rest)
         (cps-of-expr value
                      (let [value (gensym "V")]
-                       `(~'fn [~value]
+                       `(~'fn [~value ~'$state]
                           (~'let [~name ~value]
                             ~rest))))))
     (cps-of-elist body cont)))
 
 (defmacro defn-with-named-cont 
+  "binds the continuation to a name to make
+  the code slightly easier to reason about"
   [cps-of parms & body]
   (let [cont (last parms)]
     `(defn ~cps-of ~parms
@@ -99,20 +102,24 @@
            `(~~''let [~~'named-cont ~~cont]
               ~(~cps-of ~@(butlast parms) ~'named-cont)))))))
 
-(defn-with-named-cont cps-of-if
-  [[cnd thn els :as args] cont]
+(defn-with-named-cont
+  ^{:doc "transforms if to cps"}
+  cps-of-if
+  [[cnd thn els] cont]
   (if (simple-expr? cnd)
       `(~'if ~cnd
          ~(cps-of-expr thn cont)
          ~(cps-of-expr els cont))
       (cps-of-expr cnd
                    (let [cnd (gensym "I")]
-                     `(~'fn [~cnd]
+                     `(~'fn [~cnd ~'$state]
                         (if ~cnd
                           ~(cps-of-expr thn cont)
                           ~(cps-of-expr els cont)))))))
   
-(defn-with-named-cont cps-of-cond
+(defn-with-named-cont 
+  ^{:doc "transforms cond to cps"}
+  cps-of-cond
   [clauses cont]
   (if clauses
     (let [[cnd thn & clauses] clauses]
@@ -126,21 +133,27 @@
 
 (defn cps-of-predict
   "transforms predict to cps,
-  predict appends current expression
+  predict appends predicted expression
   and its value to $predicts"
-  [[expr] cont]
-  `(~'let [~'$predicts (~'conj ~'$predicts ['~expr ~expr])]
-     (~cont nil)))
+  [[pred] cont]
+  `(~cont nil (update-in ~'$state
+                         [:predicts] conj ['~pred ~pred])))
 
+(declare cps-of-application)
 
-(defn cps-of-alist
-  "cps of expanded argument list,  each entry in
-   the argument list  is a pair [expression substitution],
-   when expression is nil, it is simple and does not require
-   a continuation"
-  [alist])
+(defn cps-of-observe
+  "transforms observe to cps,
+  observe updates the weight by adding
+  the result of observe (log-probability)
+  to the log-weight"
+  [args cont]
+  (cps-of-application 
+   `(~'observe ~@args) 
+   (let [lw (gensym "L")]
+     `(~'fn [~lw ~'$state]
+        (~cont nil (update-in ~'$state
+                              [:log-weight] ~'+ ~lw))))))
 
-  
 (defn cps-of-application
   "transforms application to cps"
   [exprs cont]
@@ -154,10 +167,12 @@
                     (cps-of-expr expr `(~'fn [~subst]
                                          ~(cps-of-alist alist)))
                     (cps-of-alist alist)))
-                (let [call (map second args)]
-                  (if (primitive-procedure? (first call))
-                    `(~cont ~call)
-                    `(~(first call) ~cont ~@(rest call))))))]
+                (let [call (map second args)
+                      rator (first call)
+                      rands (rest call)]
+                  (if (primitive-procedure? rator)
+                    `(~cont ~call ~'$state)
+                    `(~(first call) ~cont ~'$state ~@rands)))))]
       (cps-of-alist args))))
 
 (defn cps-of-expr
@@ -167,74 +182,77 @@
      (seq? expr) 
      (let [[kwd & args] expr]
         (case kwd
-          quote   `(~cont ~expr)
+          quote   `(~cont ~expr ~'$state)
           fn      (cps-of-fn args cont)
           let     (cps-of-let args cont)
           if      (cps-of-if args cont)
           cond    (cps-of-cond args cont)
           do      (cps-of-do args cont)
           predict (cps-of-predict args cont)
-          observe `(~'TODO ~cont ~expr)
-          sample  `(~'TODO ~cont ~expr)
-          mem     `(~'TODO ~cont ~expr)
+          observe (cps-of-observe args cont)
+          sample  `(~'TODO ~cont ~expr ~'$state)
+          mem     `(~'TODO ~cont ~expr ~'$state)
           ;; application
           (cps-of-application expr cont)))
-     :else `(~cont ~expr)))
+     :else `(~cont ~expr ~'$state)))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
   '#{ ;; tests
-    boolean? symbol? string?   proc? number?
-    ratio?  integer?  float?  even?  odd?
-    nil?  some?  empty?  list?  seq?  
+     boolean? symbol? string?   proc? number?
+     ratio?  integer?  float?  even?  odd?
+     nil?  some?  empty?  list?  seq?  
 
-    ;; custom math tests
-    isfinite?  isnan?
+     ;; custom math tests
+     isfinite?  isnan?
 
-    ;; relational
-    not= = > >= < <=
+     ;; relational
+     not= = > >= < <=
 
-    ;; scalar arithmetics
-    inc dec
-    + - * / mod
-    abs floor ceil round
-    sin cos tan asin acos atan
-    sinh cosh tanh
-    log log10 exp
-    pow cbrt sqrt
-    
-    ;; sequence operations
-    sum cumsum mean normalize range
+     ;; scalar arithmetics
+     inc dec
+     + - * / mod
+     abs floor ceil round
+     sin cos tan asin acos atan
+     sinh cosh tanh
+     log log10 exp
+     pow cbrt sqrt
+     
+     ;; sequence operations
+     sum cumsum mean normalize range
 
-    ;; casting
-    boolean double long read-string str
+     ;; casting
+     boolean double long read-string str
 
-    ;; data structures – documented
-    list first second nth rest count
-    conj concat
+     ;; data structures – documented
+     list first second nth rest count
+     conj concat
 
-    ;; higher-order functions
-    map reduce apply mem
+     ;; higher-order functions
+     map reduce apply mem
 
-    ;; ERPs
-    beta
-    binomial
-    categorical
-    dirac
-    dirichlet
-    discrete
-    discrete-cdf
-    exponential
-    flip
-    gamma
-    normal
-    mvn
-    wishart
-    poisson
-    uniform-continuous
-    uniform-discrete
+     ;; distribution methods
+     observe sample
 
-    ;; XRPs
-    crp
-    beta-flip
-    normal-with-known-std})
+     ;; ERPs
+     beta
+     binomial
+     categorical
+     dirac
+     dirichlet
+     discrete
+     discrete-cdf
+     exponential
+     flip
+     gamma
+     normal
+     mvn
+     wishart
+     poisson
+     uniform-continuous
+     uniform-discrete
+
+     ;; XRPs
+     crp
+     beta-flip
+     normal-with-known-std})
