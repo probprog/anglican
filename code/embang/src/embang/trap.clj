@@ -18,19 +18,26 @@
 (declare cps-of-expr)
 (declare ^:dynamic *primitive-procedures*)
 
-;;; Continuation access --- value and state
+;; Continuation access --- value and state
 
 (defn value-cont [v _] v)
 (defn state-cont [_ s] s)
 
-;;; Interrupt points
+;; Interrupt points
 
 (defrecord observe [id cont state])
 (defrecord sample [id dist cont])
 (defrecord mem [id args proc cont])
 (defrecord result [state])
 
-;;; Running state
+;; Retrieval of final result:
+;; run the function on the initial state
+;; and return the final state wrapped into `result'
+
+(defn result-cont [f s] 
+  (->result (f state-cont s)))
+
+;; Running state
 
 (defrecord state [log-weight predicts])
 
@@ -169,7 +176,8 @@
     (let [id (gensym "O")
           lw (gensym "L")]
       `(~'fn [~lw ~'$state]
-         (~'let [~'$state ~(update-in ~'$state [:log-weight] ~'+ ~lw)]
+         (~'let [~'$state (update-in ~'$state
+                                     [:log-weight] ~'+ ~lw)]
            (->observe '~id ~cont ~'$state))))))
 
 (defn cps-of-sample
