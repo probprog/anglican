@@ -18,8 +18,21 @@
 (declare cps-of-expr)
 (declare ^:dynamic *primitive-procedures*)
 
+;;; Continuation access --- value and state
+
+(defn value-cont [v _] v)
+(defn state-cont [_ s] s)
+
+;;; Interrupt points
+
+(defrecord observe [id cont state])
 (defrecord sample [id dist cont])
 (defrecord mem [id args proc cont])
+(defrecord result [state])
+
+;;; Running state
+
+(defrecord state [log-weight predicts])
 
 (defn primitive-procedure?
   "true if the procedure is primitive,
@@ -137,10 +150,11 @@
 (defn cps-of-predict
   "transforms predict to cps,
   predict appends predicted expression
-  and its value to $predicts"
+  and its value to :predicts"
   [[pred] cont]
-  `(~cont nil (update-in ~'$state
-                         [:predicts] conj ['~pred ~pred])))
+  `(~'let [~'$state (update-in ~'$state
+                          [:predicts] conj ['~pred ~pred])]
+    (~cont nil ~'$state)))
 
 (declare cps-of-application)
 
@@ -151,11 +165,12 @@
   to the log-weight"
   [args cont]
   (cps-of-application 
-   `(~'observe ~@args) 
-   (let [lw (gensym "L")]
-     `(~'fn [~lw ~'$state]
-        (~cont nil (update-in ~'$state
-                              [:log-weight] ~'+ ~lw))))))
+    `(~'observe ~@args) 
+    (let [id (gensym "O")
+          lw (gensym "L")]
+      `(~'fn [~lw ~'$state]
+         (~'let [~'$state ~(update-in ~'$state [:log-weight] ~'+ ~lw)]
+           (->observe '~id ~cont ~'$state))))))
 
 (defn cps-of-sample
   "transforms sample to cps,
@@ -165,8 +180,8 @@
   [[dist] cont]
   (let [id (gensym "S")]
     (cps-of-expr dist
-                 `(~'fn [dist ~'$state]
-                    (->sample '~id dist ~cont)))))
+                 `(~'fn [~'dist ~'$state]
+                    (->sample '~id ~'dist ~cont)))))
 
 (defn cps-of-mem
   "transforms mem to cps"
@@ -180,7 +195,7 @@
     `(~cont (~'fn ~@(when name [name])
               [~funcont ~'$state ~@parms]
               (->mem '~id ~parms
-                     ~(second (cps-of-fn `(~parms ~@body) '_))
+                     ~(cps-of-fn `(~parms ~@body) value-cont)
                      ~funcont)))))
 
 (defn cps-of-application
@@ -189,7 +204,9 @@
   are trampolined --- wrapped into a parameterless closure"
   [exprs cont]
   (let [args (map (fn [expr]
-                    (if (simple-expr? expr) [nil expr] [expr (gensym "A")]))
+                    (if (simple-expr? expr)
+                      [nil expr]
+                      [expr (gensym "A")]))
                   exprs)]
     (letfn [(cps-of-alist [alist]
               (if (seq alist)

@@ -2,13 +2,13 @@
   (:gen-class)
   (:require [clojure.pprint :refer [pprint]])
   (:use [embang.xlat :only [program]])
-  (:use [embang.trap :only [cps-of-expr]]))
+  (:use [embang.trap :only [cps-of-expr state-cont ->result]]))
 
 
 ;; (return (fn [C5341 $state] (C5341 nil $state)) $state)
 
 (defn return-state [program-fn state]
-  (program-fn (fn [_ state] state) state))
+  (->result (program-fn state-cont state)))
 
 (defmacro anglican 
   [& source]
