@@ -18,6 +18,9 @@
 (declare cps-of-expr)
 (declare ^:dynamic *primitive-procedures*)
 
+(defrecord sample [id dist cont])
+(defrecord mem [id args proc cont])
+
 (defn primitive-procedure?
   "true if the procedure is primitive,
   that is does not have a CPS form"
@@ -154,8 +157,36 @@
         (~cont nil (update-in ~'$state
                               [:log-weight] ~'+ ~lw))))))
 
+(defn cps-of-sample
+  "transforms sample to cps,
+  on sample the program is interrupted
+  and the control is transferred to the inference
+  algorithm"
+  [[dist] cont]
+  (let [id (gensym "S")]
+    (cps-of-expr dist
+                 `(~'fn [dist ~'$state]
+                    (->sample '~id dist ~cont)))))
+
+(defn cps-of-mem
+  "transforms mem to cps"
+  [[[_ & args]] cont]
+  (println args)
+  (let [id (gensym "M")
+        funcont (gensym "C")
+        [name parms & body] (if (vector? (first args))
+                              `(nil ~@args)
+                              args)]
+    `(~cont (~'fn ~@(when name [name])
+              [~funcont ~'$state ~@parms]
+              (->mem '~id ~parms
+                     ~(second (cps-of-fn `(~parms ~@body) '_))
+                     ~funcont)))))
+
 (defn cps-of-application
-  "transforms application to cps"
+  "transforms application to cps;
+  application of user-defined (not primitive) procedures
+  are trampolined --- wrapped into a parameterless closure"
   [exprs cont]
   (let [args (map (fn [expr]
                     (if (simple-expr? expr) [nil expr] [expr (gensym "A")]))
@@ -172,7 +203,7 @@
                       rands (rest call)]
                   (if (primitive-procedure? rator)
                     `(~cont ~call ~'$state)
-                    `(~(first call) ~cont ~'$state ~@rands)))))]
+                    `#(~(first call) ~cont ~'$state ~@rands)))))]
       (cps-of-alist args))))
 
 (defn cps-of-expr
@@ -190,8 +221,8 @@
           do      (cps-of-do args cont)
           predict (cps-of-predict args cont)
           observe (cps-of-observe args cont)
-          sample  `(~'TODO ~cont ~expr ~'$state)
-          mem     `(~'TODO ~cont ~expr ~'$state)
+          sample  (cps-of-sample args cont)
+          mem     (cps-of-mem args cont)
           ;; application
           (cps-of-application expr cont)))
      :else `(~cont ~expr ~'$state)))
