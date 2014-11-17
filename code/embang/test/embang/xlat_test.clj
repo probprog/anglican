@@ -55,9 +55,9 @@
                  (observe (normal x 1) 1)))))
         "assumes, predict, observe")))
 
-(deftest test-anglican
-  (testing "anglican"
-    (is (= (anglican
+(deftest test-program
+  (testing "program"
+    (is (= (program
             '[[assume x 1]
               [assume y 2]
               [predict (+ x y)]])
@@ -66,7 +66,7 @@
                 (let [y 2]
                   (predict (+ x y))))))
         "simple program")
-    (is (= (anglican
+    (is (= (program
             '[[assume fact (lambda (n)
                               (if (= n 1)
                                 1 

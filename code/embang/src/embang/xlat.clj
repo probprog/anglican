@@ -85,7 +85,7 @@
                                   (dlist ds))
           (assert false (str "unrecognized directive: " d)))))))
 
-(defn anglican
+(defn program
   "translates anglican program to clojure function"
   [p]
   `(~'fn []

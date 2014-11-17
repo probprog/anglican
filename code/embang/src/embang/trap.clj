@@ -209,7 +209,7 @@
 (defn cps-of-expr
   [expr cont]
   (cond
-     (nil? expr) `(~cont ~expr)
+     (nil? expr) `(~cont ~expr ~'$state)
      (seq? expr) 
      (let [[kwd & args] expr]
         (case kwd
