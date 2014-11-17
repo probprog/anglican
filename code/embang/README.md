@@ -4,33 +4,26 @@ FIXME: description
 
 ## Installation
 
-Download from http://example.com/FIXME.
+* Download from https://bitbucket.org/dtolpin/mappp,
+* Use lein to manipulate the code in code/embang.
 
 ## Usage
 
-FIXME: explanation
 
-    $ java -jar embang-0.1.0-standalone.jar [args]
+	$ cd code/embang
+    $ lein repl
 
 ## Options
 
-FIXME: listing of options this app accepts.
+TODO
 
 ## Examples
 
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
+TODO
 
 ## License
 
-Copyright © 2014 FIXME
+Copyright © 2014 Wood group
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
