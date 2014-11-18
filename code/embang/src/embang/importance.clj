@@ -27,9 +27,10 @@
   (:state res))
 
 (defn run-particle [prog]
-  (loop [next (trampoline prog nil (map->state :log-weight 1. 
-                                               :predicts []
-                                               :mem {}))]
-    (if (fn? next)
-      (recur (checkpoint (trampoline next)))
-      next)))
+  (loop [step (trampoline prog nil (map->state {:log-weight 1. 
+                                                :predicts []
+                                                :mem {}}))]
+    (let [next (checkpoint step)]
+      (if (fn? next)
+        (recur (trampoline next))
+        next))))

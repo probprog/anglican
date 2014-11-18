@@ -8,7 +8,7 @@
   "converts anglican source code to a
   trampoline-ready clojure function"
   [source]
-  `(~'fn [~'_]
+  `(~'fn [~'_ ~'$state]
      ~(cps-of-expr (program source) `run-cont)))
 
 (defmacro anglican 
