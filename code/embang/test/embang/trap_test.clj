@@ -88,7 +88,7 @@
            '(return 3 $state))
         "list of simple expressions")
     (is (= (cps-of-do '((a) 1) 'ret)
-           '(fn [] (a (fn [_] (ret 1 $state)) $state)))
+           '(fn [] (a (fn [_ $state] (ret 1 $state)) $state)))
         "list of compound and simple")))
 
 (deftest test-cps-of-predict

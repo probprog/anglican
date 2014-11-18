@@ -5,7 +5,7 @@
 ;; The input to this series of transformation is an Anglican program
 ;; in clojure syntax (embang.xlat). The output is a Clojure function
 ;; that returns either the next step as a structure incroprorating
-;; continuations and parameters, or the result containing a vector of
+;; continuations and parameters, or the state containing a vector of
 ;; predicted values and the sample weight.
 ;;
 ;; Steps are delimited by random choices.  Between the steps, the
@@ -24,7 +24,6 @@
 
 ;; State updating, predicts and weights
 
-;; TODO
 (defn add-weight 
   "updates weight in the state"
   [state log-weight]
@@ -39,14 +38,13 @@
 (defrecord observe [id dist value cont state])
 (defrecord sample [id dist cont state])
 (defrecord mem [id args proc cont])
-(defrecord result [state])
 
 ;; Retrieval of final result:
 ;; run the function on the initial state
 ;; and return the final state wrapped into `result'.
 
 (defn result-cont [f s] 
-  (->result (f state-cont s)))
+  (f state-cont s))
 
 ;; Running state
 
@@ -86,7 +84,7 @@
       (if (simple-expr? fst)
         (cps-of-elist rst cont)
         (cps-of-expr fst
-                     `(~'fn [~'_]
+                     `(~'fn [~'_ ~'$state]
                         ~(cps-of-elist rst cont))))
       (cps-of-expr fst cont))))
 
