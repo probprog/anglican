@@ -95,12 +95,12 @@
   (binding [*gensym* symbol]
     (testing "cps-of-predict"
       (is (= (cps-of-predict '(x) 'ret)
-             '(ret nil (embang.trap/add-predict $state 'x x)))
+             '(embang.trap/->predict 'P 'x x ret $state))
           "simple predict")
       (is (= (cps-of-predict '((foo)) 'ret)
              '(fn []
                 (foo (fn [A $state]
-                       (ret nil (embang.trap/add-predict $state '(foo) A)))
+                       (embang.trap/->predict 'P '(foo) A ret $state))
                      $state)))))))
 
 (deftest test-cps-of-sample
@@ -129,6 +129,6 @@
                       'M P
                       (embang.trap/value-cont
                        (fn [C $state x] (C x $state)) $state)
-                      C))
+                      C $state))
                    $state))
           "mem of compound function"))))
