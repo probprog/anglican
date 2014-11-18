@@ -1,4 +1,5 @@
-(ns embang.runtime)
+(ns embang.runtime
+  (:require [incanter.distributions :as dist]))
 
 ;;; Anglican core functions beyond clojure.core
 
@@ -52,3 +53,33 @@
   [coll]
   (let [Z (reduce + coll)]
     (map #(/ % Z) coll)))
+
+(defprotocol distribution
+  (sample [this]
+    "return a sample from the distribution")
+  (observe [this value]
+    "return the log-probability of the value"))
+
+
+(defn flip [p]
+  "flip (bernoulli) distribution object"
+  (reify
+    distribution
+    (sample [this] (if (< (rand) p) 1 0))
+    (observe [this value] (log (if (> value 0) p (- 1. p))))))
+
+(defn normal [^double mean ^double sd]
+  "normal distribution object"
+  (let [dist (dist/->Normal-rec mean sd)]
+    (reify 
+      distribution
+      (sample [this] (dist/draw dist))
+      (observe [this value] (log (dist/pdf dist value))))))
+
+(defn poisson [lambda]
+  "poisson distribution object"
+  (let [dist (dist/->Poisson-rec lambda)]
+    (reify
+      distribution
+      (sample [this] (dist/draw dist))
+      (observe [this value] (log (dist/pdf dist value))))))

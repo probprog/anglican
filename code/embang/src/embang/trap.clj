@@ -1,6 +1,7 @@
-(ns embang.trap)
+(ns embang.trap
+  (:use [embang.state :only [add-predict]]))
 
-;proc cont]e;; Trampoline-ready Anglican program 
+;;; Trampoline-ready Anglican program 
 
 ;; The input to this series of transformation is an Anglican program
 ;; in clojure syntax (embang.xlat). The output is a Clojure function
@@ -24,17 +25,17 @@
 
 ;; Interrupt points
 
-(defrecord predict [id label value cont state])
 (defrecord observe [id dist value cont state])
 (defrecord sample [id dist cont state])
 (defrecord mem [id args proc cont state])
+(defrecord result [state])
 
 ;; Retrieval of final result:
 ;; run the function on the initial state
 ;; and return the final state wrapped into `result'.
 
-(defn result-cont [f s] 
-  (f state-cont s))
+(defn run-cont [f s] 
+  (f (fn [v s] (->result (state-cont v s))) s))
 
 (defn primitive-procedure?
   "true if the procedure is primitive,
@@ -180,12 +181,12 @@
 (defn cps-of-predict
   "transforms predict to cps,
   predict appends predicted expression
-  and its value to :predicts"
+  and its value to (:predicts $state)"
   [[pred :as args] cont]
   (make-of-args args
                 (fn [[value]]
-                  `(->predict '~(*gensym* "P")
-                              '~pred ~value ~cont ~'$state))))
+                  `(~cont nil (add-predict ~'$state
+                                           '~pred ~value)))))
 
 (defn cps-of-observe
   "transforms observe to cps,
