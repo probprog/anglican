@@ -19,16 +19,24 @@
 
 ;; Continuation access --- value and state
 
-(defn value-cont [v _] v)
-(defn state-cont [_ s] s)
+(defn value-cont "returns value" [v _] v)
+(defn state-cont "returns state" [_ s] s)
 
 ;; State updating, predicts and weights
 
 ;; TODO
+(defn add-weight 
+  "updates weight in the state"
+  [state log-weight]
+  (update-in state [:log-weight] + log-weight))
+
+(defn add-predict [state label value]
+  "updates the list of predicts in the state"
+  (update-in state [:predicts] conj [label value]))
 
 ;; Interrupt points
 
-(defrecord observe [id cont state])
+(defrecord observe [id dist value cont state])
 (defrecord sample [id dist cont state])
 (defrecord mem [id args proc cont])
 (defrecord result [state])
@@ -46,7 +54,7 @@
 
 (defn primitive-procedure?
   "true if the procedure is primitive,
-  that is does not have a CPS form"
+  that is, does not have a CPS form"
   ;; assumes that primitive procedure
   ;; symbols are never rebound locally
   [procedure]
@@ -161,18 +169,38 @@
 (defn cps-of-do
   "transforms do to cps"
   [exprs cont]
-  `(cps-of-elist exprs cont))
+  (cps-of-elist exprs cont))
+
+(defn make-of-args
+  "builds lexical bindings for all compound args
+  and then calls `make' to build expression
+  out of the args; used by predict, observe, sample, application"
+  [args make]
+  (let [substs (map (fn [arg]
+                    (if (simple-expr? arg)
+                      [nil arg]
+                      [arg (*gensym* "A")]))
+                  args)]
+
+    (letfn [(make-of-slist [slist]
+              (if (seq slist)
+                (let [[[arg subst] & slist] slist]
+                  (if arg
+                    (cps-of-expr arg `(~'fn [~subst ~'$state]
+                                          ~(make-of-slist slist)))
+                    (make-of-slist slist)))
+                (make (map second substs))))]
+
+        (make-of-slist substs))))
 
 (defn cps-of-predict
   "transforms predict to cps,
   predict appends predicted expression
   and its value to :predicts"
-  [[pred] cont]
-  `(~'let [~'$state (update-in ~'$state
-                          [:predicts] conj ['~pred ~pred])]
-    (~cont nil ~'$state)))
-
-(declare cps-of-application)
+  [[pred :as args] cont]
+  (make-of-args args
+                (fn [[value]]
+                  `(~cont nil (add-predict ~'state '~pred ~value)))))
 
 (defn cps-of-observe
   "transforms observe to cps,
@@ -180,26 +208,21 @@
   the result of observe (log-probability)
   to the log-weight"
   [args cont]
-  (cps-of-application 
-    `(~'observe ~@args) 
-    (let [id (*gensym* "O")
-          lw (*gensym* "L")]
-      `(~'fn [~lw ~'$state]
-         (~'let [~'$state (update-in ~'$state
-                                     [:log-weight] + ~lw)]
-           (->observe '~id ~cont ~'$state))))))
+  (make-of-args args
+                (fn [[dist value]]
+                  `(->observe '~(*gensym* "O")
+                              ~dist ~value ~cont ~'$state))))
 
 (defn cps-of-sample
   "transforms sample to cps,
   on sample the program is interrupted
   and the control is transferred to the inference
   algorithm"
-  [[dist] cont]
-  (let [id (*gensym* "S")
-        dname (*gensym* "D")]
-    (cps-of-expr dist
-                 `(~'fn [~dname ~'$state]
-                    (->sample '~id ~dname ~cont ~'$state)))))
+  [args cont]
+  (make-of-args args 
+                (fn [[dist]]
+                  `(->sample '~(*gensym* "S")
+                             ~dist ~cont ~'$state))))
 
 (defn cps-of-mem
   "transforms mem to cps"
@@ -222,25 +245,13 @@
   application of user-defined (not primitive) procedures
   are trampolined --- wrapped into a parameterless closure"
   [exprs cont]
-  (let [args (map (fn [expr]
-                    (if (simple-expr? expr)
-                      [nil expr]
-                      [expr (*gensym* "A")]))
-                  exprs)]
-    (letfn [(cps-of-alist [alist]
-              (if (seq alist)
-                (let [[[expr subst] & alist] alist]
-                  (if expr
-                    (cps-of-expr expr `(~'fn [~subst]
-                                         ~(cps-of-alist alist)))
-                    (cps-of-alist alist)))
-                (let [call (map second args)
-                      rator (first call)
-                      rands (rest call)]
-                  (if (primitive-procedure? rator)
-                    `(~cont ~call ~'$state)
-                    `(~'fn [] (~rator ~cont ~'$state ~@rands))))))]
-      (cps-of-alist args))))
+  (make-of-args exprs
+                (fn [call]
+                  (let [rator (first call)
+                        rands (rest call)]
+                    (if (primitive-procedure? rator)
+                      `(~cont ~call ~'$state)
+                      `(~'fn [] (~rator ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-expr
   [expr cont]
@@ -297,9 +308,6 @@
 
      ;; higher-order functions
      map reduce apply mem
-
-     ;; distribution methods
-     observe sample
 
      ;; ERPs
      beta
