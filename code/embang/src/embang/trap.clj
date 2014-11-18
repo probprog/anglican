@@ -37,7 +37,7 @@
 
 (defrecord observe [id dist value cont state])
 (defrecord sample [id dist cont state])
-(defrecord mem [id args proc cont])
+(defrecord mem [id args proc cont state])
 
 ;; Retrieval of final result:
 ;; run the function on the initial state
@@ -235,7 +235,8 @@
               [~mcont ~'$state & ~mparms]
               (->mem '~id ~mparms
                      ~(cps-of-fn `(~parms ~@body) `value-cont)
-                     ~mcont))
+                     ~mcont
+                     ~'$state))
             ~'$state)))
 
 (defn cps-of-application
