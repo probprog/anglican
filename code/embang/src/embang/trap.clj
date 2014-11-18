@@ -2,14 +2,14 @@
 
 ;;; Trampoline-ready Anglican program 
 
-;; The input to this series of transformation is an Anglican
-;; program in clojure syntax (embang.xlat). The output is a
-;; Clojure function that returns either the next step as a
-;; continuation parameterized by the random choice, or the
-;; result as a vector of predicted values and the sample weight.
+;; The input to this series of transformation is an Anglican program
+;; in clojure syntax (embang.xlat). The output is a Clojure function
+;; that returns either the next step as a structure incroprorating
+;; continuations and parameters, or the result containing a vector of
+;; predicted values and the sample weight.
 ;;
-;; Steps are delimited by random choices.  Between the steps,
-;; the inference decisions can be made.
+;; Steps are delimited by random choices.  Between the steps, the
+;; inference decisions can be made.
 ;;
 ;; The state is threaded through computation and consists of
 ;;   - the running sample weight
@@ -22,16 +22,20 @@
 (defn value-cont [v _] v)
 (defn state-cont [_ s] s)
 
+;; State updating, predicts and weights
+
+;; TODO
+
 ;; Interrupt points
 
 (defrecord observe [id cont state])
-(defrecord sample [id dist cont])
+(defrecord sample [id dist cont state])
 (defrecord mem [id args proc cont])
 (defrecord result [state])
 
 ;; Retrieval of final result:
 ;; run the function on the initial state
-;; and return the final state wrapped into `result'
+;; and return the final state wrapped into `result'.
 
 (defn result-cont [f s] 
   (->result (f state-cont s)))
@@ -78,12 +82,11 @@
                         ~(cps-of-elist rst cont))))
       (cps-of-expr fst cont))))
 
-;; Asserts in cps-of-fn, cps-of-let make sure
-;; primitive procedures are uniquely identifiable by
-;; their names. 
+;; Asserts in cps-of-fn, cps-of-let make sure primitive procedures are
+;; uniquely identifiable by their names.
 
-;; Continuation is the first, rather than the last, parameter
-;; of a function to support functions with variable arguments.
+;; Continuation is the first, rather than the last, parameter of a
+;; function to support functions with variable arguments.
 
 (defn cps-of-fn
   [args cont]
@@ -196,7 +199,7 @@
         dname (*gensym* "D")]
     (cps-of-expr dist
                  `(~'fn [~dname ~'$state]
-                    (->sample '~id ~dname ~cont)))))
+                    (->sample '~id ~dname ~cont ~'$state)))))
 
 (defn cps-of-mem
   "transforms mem to cps"

@@ -92,6 +92,16 @@
                         (ret nil $state))))
             "cond via if")))))
 
+(deftest test-cps-of-sample
+  (binding [*gensym* symbol]
+    (testing "cps-of-sample"
+      (is (= (cps-of-sample '((foo 2)) 'ret)
+             '(fn [] (foo (fn [D $state]
+                            (embang.trap/->sample 'S D ret $state))
+                          $state
+                          2)))
+          "compound sample"))))
+
 (deftest test-cps-of-observe
   (binding [*gensym* symbol]
     (testing "cps-of-observe"
@@ -104,16 +114,6 @@
                (observe (normal 1 1) 2)
                $state))
           "simple observe"))))
-
-(deftest test-cps-of-sample
-  (binding [*gensym* symbol]
-    (testing "cps-of-sample"
-      (is (= (cps-of-sample '((foo 2)) 'ret)
-             '(fn [] (foo (fn [D $state]
-                            (embang.trap/->sample 'S D ret))
-                          $state
-                          2)))
-          "compound sample"))))
 
 (deftest test-cps-of-mem
   (binding [*gensym* symbol]
