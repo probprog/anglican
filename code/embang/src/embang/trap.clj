@@ -15,7 +15,6 @@
 ;;   - the running sample weight
 ;;   - the list of predicted values.
 
-(declare cps-of-expr)
 (declare ^:dynamic *primitive-procedures*)
 
 ;; Continuation access --- value and state
@@ -63,13 +62,20 @@
         (and (primitive-procedure? (first expr))
              (every? simple-expr? (rest expr))))))
 
+;; CPS transformation rules
+
+(declare cps-of-expr)
+(def ^:dynamic *gensym* gensym)
+
 (defn cps-of-elist
   [exprs cont]
   (let [[fst & rst] exprs]
     (if (seq rst)
-      (cps-of-expr fst
-                   `(~'fn [~'_]
-                      ~(cps-of-elist rst cont)))
+      (if (simple-expr? fst)
+        (cps-of-elist rst cont)
+        (cps-of-expr fst
+                     `(~'fn [~'_]
+                        ~(cps-of-elist rst cont))))
       (cps-of-expr fst cont))))
 
 ;; Asserts in cps-of-fn, cps-of-let make sure
@@ -84,7 +90,7 @@
   (if (vector? (first args))
     (cps-of-fn `[nil ~@args] cont)
     (let [[name parms & body] args
-          fncont (gensym "C")]
+          fncont (*gensym* "C")]
       (assert (not-any? primitive-procedure? parms)
               (str "primitive procedure name as parameter: "
                    (some primitive-procedure? parms)))
@@ -107,21 +113,21 @@
         `(~'let [~name ~value]
            ~rest)
         (cps-of-expr value
-                     (let [value (gensym "V")]
+                     (let [value (*gensym* "V")]
                        `(~'fn [~value ~'$state]
                           (~'let [~name ~value]
                             ~rest))))))
     (cps-of-elist body cont)))
 
 (defmacro defn-with-named-cont 
-  "binds the continuation to a name to make
-  the code slightly easier to reason about"
+  "binds the continuation to a name to make the code
+  slightly easier to reason about"
   [cps-of parms & body]
   (let [cont (last parms)]
     `(defn ~cps-of ~parms
        (if (symbol? ~cont)
          (do ~@body)
-         (let [~'named-cont (gensym "C")]
+         (let [~'named-cont (*gensym* "C")]
            `(~~''let [~~'named-cont ~~cont]
               ~(~cps-of ~@(butlast parms) ~'named-cont)))))))
 
@@ -134,7 +140,7 @@
          ~(cps-of-expr thn cont)
          ~(cps-of-expr els cont))
       (cps-of-expr cnd
-                   (let [cnd (gensym "I")]
+                   (let [cnd (*gensym* "I")]
                      `(~'fn [~cnd ~'$state]
                         (if ~cnd
                           ~(cps-of-expr thn cont)
@@ -173,11 +179,11 @@
   [args cont]
   (cps-of-application 
     `(~'observe ~@args) 
-    (let [id (gensym "O")
-          lw (gensym "L")]
+    (let [id (*gensym* "O")
+          lw (*gensym* "L")]
       `(~'fn [~lw ~'$state]
          (~'let [~'$state (update-in ~'$state
-                                     [:log-weight] ~'+ ~lw)]
+                                     [:log-weight] + ~lw)]
            (->observe '~id ~cont ~'$state))))))
 
 (defn cps-of-sample
@@ -186,25 +192,27 @@
   and the control is transferred to the inference
   algorithm"
   [[dist] cont]
-  (let [id (gensym "S")]
+  (let [id (*gensym* "S")
+        dname (*gensym* "D")]
     (cps-of-expr dist
-                 `(~'fn [~'dist ~'$state]
-                    (->sample '~id ~'dist ~cont)))))
+                 `(~'fn [~dname ~'$state]
+                    (->sample '~id ~dname ~cont)))))
 
 (defn cps-of-mem
   "transforms mem to cps"
   [[[_ & args]] cont]
-  (println args)
-  (let [id (gensym "M")
-        funcont (gensym "C")
+  (let [id (*gensym* "M")
+        mcont (*gensym* "C")
+        mparms (*gensym* "P")
         [name parms & body] (if (vector? (first args))
                               `(nil ~@args)
                               args)]
     `(~cont (~'fn ~@(when name [name])
-              [~funcont ~'$state ~@parms]
-              (->mem '~id ~parms
-                     ~(cps-of-fn `(~parms ~@body) value-cont)
-                     ~funcont)))))
+              [~mcont ~'$state & ~mparms]
+              (->mem '~id ~mparms
+                     ~(cps-of-fn `(~parms ~@body) `value-cont)
+                     ~mcont))
+            ~'$state)))
 
 (defn cps-of-application
   "transforms application to cps;
@@ -214,7 +222,7 @@
   (let [args (map (fn [expr]
                     (if (simple-expr? expr)
                       [nil expr]
-                      [expr (gensym "A")]))
+                      [expr (*gensym* "A")]))
                   exprs)]
     (letfn [(cps-of-alist [alist]
               (if (seq alist)
@@ -228,7 +236,7 @@
                       rands (rest call)]
                   (if (primitive-procedure? rator)
                     `(~cont ~call ~'$state)
-                    `#(~(first call) ~cont ~'$state ~@rands)))))]
+                    `(~'fn [] (~rator ~cont ~'$state ~@rands))))))]
       (cps-of-alist args))))
 
 (defn cps-of-expr
