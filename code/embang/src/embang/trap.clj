@@ -79,7 +79,7 @@
 (declare cps-of-expr)
 (def ^:dynamic *gensym* gensym)
 
-(defn cps-of-elist
+(defn- cps-of-elist
   [exprs cont]
   (let [[fst & rst] exprs]
     (if (seq rst)
@@ -171,7 +171,7 @@
   [exprs cont]
   (cps-of-elist exprs cont))
 
-(defn make-of-args
+(defn- make-of-args
   "builds lexical bindings for all compound args
   and then calls `make' to build expression
   out of the args; used by predict, observe, sample, application"
@@ -200,7 +200,7 @@
   [[pred :as args] cont]
   (make-of-args args
                 (fn [[value]]
-                  `(~cont nil (add-predict ~'state '~pred ~value)))))
+                  `(~cont nil (add-predict ~'$state '~pred ~value)))))
 
 (defn cps-of-observe
   "transforms observe to cps,

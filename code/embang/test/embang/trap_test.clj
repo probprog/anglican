@@ -91,6 +91,17 @@
            '(fn [] (a (fn [_] (ret 1 $state)) $state)))
         "list of compound and simple")))
 
+(deftest test-cps-of-predict
+  (binding [*gensym* symbol]
+    (testing "cps-of-predict"
+      (is (= (cps-of-predict '(x) 'ret)
+             '(ret nil (embang.trap/add-predict $state 'x x)))
+          "simple predict")
+      (is (= (cps-of-predict '((foo)) 'ret)
+             '(fn []
+                (foo (fn [A $state]
+                       (ret nil (embang.trap/add-predict $state '(foo) A)))
+                     $state)))))))
 
 (deftest test-cps-of-sample
   (binding [*gensym* symbol]
