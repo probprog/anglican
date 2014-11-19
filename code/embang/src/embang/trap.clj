@@ -27,7 +27,6 @@
 
 (defrecord observe [id dist value cont state])
 (defrecord sample [id dist cont state])
-(defrecord mem [id args proc cont state])
 (defrecord result [state])
 
 ;; Retrieval of final result:
@@ -138,7 +137,7 @@
       (cps-of-expr cnd
                    (let [cnd (*gensym* "I")]
                      `(~'fn [~cnd ~'$state]
-                        (if ~cnd
+                        (~'if ~cnd
                           ~(cps-of-expr thn cont)
                           ~(cps-of-expr els cont)))))))
   
@@ -213,19 +212,40 @@
 (defn cps-of-mem
   "transforms mem to cps"
   [[[_ & args]] cont]
-  (let [id (*gensym* "M")
-        mcont (*gensym* "C")
+  (let [mcont (*gensym* "C")
+        id (*gensym* "M")
+        value (*gensym* "V")
         mparms (*gensym* "P")
         [name parms & body] (if (vector? (first args))
                               `(nil ~@args)
                               args)]
     `(~cont (~'fn ~@(when name [name])
               [~mcont ~'$state & ~mparms]
-              (->mem '~id ~mparms
-                     ~(cps-of-fn `(~parms ~@body) `value-cont)
-                     ~mcont
-                     ~'$state))
-            ~'$state)))
+              (~'if (in-mem? ~'$state '~id ~mparms)
+                ;; continue with stored value
+                (~mcont (get-mem $state '~id ~mparms) ~'$state)
+                ;; apply the function to the arguments with
+                ;; continuation that intercepts the value
+                ;; and updates the state
+                ~(cps-of-expr
+                  `(~'apply (~'fn ~parms ~@body) ~mparms)
+                  `(~'fn [~value ~'$state]
+                     (~mcont ~value
+                             (set-mem ~'state
+                                      ~'~id ~mparms ~value)))))))))
+
+(defn cps-of-apply
+  "transforms apply to cps;
+  apply of user-defined (not primitive) procedures
+  are trampolined --- wrapped into a parameterless closure"
+  [args cont]
+  (make-of-args args
+                (fn [acall]
+                  (let [rator (first acall)
+                        rands (rest acall)]
+                    (if (primitive-procedure? rator)
+                      `(~cont (apply ~@acall) ~'$state)
+                      `(~'fn [] (apply ~rator ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-application
   "transforms application to cps;
@@ -257,6 +277,7 @@
           observe (cps-of-observe args cont)
           sample  (cps-of-sample args cont)
           mem     (cps-of-mem args cont)
+          apply   (cps-of-apply args cont)
           ;; application
           (cps-of-application expr cont)))
      :else `(~cont ~expr ~'$state)))
@@ -292,9 +313,6 @@
      ;; data structures – documented
      list first second nth rest count
      conj concat
-
-     ;; higher-order functions
-     map reduce apply mem
 
      ;; ERPs
      beta

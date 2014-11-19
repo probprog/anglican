@@ -13,16 +13,6 @@
     #((:cont smp) value (add-weight (:state smp)
                                     (observe (:dist smp) value)))))
 
-(defmethod checkpoint embang.trap.mem [mem]
-  (if (in-mem? (:state mem) (:id mem) (:args mem))
-    #((:cont mem) (get-mem (:state mem) (:id mem) (:args mem)))
-    #(apply (:proc mem) 
-            (fn [value $state]
-              ((:cont mem) value (set-mem (:state mem)
-                                          (:id mem) (:args mem) value)))
-            (:state mem)
-            (:args mem))))
-
 (defmethod checkpoint embang.trap.result [res]
   (:state res))
 
