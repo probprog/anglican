@@ -91,6 +91,15 @@
            '(fn [] (a (fn [_ $state] (ret 1 $state)) $state)))
         "list of compound and simple")))
 
+(deftest test-cps-of-apply
+  (testing "cps-of-apply"
+    (is (= (cps-of-apply '(+ terms) 'ret)
+           '(ret (clojure.core/apply + terms) $state))
+        "simple apply")
+    (is (= (cps-of-apply '(foo xs) 'ret)
+           '(fn [] (clojure.core/apply foo ret $state xs)))
+        "compound apply")))
+
 (deftest test-cps-of-predict
   (binding [*gensym* symbol]
     (testing "cps-of-predict"
@@ -125,10 +134,16 @@
     (testing "cps-of-mem"
       (is (= (cps-of-mem '((fn [x] x)) 'ret)
              '(ret (fn [C $state & P]
-                     (embang.trap/->mem
-                      'M P
-                      (embang.trap/value-cont
-                       (fn [C $state x] (C x $state)) $state)
-                      C $state))
-                   $state))
+                     (if (embang.trap/in-mem? $state 'M P)
+                       (C (embang.trap/get-mem $state 'M P) $state)
+                       ((fn [A $state]
+                          (fn []
+                            (clojure.core/apply
+                             A
+                             (fn [V $state]
+                               (C V (embang.trap/set-mem state 'M P V)))
+                             $state
+                             P)))
+                        (fn [C $state x] (C x $state))
+                        $state)))))
           "mem of compound function"))))

@@ -223,7 +223,7 @@
               [~mcont ~'$state & ~mparms]
               (~'if (in-mem? ~'$state '~id ~mparms)
                 ;; continue with stored value
-                (~mcont (get-mem $state '~id ~mparms) ~'$state)
+                (~mcont (get-mem ~'$state '~id ~mparms) ~'$state)
                 ;; apply the function to the arguments with
                 ;; continuation that intercepts the value
                 ;; and updates the state
@@ -232,7 +232,7 @@
                   `(~'fn [~value ~'$state]
                      (~mcont ~value
                              (set-mem ~'state
-                                      ~'~id ~mparms ~value)))))))))
+                                      '~id ~mparms ~value)))))))))
 
 (defn cps-of-apply
   "transforms apply to cps;
@@ -244,7 +244,7 @@
                   (let [rator (first acall)
                         rands (rest acall)]
                     (if (primitive-procedure? rator)
-                      `(~cont (apply ~@acall) ~'$state)
+                      `(~cont (apply ~@acall) ~'$state) ; clojure `apply'
                       `(~'fn [] (apply ~rator ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-application
