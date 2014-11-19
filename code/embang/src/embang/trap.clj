@@ -3,8 +3,8 @@
 
 ;;; Trampoline-ready Anglican program 
 
-;; The input to this series of transformation is an Anglican program
-;; in clojure syntax (embang.xlat). The output is a Clojure function
+;; The input to this ransformations is an Anglican program in
+;; clojure syntax (embang.xlat). The output is a Clojure function
 ;; that returns either the next step as a structure incroprorating
 ;; continuations and parameters, or the state containing a vector of
 ;; predicted values and the sample weight.
@@ -264,12 +264,12 @@
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
   '#{ ;; tests
-     boolean? symbol? string?   proc? number?
-     ratio?  integer?  float?  even?  odd?
-     nil?  some?  empty?  list?  seq?  
+     boolean? symbol? string? proc? number?
+     ratio? integer? float? even? odd?
+     nil? some? empty? list? seq?  
 
      ;; custom math tests
-     isfinite?  isnan?
+     isfinite? isnan?
 
      ;; relational
      not= = > >= < <=
