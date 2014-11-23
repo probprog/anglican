@@ -36,16 +36,22 @@
 (defn run-cont [f s] 
   (f (fn [v s] (->result (state-cont v s))) s))
 
-;; primitive procedures have to be recognized syntactically,
-;; by the name. This means that a primitive procedure can
-;; only appear in call position, and a primitive procedure
-;; name cannot be rebound locally.
-
 (defn primitive-procedure?
   "true if the procedure is primitive,
   that is, does not have a CPS form"
   [procedure]
   (*primitive-procedures* procedure))
+
+;; primitive procedures have to be recognized syntactically,
+;; by the name. This means that a primitive procedure can
+;; only appear in call position, and a primitive procedure
+;; name cannot be rebound locally.
+
+(defmacro ^:private assert-no-pp 
+  "asserts that none of exprs is a primitive procedure"
+  [exprs message]
+  `(assert (not-any? primitive-procedure? ~exprs)
+           (str ~message ": " (some primitive-procedure? ~exprs))))
 
 (defn simple-expr?
   "true if expr has no continuation"
@@ -67,20 +73,15 @@
 (declare cps-of-expr)
 (def ^:dynamic *gensym* gensym) ;; bound to `symbol' in tests
 
-(defn- cps-of-elist
+(defn ^:private cps-of-elist
   [exprs cont]
-  (assert (not-any? primitive-procedure? exprs)
-          (str "primitive procedure as expression: "
-               (some primitive-procedure? exprs)))
+  (assert-no-pp exprs "primitive procedure as expression")
   (let [[fst & rst] exprs]
     (cps-of-expr fst
                  (if (seq rst)
                    `(~'fn [~'_ ~'$state]
                       ~(cps-of-elist rst cont))
                    cont))))
-
-;; Asserts in cps-of-fn, cps-of-let make sure primitive procedures are
-;; uniquely identifiable by their names.
 
 ;; Continuation is the first, rather than the last, parameter of a
 ;; function to support functions with variable arguments.
@@ -92,9 +93,7 @@
     (cps-of-fn `[nil ~@args] cont)
     (let [[name parms & body] args
           fncont (*gensym* "C")]
-      (assert (not-any? primitive-procedure? parms)
-              (str "primitive procedure name as parameter: "
-                   (some primitive-procedure? parms)))
+      (assert-no-pp parms "primitive procedure as parameter")
       `(~cont (~'fn ~@(when name [name])
                 [~fncont ~'$state ~@parms]
                 ~(cps-of-elist body fncont))
@@ -106,10 +105,8 @@
   (if (seq bindings)
     (let [[name value & bindings] bindings
           rst (cps-of-let `(~bindings ~@body) cont)]
-      (assert (not (primitive-procedure? name))
-              (str "primitive procedure name rebound: " name))
-      (assert (not (primitive-procedure? value))
-              (str "primitive procedure locally bound: " value))
+      (assert-no-pp [name] "primitive procedure name rebound")
+      (assert-no-pp [value] "primitive procedure locally bound")
       (if (simple-expr? value)
         `(~'let [~name ~value]
            ~rst)
@@ -120,7 +117,7 @@
                             ~rst))))))
     (cps-of-elist body cont)))
 
-(defmacro defn-with-named-cont
+(defmacro ^:private defn-with-named-cont
   "binds the continuation to a name to make the code
   slightly easier to reason about"
   [cps-of parms & body]
@@ -137,16 +134,16 @@
   cps-of-if
   [[cnd thn els] cont]
   (if (simple-expr? cnd)
-      `(~'if ~cnd
-         ~(cps-of-expr thn cont)
-         ~(cps-of-expr els cont))
-      (cps-of-expr cnd
-                   (let [cnd (*gensym* "I")]
-                     `(~'fn [~cnd ~'$state]
-                        (~'if ~cnd
-                          ~(cps-of-expr thn cont)
-                          ~(cps-of-expr els cont)))))))
-  
+    `(~'if ~cnd
+       ~(cps-of-expr thn cont)
+       ~(cps-of-expr els cont))
+    (cps-of-expr cnd
+                 (let [cnd (*gensym* "I")]
+                   `(~'fn [~cnd ~'$state]
+                      (~'if ~cnd
+                        ~(cps-of-expr thn cont)
+                        ~(cps-of-expr els cont)))))))
+
 (defn-with-named-cont 
   ^{:doc "transforms cond to cps"}
   cps-of-cond
@@ -161,29 +158,26 @@
   [exprs cont]
   (cps-of-elist exprs cont))
 
-(defn- make-of-args
+(defn ^:private make-of-args
   "builds lexical bindings for all compound args
   and then calls `make' to build expression
   out of the args; used by predict, observe, sample, application"
   [args make]
-  (assert (not-any? primitive-procedure? args)
-          (str "primitive procedure as argument: "
-               (some primitive-procedure? args)))
   (let [substs (map (fn [arg]
-                    (if (simple-expr? arg)
-                      [nil arg]
-                      [arg (*gensym* "A")]))
-                  args)]
+                      (if (simple-expr? arg)
+                        [nil arg]
+                        [arg (*gensym* "A")]))
+                    args)]
     (letfn [(make-of-slist [slist]
               (if (seq slist)
                 (let [[[arg subst] & slist] slist]
                   (if arg ;; is a compound expression
                     (cps-of-expr arg `(~'fn [~subst ~'$state]
-                                          ~(make-of-slist slist)))
+                                        ~(make-of-slist slist)))
                     (make-of-slist slist)))
                 (make (map second substs))))]
 
-        (make-of-slist substs))))
+      (make-of-slist substs))))
 
 (defn cps-of-predict
   "transforms predict to cps,
@@ -207,10 +201,9 @@
                               ~dist ~value ~cont ~'$state))))
 
 (defn cps-of-sample
-  "transforms sample to cps,
+  "transforms sample to cps;
   on sample the program is interrupted
-  and the control is transferred to the inference
-  algorithm"
+  and the control is transferred to the inference algorithm"
   [args cont]
   (make-of-args args 
                 (fn [[dist]]
@@ -246,7 +239,7 @@
 (defn cps-of-apply
   "transforms apply to cps;
   apply of user-defined (not primitive) procedures
-  are trampolined --- wrapped into a parameterless closure"
+  is trampolined --- wrapped into a parameterless closure"
   [args cont]
   (make-of-args args
                 (fn [acall]
@@ -254,12 +247,13 @@
                         rands (rest acall)]
                     (if (primitive-procedure? rator)
                       `(~cont (apply ~@acall) ~'$state) ; clojure `apply'
-                      `(~'fn [] (apply ~rator ~cont ~'$state ~@rands)))))))
+                      (do (assert-no-pp rands "primitive procedure as operand")
+                          `(~'fn [] (apply ~rator ~cont ~'$state ~@rands))))))))
 
 (defn cps-of-application
   "transforms application to cps;
   application of user-defined (not primitive) procedures
-  are trampolined --- wrapped into a parameterless closure"
+  is trampolined --- wrapped into a parameterless closure"
   [exprs cont]
   (make-of-args exprs
                 (fn [call]
@@ -267,30 +261,31 @@
                         rands (rest call)]
                     (if (primitive-procedure? rator)
                       `(~cont ~call ~'$state)
-                      `(~'fn [] (~rator ~cont ~'$state ~@rands)))))))
+                      (do (assert-no-pp rands "primitive procedure as operand")
+                          `(~'fn [] (~rator ~cont ~'$state ~@rands))))))))
 
 (defn cps-of-expr
   [expr cont]
   (cond
-     (nil? expr) `(~cont ~expr ~'$state)
-     (seq? expr) 
-     (let [[kwd & args] expr]
-        (case kwd
-          quote   `(~cont ~expr ~'$state)
-          fn      (cps-of-fn args cont)
-          let     (cps-of-let args cont)
-          if      (cps-of-if args cont)
-          cond    (cps-of-cond args cont)
-          do      (cps-of-do args cont)
-          predict (cps-of-predict args cont)
-          observe (cps-of-observe args cont)
-          sample  (cps-of-sample args cont)
-          mem     (cps-of-mem args cont)
-          apply   (cps-of-apply args cont)
-          ;; application
-          (cps-of-application expr cont)))
-     ;; atomic
-     :else `(~cont ~expr ~'$state)))
+   (nil? expr) `(~cont ~expr ~'$state)
+   (seq? expr) 
+   (let [[kwd & args] expr]
+     (case kwd
+       quote   `(~cont ~expr ~'$state)
+       fn      (cps-of-fn args cont)
+       let     (cps-of-let args cont)
+       if      (cps-of-if args cont)
+       cond    (cps-of-cond args cont)
+       do      (cps-of-do args cont)
+       predict (cps-of-predict args cont)
+       observe (cps-of-observe args cont)
+       sample  (cps-of-sample args cont)
+       mem     (cps-of-mem args cont)
+       apply   (cps-of-apply args cont)
+       ;; application
+       (cps-of-application expr cont)))
+   ;; atomic
+   :else `(~cont ~expr ~'$state)))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"

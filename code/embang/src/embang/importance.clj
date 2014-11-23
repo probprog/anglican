@@ -1,7 +1,5 @@
 (ns embang.importance
-  (:use embang.state
-        [embang.runtime :only [sample observe]]
-        [embang.inference :only [print-predicts]]))
+  (:use [embang.inference :only [checkpoint print-predicts]]))
 
 ;;; Importance samping
 
@@ -10,25 +8,13 @@
 ;; along with their weights. Random choices are sampled
 ;; from conditional prior distributions.
 
-(defmulti cpt type)
-
-(defmethod cpt embang.trap.observe [obs]
-  #((:cont obs) nil (add-weight (:state obs)
-                                (observe (:dist obs) (:value obs)))))
-
-(defmethod cpt embang.trap.sample [smp]
-  (let [value (sample (:dist smp))]
-    #((:cont smp) value (add-weight (:state smp)
-                                    (observe (:dist smp) value)))))
-
-(defmethod cpt embang.trap.result [res]
-  (:state res))
+(derive ::importance :embang.inference/algorithm)
 
 (defn exec [prog]
   (loop [step (trampoline prog nil (map->state {:log-weight 0. 
                                                 :predicts []
                                                 :mem {}}))]
-    (let [next (cpt step)]
+    (let [next (checkpoint step ::importance)]
       (if (fn? next)
         (recur (trampoline next))
         next))))
