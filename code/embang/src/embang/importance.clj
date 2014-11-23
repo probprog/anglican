@@ -26,10 +26,10 @@
         (recur (trampoline next))
         next))))
 
-(def run-inference [prog & {:keys [number-of-samples output-format]
-                            :or {number-of-samples -1
-                                 output-format :clojure}}]
+(defn run-inference [prog & {:keys [number-of-samples output-format]
+                             :or {number-of-samples -1
+                                  output-format :clojure}}]
   (loop [i 0]
     (when-not (= i number-of-samples)
       (print-predicts (exec prog) output-format)
-      (loop (inc i)))))
+      (recur (inc i)))))

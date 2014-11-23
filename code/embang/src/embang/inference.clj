@@ -1,6 +1,8 @@
 (ns embang.inference
   (:require [clojure.data.json :as json]))
 
+;;; Output
+
 (defmulti print-predict (fn [_ _ _ format] format))
 
 (defmethod print-predict :clojure [label value weight format]
@@ -13,6 +15,6 @@
 (defn print-predicts
   "print predicts as returned by a probabilistic program
   in the specified format"
-  [{:keys [predicts weight]} output-format]
+  [{:keys [predicts log-weight]} output-format]
   (doseq [[name value] predicts]
-    (print-predict name value weight output-format)))
+    (print-predict name value (Math/exp log-weight) output-format)))

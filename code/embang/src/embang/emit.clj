@@ -15,3 +15,8 @@
   "macro for embedding anglican programs"
   [& source]
   (anglican->fn source))
+
+(defmacro defanglican
+  "binds variable to anglican program"
+  [name & rest]
+  `(def ~name (anglican ~@rest)))
