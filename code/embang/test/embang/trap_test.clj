@@ -141,7 +141,7 @@
                             (clojure.core/apply
                              A
                              (fn [V $state]
-                               (C V (embang.trap/set-mem state 'M P V)))
+                               (C V (embang.trap/set-mem $state 'M P V)))
                              $state
                              P)))
                         (fn [C $state x] (C x $state))

@@ -18,5 +18,9 @@
 
 (defmacro defanglican
   "binds variable to anglican program"
-  [name & rest]
-  `(def ~name (anglican ~@rest)))
+  [name & args]
+  (let [[docstring source]
+        (if (string? (first args))
+          [(first args) (rest args)]
+          [(format "anglican program '%s'" name) args])]
+    `(def ~(with-meta name {:doc docstring}) (anglican ~@source))))

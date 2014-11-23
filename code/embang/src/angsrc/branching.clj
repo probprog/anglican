@@ -1,9 +1,10 @@
-(ns anglican.branching
+(ns angsrc.branching
   (:use [embang emit runtime]))
 
 ;;; Simple branching
 
 (defanglican branching
+  "simple branching"
   [assume fib (lambda (n)
                       (cond ((= n 0) 0)
                             ((= n 1) 1)
@@ -14,4 +15,4 @@
               6
               (+ (fib (* 3 r)) (sample (poisson 4))))]
   [observe (poisson l) 6]
-  [predict [l r]])
+  [predict r])

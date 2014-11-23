@@ -1,5 +1,5 @@
 (ns embang.trap
-  (:use [embang.state :only [add-predict]]))
+  (:use [embang.state :only [in-mem? get-mem set-mem add-predict]]))
 
 ;;; Trampoline-ready Anglican program 
 
@@ -231,7 +231,7 @@
                   `(~'apply (~'fn ~parms ~@body) ~mparms)
                   `(~'fn [~value ~'$state]
                      (~mcont ~value
-                             (set-mem ~'state
+                             (set-mem ~'$state
                                       '~id ~mparms ~value)))))))))
 
 (defn cps-of-apply
