@@ -23,7 +23,7 @@
   `(~'fn ~@(when name [name])
      ~(if (list? parms)
         `[~@parms]
-        `[& ~parms])
+        `[& ~parms]) ; variadic
      ~@(elist body)))
 
 (defn amem
@@ -40,7 +40,7 @@
      ~@(elist body)))
 
 (defn acond 
-  "translates cond to nested ifs"
+  "translates cond"
   [clauses]
   `(~'cond ~@(mapcat (fn [[cnd expr]]
                        [(if (= cnd 'else) :else
@@ -90,6 +90,12 @@
                        ~@(dlist ds))))
           observe `((~'observe ~@(map expression args))
                     ~@(dlist ds))
+
+          ;; In Clojure representation `predict' has two arguments:
+          ;; symbolic expression and value. This is necessary to
+          ;; display predicted expressions in Anglican rather than
+          ;; Clojure syntax.
+
           predict (let [[expr] args]
                      `((~'predict '~expr ~(expression expr))
                        ~@(dlist ds)))

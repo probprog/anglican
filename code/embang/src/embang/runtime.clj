@@ -77,7 +77,8 @@
   ([name args [incanter-name & incanter-args]]
      `(defn ~(with-meta  name {:doc (str name " distribution")})
         ~args
-        (let [~'dist (~(symbol (format "dist/%s-distribution" incanter-name))
+        (let [~'dist (~(symbol (format "dist/%s-distribution"
+                                       incanter-name))
                       ~@incanter-args)]
           ~'(reify distribution
               (draw [this] (dist/draw dist))

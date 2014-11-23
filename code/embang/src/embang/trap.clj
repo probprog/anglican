@@ -36,11 +36,14 @@
 (defn run-cont [f s] 
   (f (fn [v s] (->result (state-cont v s))) s))
 
+;; primitive procedures have to be recognized syntactically,
+;; by the name. This means that a primitive procedure can
+;; only appear in call position, and a primitive procedure
+;; name cannot be rebound locally.
+
 (defn primitive-procedure?
   "true if the procedure is primitive,
   that is, does not have a CPS form"
-  ;; assumes that primitive procedure
-  ;; symbols are never rebound locally
   [procedure]
   (*primitive-procedures* procedure))
 
@@ -55,16 +58,20 @@
         let (let [[_ bindings & body] expr]
               (and (every? simple-expr? (map second bindings))
                    (every? simple-expr? body)))
+        ;; application
         (and (primitive-procedure? (first expr))
              (every? simple-expr? (rest expr))))))
 
 ;; CPS transformation rules
 
 (declare cps-of-expr)
-(def ^:dynamic *gensym* gensym)
+(def ^:dynamic *gensym* gensym) ;; bound to `symbol' in tests
 
 (defn- cps-of-elist
   [exprs cont]
+  (assert (not-any? primitive-procedure? exprs)
+          (str "primitive procedure as expression: "
+               (some primitive-procedure? exprs)))
   (let [[fst & rst] exprs]
     (cps-of-expr fst
                  (if (seq rst)
@@ -79,6 +86,7 @@
 ;; function to support functions with variable arguments.
 
 (defn cps-of-fn
+  "transforms function definition into CPS"
   [args cont]
   (if (vector? (first args))
     (cps-of-fn `[nil ~@args] cont)
@@ -97,22 +105,22 @@
   [[bindings & body] cont]
   (if (seq bindings)
     (let [[name value & bindings] bindings
-          rest (cps-of-let `(~bindings ~@body) cont)]
+          rst (cps-of-let `(~bindings ~@body) cont)]
       (assert (not (primitive-procedure? name))
               (str "primitive procedure name rebound: " name))
       (assert (not (primitive-procedure? value))
               (str "primitive procedure locally bound: " value))
       (if (simple-expr? value)
         `(~'let [~name ~value]
-           ~rest)
+           ~rst)
         (cps-of-expr value
                      (let [value (*gensym* "V")]
                        `(~'fn [~value ~'$state]
                           (~'let [~name ~value]
-                            ~rest))))))
+                            ~rst))))))
     (cps-of-elist body cont)))
 
-(defmacro defn-with-named-cont 
+(defmacro defn-with-named-cont
   "binds the continuation to a name to make the code
   slightly easier to reason about"
   [cps-of parms & body]
@@ -158,16 +166,18 @@
   and then calls `make' to build expression
   out of the args; used by predict, observe, sample, application"
   [args make]
+  (assert (not-any? primitive-procedure? args)
+          (str "primitive procedure as argument: "
+               (some primitive-procedure? args)))
   (let [substs (map (fn [arg]
                     (if (simple-expr? arg)
                       [nil arg]
                       [arg (*gensym* "A")]))
                   args)]
-
     (letfn [(make-of-slist [slist]
               (if (seq slist)
                 (let [[[arg subst] & slist] slist]
-                  (if arg
+                  (if arg ;; is a compound expression
                     (cps-of-expr arg `(~'fn [~subst ~'$state]
                                           ~(make-of-slist slist)))
                     (make-of-slist slist)))
@@ -279,6 +289,7 @@
           apply   (cps-of-apply args cont)
           ;; application
           (cps-of-application expr cont)))
+     ;; atomic
      :else `(~cont ~expr ~'$state)))
 
 (def ^:dynamic *primitive-procedures*
@@ -310,14 +321,14 @@
      boolean double long str
 
      ;; data structures
-     list conj concat
-     count
-     first second nth rest
+     list conj concat          ; constructors
+     count                     ; properties
+     first second nth rest     ; accessors
 
      ;; console I/O, for debugging
      prn
 
-     ;; ERPs
+     ;; ERPs (alphabetically)
      beta
      binomial
      categorical
@@ -333,7 +344,7 @@
      uniform-discrete
      wishart
 
-     ;; XRPs
-     crp
+     ;; XRPs (alphabetically)
      beta-flip
+     crp
      normal-with-known-std})

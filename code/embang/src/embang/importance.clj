@@ -3,6 +3,13 @@
         [embang.runtime :only [sample observe]]
         [embang.inference :only [print-predicts]]))
 
+;;; Importance samping
+
+;; The simplest sampling algorithm, runs every 
+;; particle independently and outputs the predicts
+;; along with their weights. Random choices are sampled
+;; from conditional prior distributions.
+
 (defmulti cpt type)
 
 (defmethod cpt embang.trap.observe [obs]

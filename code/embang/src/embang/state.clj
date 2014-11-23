@@ -7,10 +7,21 @@
 (defprotocol anglican-state
   "state operations required to implement 
   the checkpoints"
-  (add-weight [state log-weight]
+
+  ;; The weight is not read or written by the 
+  ;; deterministic computation, and can be
+  ;; maintained outside the state; however,
+  ;; keeping it inside the same state is convenient.
+
+  (add-weight [state log-weight] ; on observe and sample
     "add log-weight to the state, after sample or observe")
   (add-predict [state label value]
     "add predict [label value] pair to the list of predicts")
+
+  ;; The following three methods are used by the `mem'
+  ;; form. The memoized values are kept in the state,
+  ;; independently for each particle.
+
   (in-mem? [state id args]
     "whether there is a memoized value")
   (get-mem [state id args]
@@ -22,14 +33,15 @@
 
 (defrecord state [log-weight predicts mem]
   anglican-state
-  (add-weight 
+
+  (add-weight
     [state log-weight]
     (update-in state [:log-weight] + log-weight))
 
-  (add-predict [state label value]
+  (add-predict [state label value] ; on predict
     (update-in state [:predicts] conj [label value]))
 
-  (in-mem? [state id args]
+  (in-mem? [state id args] 
     (and (contains? (:mem state) id)
          (contains? ((:mem state) id) args)))
 
