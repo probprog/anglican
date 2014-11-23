@@ -1,5 +1,6 @@
 (ns embang.importance
-  (:use [embang.inference :only [checkpoint print-predicts]]))
+  (:use [embang.state :only [initial-state]]
+        [embang.inference :only [checkpoint print-predicts]]))
 
 ;;; Importance samping
 
@@ -11,15 +12,13 @@
 (derive ::importance :embang.inference/algorithm)
 
 (defn exec [prog]
-  (loop [step (trampoline prog nil (map->state {:log-weight 0. 
-                                                :predicts []
-                                                :mem {}}))]
+  (loop [step (trampoline prog nil initial-state)]
     (let [next (checkpoint step ::importance)]
       (if (fn? next)
         (recur (trampoline next))
         next))))
 
-(defn run-inference [prog & {:keys [n f number-of-samples output-format]
+(defn run-inference [prog & {:keys [number-of-samples output-format]
                              :or {number-of-samples -1
                                   output-format :clojure}}]
   (loop [i 0]
