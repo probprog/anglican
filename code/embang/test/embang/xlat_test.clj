@@ -51,7 +51,7 @@
                     [observe (normal x 1) 1]))
            '((let [x 1]
                (let [y 2]
-                 (predict y)
+                 (predict 'y y)
                  (observe (normal x 1) 1)))))
         "assumes, predict, observe")))
 
@@ -64,7 +64,7 @@
            '(fn []
               (let [x 1]
                 (let [y 2]
-                  (predict (+ x y))))))
+                  (predict '(+ x y) (+ x y))))))
         "simple program")
     (is (= (program
             '[[assume fact (lambda (n)
@@ -77,7 +77,7 @@
                            (if (= n 1)
                              1 
                              (* n (fact (- n 1)))))]
-                (predict (fact 5)))))
+                (predict '(fact 5) (fact 5)))))
         "auto-recursive function")))
                             
                             

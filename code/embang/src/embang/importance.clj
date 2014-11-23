@@ -18,7 +18,7 @@
   (:state res))
 
 (defn exec [prog]
-  (loop [step (trampoline prog nil (map->state {:log-weight 1. 
+  (loop [step (trampoline prog nil (map->state {:log-weight 0. 
                                                 :predicts []
                                                 :mem {}}))]
     (let [next (cpt step)]
@@ -26,7 +26,7 @@
         (recur (trampoline next))
         next))))
 
-(defn run-inference [prog & {:keys [number-of-samples output-format]
+(defn run-inference [prog & {:keys [n f number-of-samples output-format]
                              :or {number-of-samples -1
                                   output-format :clojure}}]
   (loop [i 0]

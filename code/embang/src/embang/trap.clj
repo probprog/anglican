@@ -66,13 +66,11 @@
 (defn- cps-of-elist
   [exprs cont]
   (let [[fst & rst] exprs]
-    (if (seq rst)
-      (if (simple-expr? fst)
-        (cps-of-elist rst cont)
-        (cps-of-expr fst
-                     `(~'fn [~'_ ~'$state]
-                        ~(cps-of-elist rst cont))))
-      (cps-of-expr fst cont))))
+    (cps-of-expr fst
+                 (if (seq rst)
+                   `(~'fn [~'_ ~'$state]
+                      ~(cps-of-elist rst cont))
+                   cont))))
 
 ;; Asserts in cps-of-fn, cps-of-let make sure primitive procedures are
 ;; uniquely identifiable by their names.
@@ -181,11 +179,11 @@
   "transforms predict to cps,
   predict appends predicted expression
   and its value to (:predicts $state)"
-  [[pred :as args] cont]
+  [args cont]
   (make-of-args args
-                (fn [[value]]
+                (fn [[label value]]
                   `(~cont nil (add-predict ~'$state
-                                           '~pred ~value)))))
+                                           ~label ~value)))))
 
 (defn cps-of-observe
   "transforms observe to cps,
@@ -232,7 +230,8 @@
                   `(~'fn [~value ~'$state]
                      (~mcont ~value
                              (set-mem ~'$state
-                                      '~id ~mparms ~value)))))))))
+                                      '~id ~mparms ~value))))))
+            ~'$state)))
 
 (defn cps-of-apply
   "transforms apply to cps;
@@ -284,7 +283,7 @@
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
-  '#{ ;; tests
+  '#{;; tests
      boolean? symbol? string? proc? number?
      ratio? integer? float? even? odd?
      nil? some? empty? list? seq?  
@@ -305,14 +304,18 @@
      pow cbrt sqrt
      
      ;; sequence operations
-     sum cumsum mean normalize range
+     sum mean normalize range
 
      ;; casting
-     boolean double long read-string str
+     boolean double long str
 
-     ;; data structures – documented
-     list first second nth rest count
-     conj concat
+     ;; data structures
+     list conj concat
+     count
+     first second nth rest
+
+     ;; console I/O, for debugging
+     prn
 
      ;; ERPs
      beta
@@ -321,16 +324,14 @@
      dirac
      dirichlet
      discrete
-     discrete-cdf
      exponential
      flip
      gamma
      normal
-     mvn
-     wishart
      poisson
      uniform-continuous
      uniform-discrete
+     wishart
 
      ;; XRPs
      crp

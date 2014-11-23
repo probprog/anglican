@@ -32,54 +32,86 @@
 (defn isfinite? [x]
   (not (or (Double/isNaN x) (Double/isInfinite x))))
 
-(defn mean
-  [coll]
-  (/ (reduce + coll) (count coll)))
-
-(defn cumsum
-   "With single argument coll returns lazy cumulative sum sequence y
-   with (= (nth y) (cumsum coll)). With two arguments t, coll returns
-   lazy cumulative sum sequence y with (= (nth y) (+ t (cumsum coll)))."
-  ([coll] (cumsum 0 coll))
-  ([t coll] (if (empty? coll) ()
-           (let [y (+ t (first coll))]
-             (cons y (lazy-seq (cumsum y (rest coll))))))))
-
 (defn sum
+  "sum of the collection elements"
   [coll]
   (reduce + coll))
 
-(defn normalize
+(defn mean
+  "mean of the collection elements"
   [coll]
-  (let [Z (reduce + coll)]
+  (/ (sum coll) (count coll)))
+
+(defn normalize
+  "normalized collection"
+  [coll]
+  (let [Z (sum coll)]
     (map #(/ % Z) coll)))
 
 (defprotocol distribution
-  (sample [this]
-    "return a sample from the distribution")
-  (observe [this value]
-    "return the log-probability of the value"))
+  (draw [this]
+    "draws a sample from the distribution")
+  (prob [this value]
+    "return the probability [density] of the value"))
 
+;; runtime distribution methods
 
-(defn flip [p]
-  "flip (bernoulli) distribution object"
-  (reify
-    distribution
-    (sample [this] (if (< (rand) p) 1 0))
-    (observe [this value] (log (if (> value 0) p (- 1. p))))))
+(defn sample
+  "draws a sample from the distribution"
+  [dist] 
+  (draw dist))
 
-(defn normal [^double mean ^double sd]
-  "normal distribution object"
-  (let [dist (dist/->Normal-rec mean sd)]
-    (reify 
-      distribution
-      (sample [this] (dist/draw dist))
-      (observe [this value] (log (dist/pdf dist value))))))
+(defn observe
+  "computes log-probability [density] of the value"
+  [dist value]
+  (Math/log (prob dist value)))
 
-(defn poisson [lambda]
-  "poisson distribution object"
-  (let [dist (dist/->Poisson-rec lambda)]
-    (reify
-      distribution
-      (sample [this] (dist/draw dist))
-      (observe [this value] (log (dist/pdf dist value))))))
+;;; Distributions, in alphabetical order
+
+(defmacro from-incanter
+  "wraps incanter distribution"
+  ([name args]
+     ;; the name and the argument order is the same
+     `(from-incanter ~name ~args (~name ~@args)))
+
+  ([name args [incanter-name & incanter-args]]
+     `(defn ~(with-meta  name {:doc (str name " distribution")})
+        ~args
+        (let [~'dist (~(symbol (format "dist/%s-distribution" incanter-name))
+                      ~@incanter-args)]
+          ~'(reify distribution
+              (draw [this] (dist/draw dist))
+              (prob [this value] (dist/pdf dist value)))))))
+
+(from-incanter beta [alpha beta])
+(from-incanter binomial [n p] (binomial p n))
+
+(defn discrete
+  "discrete distribution, accepts unnormalized weights"
+  [weights]
+  (let [total-weight (reduce + weights)]
+    (reify distribution
+      (draw [this] 
+        (let [x (rand total-weight)]
+          (loop [[weight & weights] weights
+                 acc 0. value 0]
+            (let [acc (+ acc weight)]
+              (if (> acc x) value
+                  (recur weights acc (inc value)))))))
+      (prob [this value] 
+        (/ (nth weights value) total-weight)))))
+
+(from-incanter exponential [rate])
+
+(defn flip
+  "flip (bernoulli) distribution"
+  [p]
+  (reify distribution
+    (draw [this] (< (rand) p))
+    (prob [this value] (if value p (- 1. p)))))
+
+(from-incanter gamma [shape rate])
+(from-incanter normal [mean sd])
+(from-incanter poisson [lambda])
+(from-incanter uniform-continuous [min max] (uniform min max))
+(from-incanter uniform-discrete [min max] (integer min max))

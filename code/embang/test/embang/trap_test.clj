@@ -84,8 +84,8 @@
 
 (deftest test-cps-of-do
   (testing "cps-of-do"
-    (is (= (cps-of-do '(1 2 3) 'return)
-           '(return 3 $state))
+    (is (= (cps-of-do '(1 2) 'ret)
+           '((fn [_ $state] (ret 2 $state)) 1 $state))
         "list of simple expressions")
     (is (= (cps-of-do '((a) 1) 'ret)
            '(fn [] (a (fn [_ $state] (ret 1 $state)) $state)))
@@ -103,10 +103,10 @@
 (deftest test-cps-of-predict
   (binding [*gensym* symbol]
     (testing "cps-of-predict"
-      (is (= (cps-of-predict '(x) 'ret)
+      (is (= (cps-of-predict '('x x) 'ret)
              '(ret nil (embang.state/add-predict $state 'x x)))
           "simple predict")
-      (is (= (cps-of-predict '((foo)) 'ret)
+      (is (= (cps-of-predict '('(foo) (foo)) 'ret)
              '(fn []
                 (foo (fn [A $state]
                        (ret nil (embang.state/add-predict $state '(foo) A)))
@@ -134,16 +134,17 @@
     (testing "cps-of-mem"
       (is (= (cps-of-mem '((fn [x] x)) 'ret)
              '(ret (fn [C $state & P]
-                     (if (embang.trap/in-mem? $state 'M P)
-                       (C (embang.trap/get-mem $state 'M P) $state)
+                     (if (embang.state/in-mem? $state 'M P)
+                       (C (embang.state/get-mem $state 'M P) $state)
                        ((fn [A $state]
                           (fn []
                             (clojure.core/apply
                              A
                              (fn [V $state]
-                               (C V (embang.trap/set-mem $state 'M P V)))
+                               (C V (embang.state/set-mem $state 'M P V)))
                              $state
                              P)))
                         (fn [C $state x] (C x $state))
-                        $state)))))
+                        $state)))
+                   $state))
           "mem of compound function"))))

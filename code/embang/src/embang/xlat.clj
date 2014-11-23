@@ -13,7 +13,8 @@
           (let [[name value] (rest expr)]
             `((~'let [~name ~(expression value)]
                 ~@(elist exprs))))
-          (cons (expression expr) (elist exprs)))))))
+          `(~(expression expr) 
+            ~@(elist exprs)))))))
 
 (defn alambda
   "translates lambda to fn,
@@ -24,6 +25,11 @@
         `[~@parms]
         `[& ~parms])
      ~@(elist body)))
+
+(defn amem
+  "translates mem, carrying the name to the argument"
+  [name [expr]]
+  `(~'mem ~(expression expr :name name)))
 
 (defn alet
   "translates let"
@@ -60,6 +66,7 @@
         quote  expr
         lambda (alambda name args)
         let    (alet args)
+        mem    (amem name args)
         cond   (acond args)
         begin  (abegin args)
         ;; other forms (if, and, or, application) have  compatible structure
@@ -81,8 +88,11 @@
           assume (let [[name value] args]
                    `((~'let [~name ~(expression value :name name)]
                        ~@(dlist ds))))
-          (observe predict) (cons `(~kwd ~@(map expression args))
-                                  (dlist ds))
+          observe `((~'observe ~@(map expression args))
+                    ~@(dlist ds))
+          predict (let [[expr] args]
+                     `((~'predict '~expr ~(expression expr))
+                       ~@(dlist ds)))
           (assert false (str "unrecognized directive: " d)))))))
 
 (defn program

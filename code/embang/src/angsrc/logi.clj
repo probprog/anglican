@@ -16,4 +16,4 @@
   [observe (flip (z 2)) true]
   [observe (flip (z 6)) true]
   [observe (flip (z 10)) true]
-  [predict (flip (z 8))])
+  [predict (sample (flip (z 8)))])
