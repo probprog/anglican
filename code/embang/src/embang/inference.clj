@@ -5,30 +5,35 @@
   (:use embang.state
         [embang.runtime :only [sample observe]]))
 
-;; Inference multimethod
+;;; Inference multimethod
 
 (defmulti infer (fn [algorithm & _] algorithm))
 
 ;;; Checkpoints
 
-(defmulti checkpoint (fn [cpt alg] [(type cpt) alg]))
+(defmulti checkpoint (fn [alg cpt] [alg (type cpt)]))
 
-(defmethod checkpoint [embang.trap.observe ::algorithm] [obs algorithm]
+;; default method implementations
+
+(defmethod checkpoint [::algorithm embang.trap.observe] [algorithm obs]
   #((:cont obs) nil (add-log-weight (:state obs)
                                     (observe (:dist obs) (:value obs)))))
 
-(defmethod checkpoint [embang.trap.sample ::algorithm] [smp algorithm]
+(defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [value (sample (:dist smp))]
     #((:cont smp) value (add-log-weight (:state smp)
                                         (observe (:dist smp) value)))))
 
-(defmethod checkpoint [embang.trap.result ::algorithm] [res algorithm]
-  (:state res))
+(defmethod checkpoint [::algorithm embang.trap.result] [algorithm res]
+  res)
 
-(defn exec [prog algorithm]
+;;; Running a single particle until checkpoint
+
+(defn exec
   "executes the program until a checkpoint"
-  (loop [step (trampoline prog nil initial-state)]
-    (let [next (checkpoint step algorithm)]
+  [algorithm prog & args]
+  (loop [step (apply trampoline prog args)]
+    (let [next (checkpoint algorithm step)]
       (if (fn? next)
         (recur (trampoline next))
         next))))

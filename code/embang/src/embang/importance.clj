@@ -1,6 +1,7 @@
 (ns embang.importance
-  (:use [embang.state :only [initial-state]]
-        embang.inference))
+  (:use embang.state
+        embang.inference
+        [embang.runtime :only [observe]]))
 
 ;;; Importance samping
 
@@ -10,10 +11,16 @@
 
 (derive ::algorithm :embang.inference/algorithm)
 
+(defmethod checkpoint [::algorithm embang.trap.observe] [algorithm obs]
+  #((:cont obs) nil (add-log-weight (:state obs)
+                                    (observe (:dist obs) (:value obs)))))
+
 (defmethod infer :importance [_ prog & {:keys [number-of-samples output-format]
                                         :or {number-of-samples -1
                                              output-format :clojure}}]
-  (loop [i 0]
-    (when-not (= i number-of-samples)
-      (print-predicts (exec prog ::algorithm) output-format)
-      (recur (inc i)))))
+  (binding [*algorithm* ::algorithm]
+    (loop [i 0]
+      (when-not (= i number-of-samples)
+        (print-predicts (:state (exec ::algorithm prog nil initial-state))
+                        output-format)
+        (recur (inc i))))))
