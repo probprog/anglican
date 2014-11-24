@@ -14,16 +14,24 @@
 (defmulti checkpoint (fn [cpt alg] [(type cpt) alg]))
 
 (defmethod checkpoint [embang.trap.observe ::algorithm] [obs algorithm]
-  #((:cont obs) nil (add-weight (:state obs)
-                                (observe (:dist obs) (:value obs)))))
+  #((:cont obs) nil (add-log-weight (:state obs)
+                                    (observe (:dist obs) (:value obs)))))
 
 (defmethod checkpoint [embang.trap.sample ::algorithm] [smp algorithm]
   (let [value (sample (:dist smp))]
-    #((:cont smp) value (add-weight (:state smp)
-                                    (observe (:dist smp) value)))))
+    #((:cont smp) value (add-log-weight (:state smp)
+                                        (observe (:dist smp) value)))))
 
 (defmethod checkpoint [embang.trap.result ::algorithm] [res algorithm]
   (:state res))
+
+(defn exec [prog algorithm]
+  "executes the program until a checkpoint"
+  (loop [step (trampoline prog nil initial-state)]
+    (let [next (checkpoint step algorithm)]
+      (if (fn? next)
+        (recur (trampoline next))
+        next))))
 
 ;;; Output
 
@@ -42,6 +50,7 @@
 (defn print-predicts
   "print predicts as returned by a probabilistic program
   in the specified format"
-  [{:keys [predicts log-weight]} output-format]
-  (doseq [[name value] predicts]
-    (print-predict name value (Math/exp log-weight) output-format)))
+  [state output-format]
+  (let [log-weight (get-log-weight state)]
+    (doseq [[name value] (get-predicts state)]
+      (print-predict name value (Math/exp log-weight) output-format))))

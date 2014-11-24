@@ -1,4 +1,4 @@
-(ns embang.xlat_test
+(ns embang.xlat-test
   (:require [clojure.test :refer [deftest testing is]])
   (:use embang.xlat))
 

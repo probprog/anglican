@@ -78,7 +78,7 @@ Options:
                        program (:algorithm-options options))
                 (catch Exception e
                   (binding [*out* *err*]
-                    (printf "Error during inference: %s" e))
+                    (printf "Error during inference: %s\n" e))
                   (when (:debug options)
                     (.printStackTrace e)))))
 
