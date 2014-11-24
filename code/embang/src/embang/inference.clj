@@ -1,11 +1,16 @@
 (ns embang.inference
-  (:require [clojure.data.json :as json])
+  (:require [clojure.data.json :as json]
+            embang.trap)
   (:use embang.state
         [embang.runtime :only [sample observe]]))
 
+;; Inference multimethod
+
+(defmulti infer (fn [algorithm & _] algorithm))
+
 ;;; Checkpoints
 
-(defmulti checkpoint (juxt type identity))
+(defmulti checkpoint (fn [cpt alg] [(type cpt) alg]))
 
 (defmethod checkpoint [embang.trap.observe ::algorithm] [obs algorithm]
   #((:cont obs) nil (add-weight (:state obs)
