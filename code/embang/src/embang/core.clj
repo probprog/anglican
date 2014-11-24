@@ -7,17 +7,15 @@
 (defn load-program
   "loads program from clojure module"
   [nsname progname]
-  (require (symbol nsname))
-  (var-get (or (ns-resolve (symbol nsname)
-                           (symbol progname))
+  (require (symbol nsname) :reload)
+  (var-get (or (ns-resolve (symbol nsname) (symbol progname))
                (throw (Exception. (format "no such program: %s/%s"
                                           nsname progname))))))
 
 (def cli-options
   [;; problems
    ["-a" "--inference-algorithm NAME" "Inference algorithm"
-    :default :importance
-    :parse-fn keyword]
+    :default "importance"]
 
    ["-d" "--debug" "Print debugging information"
     :default false
@@ -52,28 +50,32 @@ Options:
       errors (binding [*out* *err*]
                (println (error-msg errors)))
       :else
-
-
       (let [[nsname progname] (if (next arguments) arguments
                                 [(first arguments)
                                  (str/replace (first arguments) #".+\." "")])
-            algorithm (:inference-algorithm options)
-            options (:algorithm-options options)]
+            inference-algorithm (:inference-algorithm options)
+            algorithm-options (:algorithm-options options)]
 
-        (binding [*out* *err*]
-          (printf "Inference algorithm: '%s'\nAlgorithm options: %s\nProgram: %s/%s\n"
-                  algorithm options nsname progname) (flush))
+        (printf ";; Program: %s/%s\n;; Inference algorithm: %s\n;; Algorithm options: %s\n"
+                nsname progname
+                (:inference-algorithm options)
+                (str/join
+                  (map (fn [[name value]]
+                         (format "\n;;\t%s %s" name value))
+                       (partition 2 (:algorithm-options options)))))
+        (flush)
 
         ;; load the algorithm namespace dynamically
         (try
-          (require (symbol (format "embang.%s" (name algorithm))))
+          (require (symbol (format "embang.%s" (:inference-algorithm options))))
 
           ;; load the program
           (try
             (let [program (load-program nsname progname)]
               ;; if loaded, run the inference.
               (try
-                (apply infer algorithm program options)
+                (apply infer (keyword (:inference-algorithm options))
+                       program (:algorithm-options options))
                 (catch Exception e
                   (binding [*out* *err*]
                     (printf "Error during inference: %s" e))
@@ -83,11 +85,13 @@ Options:
             ;; otherwise, could not load the program
             (catch Exception e
               (binding [*out* *err*]
-                (printf "Cannot load program '%s/%s': %s"  nsname progname e))))
+                (printf "ERROR loading program '%s/%s':\n\t%s\n"  nsname progname e)
+                (flush)
+                (when (:debug options)
+                  (.printStackTrace e)))))
 
           ;; otherwise, could not load the namespace
           (catch Exception e
             (binding [*out* *err*]
-              (printf
-                "Cannot load namespace 'embang.%s' for inference algorithm '%s':\n\t%s"
-                (name algorithm) (name algorithm) e))))))))
+              (printf "ERROR loading namespace 'embang.%s':\n\t%s\n"
+                      (:inference-algorithm options) e))))))))

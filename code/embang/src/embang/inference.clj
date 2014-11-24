@@ -1,5 +1,6 @@
 (ns embang.inference
-  (:require [clojure.data.json :as json]
+  (:require [clojure.string :as str]
+            [clojure.data.json :as json]
             embang.trap)
   (:use embang.state
         [embang.runtime :only [sample observe]]))
@@ -27,6 +28,9 @@
 ;;; Output
 
 (defmulti print-predict (fn [_ _ _ format] format))
+
+(defmethod print-predict :anglican [label value weight format]
+  (println (str/join "," [label value weight])))
 
 (defmethod print-predict :clojure [label value weight format]
   (prn [label value weight]))
