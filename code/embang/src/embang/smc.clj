@@ -53,15 +53,38 @@
 (defn resample
   "resamples particles proportionally to their current weights"
   [particles]
-  (let [log-weights (map (comp get-log-weight :state) particles)
-        max-log-weight (max log-weights)
+  (let [number-of-particles (count particles)
+        log-weights (map (comp get-log-weight :state) particles)
+        max-log-weight (reduce max log-weights)
         weights (map #(Math/exp (- % max-log-weight)) log-weights)
         total-weight (reduce + weights)
-        step (/ total-weight (count particles))]
-    (loop [x (rand total-weight)
-           old-weights weights
-           old-particles particles
-           new-particles []]
-      particles)))
 
-        
+        ;;; Systematic sampling
+
+        ;; invariant bindings for sampling
+        step (/ total-weight (count particles))
+        all-weights weights     ; weights and particles are circular
+        all-particles particles]
+
+    (loop [x (rand total-weight)
+           n 0
+           acc 0
+           weights weights
+           particles particles
+           new-particles nil]
+      (if (= n number-of-particles)
+        new-particles
+        (let [[weight & next-weights] weights
+              [particle & next-particles] particles
+              next-acc (+ acc weight)]
+          (if (> acc x)
+              (recur (+ x step) (+ n 1) 
+                     acc weights particles
+                     (conj new-particles
+                           (update-in particle [:state]
+                                      set-log-weight 0.)))
+              (recur x n
+                     next-acc
+                     (or next-weights all-weights)
+                     (or next-particles all-particles)
+                     new-particles)))))))
