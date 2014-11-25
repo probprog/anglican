@@ -32,59 +32,54 @@
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
-;; SMC produces all of its samples in parallel,
-;; therefore the default number of samples cannot
-;; be infinity. We arbitrarily set it to 1.
-
-(defmethod infer :smc [_ prog & {:keys [number-of-samples
-                                        number-of-sweeps
+(defmethod infer :smc [_ prog & {:keys [number-of-sweeps
                                         number-of-particles
                                         output-format]
-                                 :or {number-of-samples 1
+                                 :or {number-of-particles 2
                                       output-format :clojure}}]
-  (let [number-of-sweeps (or number-of-sweeps
-                             (when number-of-samples 1))
-        number-of-particles (or number-of-particles
-                                number-of-samples)]
-    (dotimes [_ number-of-sweeps]
+  (loop [i 0]
+    (when-not (= i number-of-sweeps)
       (doseq [res (smc-sweep ::algorithm prog number-of-particles)]
-        (print-predicts (:state res) output-format)))))
+        (print-predicts (:state res) output-format))
+      (recur (inc i)))))
 
 (defn resample
   "resamples particles proportionally to their current weights"
   [particles]
-  (let [number-of-particles (count particles)
-        log-weights (map (comp get-log-weight :state) particles)
+  (let [log-weights (map (comp get-log-weight :state) particles)
         max-log-weight (reduce max log-weights)
         weights (map #(Math/exp (- % max-log-weight)) log-weights)
-        total-weight (reduce + weights)
+        total-weight (reduce + weights)]
 
+    (if (= total-weight 0.) particles   ; all particles have
+                                        ; the same weight
         ;;; Systematic sampling
-
+        
         ;; invariant bindings for sampling
-        step (/ total-weight (count particles))
-        all-weights weights     ; weights and particles are circular
-        all-particles particles]
+        (let [number-of-particles (count particles)
+              step (/ total-weight number-of-particles)
+              all-weights weights     ; particles are circular
+              all-particles particles]
 
-    (loop [x (rand total-weight)
-           n 0
-           acc 0
-           weights weights
-           particles particles
-           new-particles nil]
-      (if (= n number-of-particles)
-        new-particles
-        (let [[weight & next-weights] weights
-              [particle & next-particles] particles
-              next-acc (+ acc weight)]
-          (if (> acc x)
-              (recur (+ x step) (+ n 1) 
-                     acc weights particles
-                     (conj new-particles
-                           (update-in particle [:state]
-                                      set-log-weight 0.)))
-              (recur x n
-                     next-acc
-                     (or next-weights all-weights)
-                     (or next-particles all-particles)
-                     new-particles)))))))
+          (loop [x (rand total-weight)
+                 n 0
+                 acc 0
+                 weights weights
+                 particles particles
+                 new-particles nil]
+            (if (= n number-of-particles)
+              new-particles
+              (let [[weight & next-weights] weights
+                    [particle & next-particles] particles
+                    next-acc (+ acc weight)]
+                (if (> acc x)
+                  (recur (+ x step) (+ n 1) 
+                         acc weights particles
+                         (conj new-particles
+                               (update-in particle [:state]
+                                          set-log-weight 0.)))
+                  (recur x n
+                         next-acc
+                         (or next-weights all-weights)
+                         (or next-particles all-particles)
+                         new-particles)))))))))
