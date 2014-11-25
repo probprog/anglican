@@ -20,9 +20,7 @@
                                     (observe (:dist obs) (:value obs)))))
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
-  (let [value (sample (:dist smp))]
-    #((:cont smp) value (add-log-weight (:state smp)
-                                        (observe (:dist smp) value)))))
+  #((:cont smp) (sample (:dist smp)) (:state smp)))
 
 (defmethod checkpoint [::algorithm embang.trap.result] [algorithm res]
   res)

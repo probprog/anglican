@@ -97,7 +97,7 @@
           (loop [[weight & weights] weights
                  acc 0. value 0]
             (let [acc (+ acc weight)]
-              (if (> acc x) value
+              (if (< x acc) value
                   (recur weights acc (inc value)))))))
       (prob [this value] 
         (/ (nth weights value) total-weight)))))

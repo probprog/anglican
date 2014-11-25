@@ -27,7 +27,7 @@
                  (resample particles)))
 
      (every? #(instance? embang.trap.result %) particles)
-     particles
+     (resample particles)
      
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
@@ -72,7 +72,7 @@
               (let [[weight & next-weights] weights
                     [particle & next-particles] particles
                     next-acc (+ acc weight)]
-                (if (> acc x)
+                (if (< x next-acc)
                   (recur (+ x step) (+ n 1) 
                          acc weights particles
                          (conj new-particles
