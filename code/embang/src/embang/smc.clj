@@ -10,7 +10,6 @@
 (defmethod checkpoint [::algorithm embang.trap.observe] [algorithm obs]
   ;; update the weight and return the observation checkpoint
   ;; for possible resampling
-  obs
   (update-in obs [:state]
              add-log-weight (observe (:dist obs) (:value obs))))
 
@@ -18,7 +17,7 @@
 
 (defn smc-sweep
   "a single SMC sweep, can be called from other algorithms"
-  [algorithm prog number-of-particles]
+  [algorithm prog initial-state number-of-particles]
   (loop [particles (repeatedly number-of-particles
                                #(exec algorithm prog nil initial-state))]
     (cond
@@ -39,7 +38,7 @@
                                       output-format :clojure}}]
   (loop [i 0]
     (when-not (= i number-of-sweeps)
-      (doseq [res (smc-sweep ::algorithm prog number-of-particles)]
+      (doseq [res (smc-sweep ::algorithm prog initial-state number-of-particles)]
         (print-predicts (:state res) output-format))
       (recur (inc i)))))
 

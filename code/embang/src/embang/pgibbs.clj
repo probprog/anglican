@@ -1,7 +1,8 @@
 (ns embang.pgibbs
-  (:use embang.state
-        [embang.inference :exclude [initial-state]]
-        [embang.runtime :only [observe]]))
+  (:use [embang.state :exclude [initial-state]]
+        embang.inference
+        [embang.runtime :only [observe sample]]
+        [embang.smc :only [smc-sweep resample]]))
 
 ;;;; PGibbs
 
@@ -11,7 +12,7 @@
 
 (def initial-state
   "initial state for PGibbs protocol"
-  (into embang.inference/initial-state
+  (into embang.state/initial-state
         ;; the state is extended by two sequences,
         ;;   ::future-samples used by retained particle
         ;;   ::past-samples updated by all particles
@@ -51,34 +52,26 @@
   [state value]
   (update-in state [::past-samples] conj value))
 
-(defmethod checkpoint [::algorithm embang.trap.observe] [algorithm obs]
-  ;; update the weight and return the observation checkpoint
-  ;; for possible resampling
-  obs
-  (update-in obs [:state]
-             add-log-weight (observe (:dist obs) (:value obs))))
-
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)
         [state value] (if (retained-state? state)
                         (retrieve-retained-sample state)
                         [state (sample (:dist smp))])
         state (store-sample state value)]
-  #((:cont smp) (sample (:dist smp)) (:state smp)))
-
-(declare resample)
+    #((:cont smp) value state)))
 
 (defn pgibbs-sweep
-  "a single PGibbs sweep, can be called from other algorithms"
-  [algorithm prog number-of-particles]
+  "a single PGibbs sweep"
+  [prog retained-particle number-of-particles]
   (loop [particles (repeatedly number-of-particles
-                               #(exec algorithm prog nil initial-state))]
+                               #(exec ::algorithm prog nil initial-state))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
-     (recur (map #(exec algorithm (:cont %) nil (:state %))
+     (recur (map #(exec ::algorithm (:cont %) nil (:state %))
                  (resample particles)))
 
      (every? #(instance? embang.trap.result %) particles)
+     ;; TODO
      (resample particles)
      
      :else (throw (AssertionError.
@@ -91,6 +84,7 @@
                                       output-format :clojure}}]
   (loop [i 0]
     (when-not (= i number-of-sweeps)
-      (doseq [res (pgibbs-sweep ::algorithm prog number-of-particles)]
+      (doseq [res (smc-sweep ::algorithm prog initial-state number-of-particles)]
+        (println (::past-samples (:state res)))
         (print-predicts (:state res) output-format))
       (recur (inc i)))))
