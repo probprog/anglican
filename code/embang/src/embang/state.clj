@@ -18,7 +18,7 @@
 (defn set-log-weight
   "resets the weight to the specified value"
   [state log-weight]
-  (assoc-in state [::log-weight] log-weight))
+  (assoc state ::log-weight log-weight))
 
 (defn add-log-weight
   "add log-weight to the accumulated log-weight
