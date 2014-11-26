@@ -1,8 +1,7 @@
 (ns embang.pgibbs
   (:use [embang.state :exclude [initial-state]]
         embang.inference
-        [embang.runtime :only [observe sample]]
-        [embang.smc :only [smc-sweep resample]]))
+        [embang.runtime :only [observe sample]]))
 
 ;;;; PGibbs
 
@@ -52,6 +51,9 @@
   [state value]
   (update-in state [::past-samples] conj value))
 
+;; sample checkpoint for pgibbs --- sample the value,
+;; except for retained particle, and store in past-particles
+
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)
         [state value] (if (retained-state? state)
@@ -60,18 +62,25 @@
         state (store-sample state value)]
     #((:cont smp) value state)))
 
+;;; Inference loop
+
 (defn pgibbs-sweep
   "a single PGibbs sweep"
   [prog retained-particle number-of-particles]
-  (loop [particles (repeatedly number-of-particles
-                               #(exec ::algorithm prog nil initial-state))]
+  (loop [particles 
+         (conj
+          (repeatedly (- number-of-particles 1)
+                      #(exec ::algorithm prog nil initial-state))
+          (exec ::algorithm prog nil
+                (retained-initial-state (:state retained-particle))))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec ::algorithm (:cont %) nil (:state %))
-                 (resample particles)))
-
+                 (conj (resample particles (- number-of-particles 1))
+                       (update-in (first particles)
+                                  [:state] set-log-weight 0.))))
+                       
      (every? #(instance? embang.trap.result %) particles)
-     ;; TODO
      (resample particles)
      
      :else (throw (AssertionError.
@@ -82,9 +91,11 @@
                                         output-format]
                                  :or {number-of-particles 2
                                       output-format :clojure}}]
-  (loop [i 0]
+  (loop [i 0
+         retained-particle nil]
     (when-not (= i number-of-sweeps)
-      (doseq [res (smc-sweep ::algorithm prog initial-state number-of-particles)]
-        (println (::past-samples (:state res)))
-        (print-predicts (:state res) output-format))
-      (recur (inc i)))))
+      (let [particles (pgibbs-sweep
+                       prog retained-particle number-of-particles)]
+        (doseq [res particles]
+          (print-predicts (:state res) output-format))
+        (recur (inc i) (rand-nth particles))))))
