@@ -1,4 +1,5 @@
 (ns embang.pgibbs
+  (:require embang.smc)
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [observe sample]]))
