@@ -1,7 +1,7 @@
 # embang
 
 embang, or __m!__, is an implementation of
-[Anglican](http://www.robots.ox.ac.uk/~fwood/anglican/), inside
+[Anglican](http://www.robots.ox.ac.uk/~fwood/anglican/) inside
 Clojure. An Anglican program is translated into Clojure using
 macros, converted into CPS, and executed with different
 inference algorithms. Some understanding of using CPS
