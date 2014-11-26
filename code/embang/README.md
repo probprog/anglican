@@ -5,8 +5,8 @@ embang, or __m!__, is an implementation of
 Clojure. An Anglican program is translated into Clojure using
 macros, converted into CPS, and executed with different
 inference algorithms. Some understanding of using CPS
-transformation for probabilistic program can be obtained from
-the online book[The Design and Implementation Of Probabilistic
+transformation for probabilistic programs can be obtained from
+the online book [The Design and Implementation Of Probabilistic
 Programming Languages](http://dippl.org/). However, the
 implementation of __m!__  deviates in many ways from the approach
 outlined in the book.
@@ -15,9 +15,9 @@ outlined in the book.
 
 Use git to download from https://bitbucket.org/dtolpin/mappp:
 
-	$ git checkout https://bitbucket.org/dtolpin/mappp
+	$ git clone https://bitbucket.org/dtolpin/mappp
 
-embang is in `code/embang`.
+__m!__ is in `code/embang`.
 
 ## Usage
 
@@ -61,7 +61,7 @@ point of view.
 ### Running programs
 
 Anglican programs can be run either from the command line
-or in the REPL. The simples way to run the programs in the
+or in the REPL. The simplest way to run the programs in the
 REPL is to use the `-main` function and pass it the command-line
 arguments:
 
@@ -95,7 +95,8 @@ logi for anglican.logi).
 
 ## Examples
 
-Some program examples are in 'src/angsrc'. If you want to do it from the repl:
+Some program examples are in 'src/angsrc'. If you want to run
+programs from the repl:
 
 	(-main "--help")
 
@@ -106,7 +107,7 @@ will print the command-line options.
 
 will run the inference on the 'simple branching' example. The
 example itself is in 'src/angsrc/branching.clj'. You can also
-run the same from the command line:
+run the same example from the command line:
 
 	lein run -- -a pgibbs \\
 	  -o ":number-of-sweeps 50 :number-of-particles 100" angsrc.hmm
