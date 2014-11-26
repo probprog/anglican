@@ -1,6 +1,11 @@
 # embang
 
-FIXME: description
+embang, or m!, is an implementation of [Anglican](http://www.robots.ox.ac.uk/~fwood/anglican/),
+inside Clojure. An Anglican program is translated into Clojure using macros, converted into
+CPS, and executed with different inference algorithms. Some understanding of using CPS transformation
+for probabilistic program can be obtained from the online book[The Design and Implementation
+Of Probabilistic Programming Languages](http://dippl.org/). However, the implementation of m!
+deviates in many ways from the approach outlined in the book.
 
 ## Installation
 
