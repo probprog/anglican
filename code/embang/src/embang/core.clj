@@ -2,7 +2,8 @@
   (:gen-class)
   (:require [clojure.string :as str]
             [clojure.tools.cli :refer [parse-opts]])
-  (:use [embang.inference :only [infer]]))
+  (:use [embang.inference :only [infer]])
+  (:use [embang.results]))
 
 (defn load-program
   "loads program from clojure module"
@@ -95,3 +96,13 @@ Options:
             (binding [*out* *err*]
               (printf "ERROR loading namespace 'embang.%s':\n\t%s\n"
                       (:inference-algorithm options) e))))))))
+
+(defn -cmd
+  "auxiliary commands"
+  [& args]
+  (assert (= (count args) 1) "Usage: embang/-cmd COMMAND")
+  (case 
+    (keyword (first args))
+    :freqs (freqs)
+    (binding [*out* *err*]
+      (println "Unrecognized command: %s" (first args)))))
