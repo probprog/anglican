@@ -3,6 +3,16 @@
             [clojure.string :as str]))
 
 (defmacro redir
+  "Input/output redirection macro,
+  useful for running inference and processing results
+  from the REPL. The syntax is:
+
+    (redir [:in \"input-file-name\" :out \"output-file-name\"] 
+      actions ...)
+
+  Either :in or :out (or both) can be omitted.
+  if the output file name begins with '+', '+' is removed
+  and the output is appended to the file."
   [[& {:keys [in out] :as args}]  & body]
   (cond
     in 
@@ -30,7 +40,7 @@
   integer-valued predict"
   ([iname] (redir [:in iname] (freqs)))
   ([]
-   (loop [lines (line-seq *in*)
+   (loop [lines (line-seq (io/reader *in*))
           weights {}]
      (if (seq lines)
        (let [[line & lines] lines
