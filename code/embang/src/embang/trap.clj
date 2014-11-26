@@ -243,8 +243,7 @@
   [args cont]
   (make-of-args args
                 (fn [acall]
-                  (let [rator (first acall)
-                        rands (rest acall)]
+                  (let [[rator & rands] acall]
                     (if (primitive-procedure? rator)
                       `(~cont (apply ~@acall) ~'$state) ; clojure `apply'
                       (do (assert-no-pp rands "primitive procedure as operand")
@@ -257,8 +256,7 @@
   [exprs cont]
   (make-of-args exprs
                 (fn [call]
-                  (let [rator (first call)
-                        rands (rest call)]
+                  (let [[rator & rands] call]
                     (if (primitive-procedure? rator)
                       `(~cont ~call ~'$state)
                       (do (assert-no-pp rands "primitive procedure as operand")
@@ -316,9 +314,9 @@
      boolean double long str
 
      ;; data structures
-     list conj concat          ; constructors
-     count                     ; properties
-     first second nth rest     ; accessors
+     list conj concat                   ; constructors
+     count                              ; properties
+     first second nth rest              ; accessors
 
      ;; console I/O, for debugging
      prn

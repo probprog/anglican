@@ -38,8 +38,9 @@
   [(update-in state [::future-samples] rest) 
    (first (::future-samples state))])
 
-(defn forget-retained-samples
-  "returns the updated state with future samples removed"
+(defn release-retained-state
+  "returns the updated state with ::future-samples removed,
+  so that next random choices are sampled rather than restored"
   [state]
   (if (retained-state? state)
     (assoc state ::future-samples [])
@@ -76,12 +77,25 @@
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec ::algorithm (:cont %) nil (:state %))
-                 (conj (resample particles (- number-of-particles 1))
-                       (update-in (first particles)
-                                  [:state] set-log-weight 0.))))
+                 (conj 
+                 
+                  ;; Resample all but one from all particles
+                  ;; including the retained one, but release the
+                  ;; retained state so that the choices in
+                  ;; resampled particles are drawn rather than
+                  ;; recovered.
+                  (resample 
+                   (conj (rest particles)
+                         (update-in (first particles) [:state]
+                                    release-retained-state))
+                   (- number-of-particles 1))
+
+                  ;; Add the retained particle at the first position.
+                  (update-in (first particles) [:state]
+                             set-log-weight 0.))))
                        
      (every? #(instance? embang.trap.result %) particles)
-     (resample particles)
+     particles
      
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))

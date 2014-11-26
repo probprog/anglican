@@ -24,7 +24,7 @@
                  (resample particles)))
 
      (every? #(instance? embang.trap.result %) particles)
-     (resample particles)
+     particles
      
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))

@@ -42,9 +42,8 @@
   "resamples particles proportionally to their current weights"
   ([particles] (resample particles (count particles)))
   ([particles number-of-new-particles]
-   (let [log-weights (map (comp get-log-weight :state) particles)
-         max-log-weight (reduce max log-weights)
-         weights (map #(Math/exp (- % max-log-weight)) log-weights)
+   (let [weights (map (comp #(Math/exp %) get-log-weight :state)
+                      particles)
          total-weight (reduce + weights)]
 
      (if (= total-weight 0.) particles   ; all particles have
@@ -57,8 +56,8 @@
              all-particles particles]
 
          (loop [x (rand total-weight)
-                n 0
-                acc 0
+                n 0      ; number of particles sampled so far
+                acc 0    ; upper bound of the current segment
                 weights weights
                 particles particles
                 new-particles nil]
@@ -68,11 +67,19 @@
                    [particle & next-particles] particles
                    next-acc (+ acc weight)]
                (if (< x next-acc)
+
+                 ;; Found the wheel segment into which x has fallen.
+                 ;; Advance x by step for the next particle's segment.
                  (recur (+ x step) (+ n 1) 
                         acc weights particles
                         (conj new-particles
-                              (update-in particle [:state]
-                                         set-log-weight 0.)))
+                              (update-in
+                                particle [:state]
+                                set-log-weight 0.)))
+
+                 ;; Otherwise, keep going through the particle's 
+                 ;; segments, recycling the list of particles and
+                 ;; their weights when necessary.
                  (recur x n
                         next-acc
                         (or next-weights all-weights)
