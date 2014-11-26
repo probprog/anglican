@@ -1,7 +1,8 @@
 (ns embang.pgibbs
-  (:require embang.smc)
+  (:require embang.smc) ; observe checkpoint inherited
   (:use [embang.state :exclude [initial-state]]
         embang.inference
+        [embang.smc :only [resample]]
         [embang.runtime :only [observe sample]]))
 
 ;;;; PGibbs
