@@ -63,15 +63,53 @@ point of view.
 Anglican programs can be run either from the command line
 or in the REPL. The simples way to run the programs in the
 REPL is to use the `-main` function and pass it the command-line
-arguments.
+arguments:
 
+     lein run namespace [program] [option ...]
 
-## Options
+from the command line, or:
+
+     (-main "namespace" ["program"] ["option" ...])
+
+in the REPL, where 'namespace' is the namespace containing the
+embedded Anglican program to run, for example:
+
+	  bash$ lein run angsrc.branching -a pgibbs \
+				-o ":number-of-sweeps 10 :number-of-particles 50"
+
+	  embang.core=> (-main "angsrc.branching" "-a" "pgibbs"
+			   "-o" ":number-of-sweeps 10 :number-of-particles 50")
+			   
+'program' is the first argument of 'defanglican'. The namespace
+may contain multiple programs. If 'program' is omitted, it defaults
+to the last component of the namespace (hmm for anglican.hmm,
+logi for anglican.logi).
+
+#### Options:
+
+	-a, --inference-algorithm NAME   importance  Inference algorithm
+	-d, --debug                                  Print debugging information
+	-o, --algorithm-options OPTIONS  []          Algorithm options
+	-h, --help                                   print usage summary and exit
 
 
 ## Examples
 
-TODO
+Some program examples are in 'src/angsrc'. If you want to do it from the repl:
+
+	(-main "--help")
+
+will print the command-line options.
+
+	(-main "-a" "pgibbs" "angsrc.branching" "-o"
+     	":number-of-sweeps 50 :number-of-particles 100 :output-format :anglican")
+
+will run the inference on the 'simple branching' example. The
+example itself is in 'src/angsrc/branching.clj'. You can also
+run the same from the command line:
+
+	lein run -- -a pgibbs \\
+	  -o ":number-of-sweeps 50 :number-of-particles 100" angsrc.hmm
 
 ## License
 
