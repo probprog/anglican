@@ -10,10 +10,6 @@
 
 (derive ::algorithm :embang.inference/algorithm)
 
-(defmethod checkpoint [::algorithm embang.trap.observe] [algorithm obs]
-  #((:cont obs) nil (add-log-weight (:state obs)
-                                    (observe (:dist obs) (:value obs)))))
-
 (defmethod infer :importance [_ prog & {:keys [number-of-samples
                                                output-format]
                                         :or {output-format :clojure}}]
