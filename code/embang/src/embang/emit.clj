@@ -34,7 +34,7 @@
 ;; into CPS.
 
 (defmacro cps-fn
-  "converts functional value to CPS,
+  "converts function to CPS,
   useful for defining functions outside of defanglican"
   [& args]
   `(~'let [~'$state nil]
@@ -58,6 +58,6 @@
 ;; than Clojure syntax. 
 
 (defmacro def-lambda 
-  "defines variable in clojure syntax"
+  "binds variable to function in Anglican syntax"
   [name & args]
   `(def-cps-fn ~@(next (alambda name args))))
