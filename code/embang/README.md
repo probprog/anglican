@@ -100,8 +100,8 @@ logi for anglican.logi).
 
 ## Examples
 
-Some program examples are in 'src/angsrc'. If you want to run
-programs from the repl:
+Some program examples are in [`src/angsrc`](src/angsrc/).
+If you want to run programs from the repl:
 
 	(-main "--help")
 
