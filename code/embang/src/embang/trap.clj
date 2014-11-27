@@ -335,4 +335,4 @@
      normal
      poisson
      uniform-continuous
-     uniform-discrete)
+     uniform-discrete})

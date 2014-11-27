@@ -58,6 +58,10 @@ point of view.
   return distribution objects. To obtain a sample from the
   object, `sample` must be called explicitly on the object.
 
+Functions can be defined outside Anglican programs, and
+implemented either in Clojure or in Anglican. See 
+`src/angsrc/branching.clj` for examples.
+
 ### Running programs
 
 Anglican programs can be run either from the command line
