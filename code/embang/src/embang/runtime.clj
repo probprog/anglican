@@ -102,6 +102,23 @@
       (prob [this value] 
         (/ (nth weights value) total-weight)))))
 
+(declare gamma)
+
+(defn dirichlet
+  "Diriclhet distribution"
+  ;; borrowed from Anglican runtime
+  [alpha]
+  (reify distribution
+    (draw [this]
+      (let [g (map #(draw (gamma % 1)) alpha)
+            t (reduce + g)]
+        (map #(/ % t) g)))
+
+    (prob [this value]
+      (assert false "not implemented"))))
+
+  
+
 (from-incanter exponential [rate])
 
 (defn flip

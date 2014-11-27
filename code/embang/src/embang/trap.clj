@@ -327,8 +327,6 @@
      ;; ERPs (alphabetically)
      beta
      binomial
-     categorical
-     dirac
      dirichlet
      discrete
      exponential
@@ -337,10 +335,4 @@
      normal
      poisson
      uniform-continuous
-     uniform-discrete
-     wishart
-
-     ;; XRPs (alphabetically)
-     beta-flip
-     crp
-     normal-with-known-std})
+     uniform-discrete)
