@@ -42,7 +42,7 @@ Multiple programs may reside within the same namespace.  By
 convention, the default program (whatever this means) has the
 same name as the last component in the namespace name.  Place
 the program in an appopriate location in Clojure directory
-layout; the example above should go into `src/angsrc`
+layout; the example above should go into [`src/angsrc`](src/angsrc/)
 subdirectory of __m!__ tree.
 
 The language is essentially compatible with Anglican, with 
