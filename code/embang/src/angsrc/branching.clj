@@ -39,10 +39,10 @@
 ;; written in Clojure.
 
 (def-cps-fn cfib [n]
-            (cond (= n 0) 0
-                  (= n 1) 1
-                  :else (+ (cfib (- n 1))
-                           (cfib (- n 2)))))
+  (cond (= n 0) 0
+        (= n 1) 1
+        :else (+ (cfib (- n 1))
+                 (cfib (- n 2)))))
 
 (defanglican clojure-fib
   "simple branching with fib implemented in Clojure"
