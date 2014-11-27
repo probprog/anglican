@@ -60,7 +60,7 @@ point of view.
 
 Functions can be defined outside Anglican programs, and
 implemented either in Clojure or in Anglican. See 
-[`src/angsrc/branching.clj`](https://bitbucket.org/dtolpin/mappp/src/HEAD/code/embang/src/angsrc/branching.clj)
+[`src/angsrc/branching.clj`](src/angsrc/branching.clj)
 for examples.
 
 ### Running programs
