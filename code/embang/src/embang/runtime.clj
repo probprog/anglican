@@ -102,22 +102,52 @@
       (prob [this value] 
         (/ (nth weights value) total-weight)))))
 
-(declare gamma)
+(declare gamma)              ; distribution, used to sample
+                             ; from the Dirichlet distribution
+(let [p [0.99999999999980993
+         676.5203681218851
+         -1259.1392167224028
+         771.32342877765313
+         -176.61502916214059
+         12.507343278686905
+         -0.13857109526572012
+         9.9843695780195716e-6
+         1.5056327351493116e-7]]
+
+  (defn gamma-function
+    "gamma function --- Lanczos approximation (from Wikipedia)"
+    [z]
+    ;; reflection formula
+    (if (< z 0.5)
+      (/ Math/PI 
+         (* (sin (* Math/PI z)) (gamma-function (- 1. z))))
+      (let [z (- z 1.)]
+        (loop [x (p 0)
+               i 1]
+          (if (not= i (count p))
+            (recur (+ x (/ (p i) (+ z i))) (inc i))
+            (let [t (+ z (count p) -1.5)]
+              (* (Math/sqrt (* 2 Math/PI))
+                 (Math/pow t (+ z 0.5))
+                 (Math/exp (- t))
+                 x))))))))
 
 (defn dirichlet
   "Diriclhet distribution"
   ;; borrowed from Anglican runtime
   [alpha]
-  (reify distribution
-    (draw [this]
-      (let [g (map #(draw (gamma % 1)) alpha)
-            t (reduce + g)]
-        (map #(/ % t) g)))
-
-    (prob [this value]
-      (assert false "not implemented"))))
-
-  
+  (let [Z (/ (reduce * (map gamma-function alpha))
+             (gamma-function (reduce + alpha)))]
+    (reify distribution
+      (draw [this]
+        (let [g (map #(draw (gamma % 1)) alpha)
+              t (reduce + g)]
+          (map #(/ % t) g)))
+      (prob [this value]
+        (/ (reduce * (map (fn [v a] (Math/pow v (- a 1))) 
+                          value
+                          alpha))
+           Z)))))
 
 (from-incanter exponential [rate])
 
