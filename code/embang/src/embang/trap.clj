@@ -1,5 +1,5 @@
 (ns embang.trap
-  (:use [embang.state :only [in-mem? get-mem set-mem add-predict]]))
+  (:use embang.state))
 
 ;;; Trampoline-ready Anglican program 
 
@@ -246,8 +246,10 @@
                   (let [[rator & rands] acall]
                     (if (primitive-procedure? rator)
                       `(~cont (apply ~@acall) ~'$state) ; clojure `apply'
-                      (do (assert-no-pp rands "primitive procedure as operand")
-                          `(~'fn [] (apply ~rator ~cont ~'$state ~@rands))))))))
+                      (do (assert-no-pp rands
+                                        "primitive procedure as operand")
+                          `(~'fn [] (apply ~rator
+                                           ~cont ~'$state ~@rands))))))))
 
 (defn cps-of-application
   "transforms application to cps;
@@ -259,7 +261,8 @@
                   (let [[rator & rands] call]
                     (if (primitive-procedure? rator)
                       `(~cont ~call ~'$state)
-                      (do (assert-no-pp rands "primitive procedure as operand")
+                      (do (assert-no-pp rands
+                                        "primitive procedure as operand")
                           `(~'fn [] (~rator ~cont ~'$state ~@rands))))))))
 
 (defn cps-of-expr

@@ -69,7 +69,8 @@
         mem    (amem name args)
         cond   (acond args)
         begin  (abegin args)
-        ;; other forms (if, and, or, application) have  compatible structure
+        ;; other forms (if, and, or, application)
+        ;;  have compatible structure
         (aform expr)))
     (case expr
       ;; replace variable names `do' and `fn' by `begin' and `lambda',

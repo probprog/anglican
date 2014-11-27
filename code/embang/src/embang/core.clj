@@ -3,7 +3,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.cli :refer [parse-opts]])
   (:use [embang.inference :only [infer]])
-  (:use [embang.results]))
+  (:use embang.results))
 
 (defn load-program
   "loads program from clojure module"
@@ -38,10 +38,10 @@ embedded Anglican program to run, for example:
 
   bash$ lein run angsrc.branching -a pgibbs \\
             -o \":number-of-sweeps 10 :number-of-particles 50\"
-  
+
   embang.core=> (-main \"angsrc.branching\" \"-a\" \"pgibbs\"
            \"-o\" \":number-of-sweeps 10 :number-of-particles 50\")
-`program' is the first argument of `defanglican'. The namespace 
+`program' is the first argument of `defanglican'. The namespace
 may contain multiple programs. If `program' is omitted, it defaults
 to the last component of the namespace (hmm for anglican.hmm,
 logi for anglican.logi).
@@ -69,11 +69,14 @@ Options:
       :else
       (let [[nsname progname] (if (next arguments) arguments
                                 [(first arguments)
-                                 (str/replace (first arguments) #".+\." "")])
+                                 (str/replace (first arguments)
+                                              #".+\." "")])
             inference-algorithm (:inference-algorithm options)
             algorithm-options (:algorithm-options options)]
 
-        (printf ";; Program: %s/%s\n;; Inference algorithm: %s\n;; Algorithm options: %s\n"
+        (printf (str ";; Program: %s/%s\n"
+                     ";; Inference algorithm: %s\n"
+                     ";; Algorithm options: %s\n")
                 nsname progname
                 (:inference-algorithm options)
                 (str/join
@@ -84,7 +87,8 @@ Options:
 
         ;; load the algorithm namespace dynamically
         (try
-          (require (symbol (format "embang.%s" (:inference-algorithm options))))
+          (require (symbol (format "embang.%s"
+                                   (:inference-algorithm options))))
 
           ;; load the program
           (try
@@ -102,7 +106,8 @@ Options:
             ;; otherwise, could not load the program
             (catch Exception e
               (binding [*out* *err*]
-                (printf "ERROR loading program '%s/%s':\n\t%s\n"  nsname progname e)
+                (printf "ERROR loading program '%s/%s':\n\t%s\n"
+                        nsname progname e)
                 (flush)
                 (when (:debug options)
                   (.printStackTrace e)))))
@@ -117,7 +122,7 @@ Options:
   "auxiliary commands"
   [& args]
   (assert (= (count args) 1) "Usage: embang.core/-cmd COMMAND")
-  (case 
+  (case
     (keyword (first args))
     :freqs (freqs)
     (binding [*out* *err*]
