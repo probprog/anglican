@@ -263,7 +263,7 @@
 
 (defn cps-of-atomic
   "transforms atomic expression to CPS"
-  [expr]
+  [expr cont]
   `(~cont ~(if (primitive-procedure? expr)
              (let [cont (*gensym* "C")
                    parms (*gensym* "P")]
