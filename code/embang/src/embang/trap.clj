@@ -94,7 +94,7 @@
                 ~'$state)))))
 
 (defn cps-of-let
-  "transforms let to cps"
+  "transforms let to CPS"
   [[bindings & body] cont]
   (if (seq bindings)
     (let [[name value & bindings] bindings]
@@ -125,7 +125,7 @@
               ~(~cps-of ~@(butlast parms) ~'named-cont)))))))
 
 (defn-with-named-cont
-  ^{:doc "transforms if to cps"}
+  ^{:doc "transforms if to CPS"}
   cps-of-if
   [[cnd thn els] cont]
   (if (simple-expr? cnd)
@@ -140,7 +140,7 @@
                         ~(cps-of-expr els cont)))))))
 
 (defn-with-named-cont
-  ^{:doc "transforms cond to cps"}
+  ^{:doc "transforms cond to CPS"}
   cps-of-cond
   [clauses cont]
   (if clauses
@@ -149,7 +149,7 @@
     (cps-of-expr nil cont)))
 
 (defn cps-of-do
-  "transforms do to cps"
+  "transforms do to CPS"
   [exprs cont]
   (cps-of-elist exprs cont))
 
@@ -180,7 +180,7 @@
        (make-of-slist substs)))))
 
 (defn cps-of-predict
-  "transforms predict to cps,
+  "transforms predict to CPS,
   predict appends predicted expression
   and its value to (:predicts $state)"
   [args cont]
@@ -190,7 +190,7 @@
                                            ~label ~value)))))
 
 (defn cps-of-observe
-  "transforms observe to cps,
+  "transforms observe to CPS,
   observe updates the weight by adding
   the result of observe (log-probability)
   to the log-weight"
@@ -201,7 +201,7 @@
                               ~dist ~value ~cont ~'$state))))
 
 (defn cps-of-sample
-  "transforms sample to cps;
+  "transforms sample to CPS;
   on sample the program is interrupted
   and the control is transferred to the inference algorithm"
   [args cont]
@@ -211,7 +211,7 @@
                              ~dist ~cont ~'$state))))
 
 (defn cps-of-mem
-  "transforms mem to cps"
+  "transforms mem to CPS"
   [[[_ & args]] cont]
   (let [mcont (*gensym* "C")
         id (*gensym* "M")
@@ -237,7 +237,7 @@
             ~'$state)))
 
 (defn cps-of-apply
-  "transforms apply to cps;
+  "transforms apply to CPS;
   apply of user-defined (not primitive) procedures
   is trampolined --- wrapped into a parameterless closure"
   [args cont]
@@ -250,7 +250,7 @@
                                        ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-application
-  "transforms application to cps;
+  "transforms application to CPS;
   application of user-defined (not primitive) procedures
   is trampolined --- wrapped into a parameterless closure"
   [exprs cont]
@@ -261,11 +261,21 @@
                       `(~cont ~call ~'$state)
                       `(~'fn [] (~rator ~cont ~'$state ~@rands)))))))
 
+(defn cps-of-atomic
+  "transforms atomic expression to CPS"
+  [expr]
+  `(~cont ~(if (primitive-procedure? expr)
+             (let [cont (*gensym* "C")
+                   parms (*gensym* "P")]
+               `(~'fn [~cont ~'$state & ~parms]
+                  (~cont (~'apply ~expr ~parms) ~'$state)))
+             expr)
+          ~'$state))
+
 (defn cps-of-expr
+  "dispatches CPS transformation by expression type"
   [expr cont]
-  (cond
-    (nil? expr) `(~cont ~expr ~'$state)
-    (seq? expr)
+  (if (seq? expr)
     (let [[kwd & args] expr]
       (case kwd
         quote   `(~cont ~expr ~'$state)
@@ -282,13 +292,7 @@
         ;; application
         (cps-of-application expr cont)))
     ;; atomic
-    :else `(~cont ~(if (primitive-procedure? expr)
-                     (let [cont (*gensym* "C")
-                           parms (*gensym* "P")]
-                       `(~'fn [~cont ~'$state & ~parms]
-                          (~cont (~'apply ~expr ~parms) ~'$state)))
-                     expr)
-                  ~'$state)))
+    (cps-of-atomic expr)))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
