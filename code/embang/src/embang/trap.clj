@@ -1,7 +1,7 @@
 (ns embang.trap
   (:use embang.state))
 
-;;; Trampoline-ready Anglican program 
+;;; Trampoline-ready Anglican program
 
 ;; The input to this ransformations is an Anglican program in
 ;; clojure syntax (embang.xlat). The output is a Clojure function
@@ -33,7 +33,7 @@
 ;; run the function on the initial state
 ;; and return the final state wrapped into `result'.
 
-(defn run-cont [f s] 
+(defn run-cont [f s]
   (f (fn [v s] (->result (state-cont v s))) s))
 
 (defn primitive-procedure?
@@ -46,12 +46,6 @@
 ;; by the name. This means that a primitive procedure can
 ;; only appear in call position, and a primitive procedure
 ;; name cannot be rebound locally.
-
-(defmacro ^:private assert-no-pp 
-  "asserts that none of exprs is a primitive procedure"
-  [exprs message]
-  `(assert (not-any? primitive-procedure? ~exprs)
-           (str ~message ": " (some primitive-procedure? ~exprs))))
 
 (defn simple-expr?
   "true if expr has no continuation"
@@ -92,28 +86,30 @@
     (cps-of-fn `[nil ~@args] cont)
     (let [[name parms & body] args
           fncont (*gensym* "C")]
-      (assert-no-pp parms "primitive procedure as parameter")
-      `(~cont (~'fn ~@(when name [name])
-                [~fncont ~'$state ~@parms]
-                ~(cps-of-elist body fncont))
-              ~'$state))))
+      (binding [*primitive-procedures*
+                (reduce disj *primitive-procedures* parms)]
+        `(~cont (~'fn ~@(when name [name])
+                  [~fncont ~'$state ~@parms]
+                  ~(cps-of-elist body fncont))
+                ~'$state)))))
 
 (defn cps-of-let
   "transforms let to cps"
   [[bindings & body] cont]
   (if (seq bindings)
-    (let [[name value & bindings] bindings
-          rst (cps-of-let `(~bindings ~@body) cont)]
-      (assert-no-pp [name] "primitive procedure name rebound")
-      (if (and (simple-expr? value)
-               (not (primitive-procedure? value)))
-        `(~'let [~name ~value]
-           ~rst)
-        (cps-of-expr value
-                     (let [value (*gensym* "V")]
-                       `(~'fn [~value ~'$state]
-                          (~'let [~name ~value]
-                            ~rst))))))
+    (let [[name value & bindings] bindings]
+      (binding [*primitive-procedures*
+                (disj *primitive-procedures* name)]
+        (let [rst (cps-of-let `(~bindings ~@body) cont)]
+          (if (and (simple-expr? value)
+                   (not (primitive-procedure? value)))
+            `(~'let [~name ~value]
+               ~rst)
+            (cps-of-expr value
+                         (let [value (*gensym* "V")]
+                           `(~'fn [~value ~'$state]
+                              (~'let [~name ~value]
+                                ~rst))))))))
     (cps-of-elist body cont)))
 
 (defmacro ^:private defn-with-named-cont
@@ -143,7 +139,7 @@
                         ~(cps-of-expr thn cont)
                         ~(cps-of-expr els cont)))))))
 
-(defn-with-named-cont 
+(defn-with-named-cont
   ^{:doc "transforms cond to cps"}
   cps-of-cond
   [clauses cont]
@@ -209,7 +205,7 @@
   on sample the program is interrupted
   and the control is transferred to the inference algorithm"
   [args cont]
-  (make-of-args args 
+  (make-of-args args
                 (fn [[dist]]
                   `(->sample '~(*gensym* "S")
                              ~dist ~cont ~'$state))))
@@ -269,7 +265,7 @@
   [expr cont]
   (cond
     (nil? expr) `(~cont ~expr ~'$state)
-    (seq? expr) 
+    (seq? expr)
     (let [[kwd & args] expr]
       (case kwd
         quote   `(~cont ~expr ~'$state)
@@ -299,7 +295,7 @@
   '#{;; tests
      boolean? symbol? string? proc? number?
      ratio? integer? float? even? odd?
-     nil? some? empty? list? seq?  
+     nil? some? empty? list? seq?
 
      ;; custom math tests
      isfinite? isnan?

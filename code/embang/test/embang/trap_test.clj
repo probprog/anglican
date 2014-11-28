@@ -19,14 +19,12 @@
       (is (primitive-procedure? 'inc) "inc is primitive")
       (is (not (primitive-procedure? 'fact))
           "fact is not primitive")
-      (is (try (cps-of-expr '(fn [dec] dec) '_)
-               false
-               (catch AssertionError e true))
-          "primitive procedure name can't be used as parameter")
-      (is (try (cps-of-expr '(let [dec 1] dec) '_)
-               false
-               (catch AssertionError e true))
-          "primitive procedure name can't be used in local binding")
+      (is (= (cps-of-expr '(fn [dec] dec) 'ret)
+             '(ret (fn [C $state dec] (C dec $state)) $state))
+          "primitive procedure name can be used as parameter")
+      (is (= (cps-of-expr '(let [dec 1] dec) 'ret)
+             '(let [dec 1] (ret dec $state)))
+          "primitive procedure name can be locally rebound")
       (is (= (cps-of-expr '(let [x dec] (x 1)) 'ret)
              '((fn [V $state] (let [x V] (fn [] (x ret $state 1))))
                (fn
@@ -42,7 +40,7 @@
                   $state))
                (fn [C $state & P] (C (apply inc P) $state))
                $state))
-          "primitive procedure can be passed as a parameter"))))
+          "primitive procedure can be passed as an argument"))))
 
 (deftest test-cps-of-fn
   (binding [*gensym* symbol]
