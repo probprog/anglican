@@ -62,61 +62,66 @@ Options:
 
     ;; Handle help and error conditions.
     (cond
-      (:help options) (binding [*out* *err*]
-                        (println (usage summary)))
-      errors (binding [*out* *err*]
-               (println (error-msg errors)))
-      :else
-      (let [[nsname progname] (if (next arguments) arguments
-                                [(first arguments)
-                                 (str/replace (first arguments)
-                                              #".+\." "")])
-            inference-algorithm (:inference-algorithm options)
-            algorithm-options (:algorithm-options options)]
+     (:help options) (binding [*out* *err*]
+                       (println (usage summary)))
+     
+     errors (binding [*out* *err*]
+              (println (error-msg errors)))
 
-        (printf (str ";; Program: %s/%s\n"
-                     ";; Inference algorithm: %s\n"
-                     ";; Algorithm options: %s\n")
-                nsname progname
-                (:inference-algorithm options)
-                (str/join
-                  (map (fn [[name value]]
-                         (format "\n;;\t%s %s" name value))
-                       (partition 2 (:algorithm-options options)))))
-        (flush)
+     (empty? arguments) (binding [*out* *err*]
+                          (println (usage summary)))
 
-        ;; load the algorithm namespace dynamically
-        (try
-          (require (symbol (format "embang.%s"
-                                   (:inference-algorithm options))))
+     :else
+     (let [[nsname progname] (if (next arguments) arguments
+                                 [(first arguments)
+                                  (str/replace (first arguments)
+                                               #".+\." "")])
+           inference-algorithm (:inference-algorithm options)
+           algorithm-options (:algorithm-options options)]
 
-          ;; load the program
-          (try
-            (let [program (load-program nsname progname)]
-              ;; if loaded, run the inference.
-              (try
-                (apply infer (keyword (:inference-algorithm options))
-                       program (:algorithm-options options))
-                (catch Exception e
-                  (binding [*out* *err*]
-                    (printf "Error during inference: %s\n" e))
-                  (when (:debug options)
-                    (.printStackTrace e)))))
+       (printf (str ";; Program: %s/%s\n"
+                    ";; Inference algorithm: %s\n"
+                    ";; Algorithm options: %s\n")
+               nsname progname
+               (:inference-algorithm options)
+               (str/join
+                (map (fn [[name value]]
+                       (format "\n;;\t%s %s" name value))
+                     (partition 2 (:algorithm-options options)))))
+       (flush)
 
-            ;; otherwise, could not load the program
-            (catch Exception e
-              (binding [*out* *err*]
-                (printf "ERROR loading program '%s/%s':\n\t%s\n"
-                        nsname progname e)
-                (flush)
-                (when (:debug options)
-                  (.printStackTrace e)))))
+       ;; load the algorithm namespace dynamically
+       (try
+         (require (symbol (format "embang.%s"
+                                  (:inference-algorithm options))))
 
-          ;; otherwise, could not load the namespace
-          (catch Exception e
-            (binding [*out* *err*]
-              (printf "ERROR loading namespace 'embang.%s':\n\t%s\n"
-                      (:inference-algorithm options) e))))))))
+         ;; load the program
+         (try
+           (let [program (load-program nsname progname)]
+             ;; if loaded, run the inference.
+             (try
+               (apply infer (keyword (:inference-algorithm options))
+                      program (:algorithm-options options))
+               (catch Exception e
+                 (binding [*out* *err*]
+                   (printf "Error during inference: %s\n" e))
+                 (when (:debug options)
+                   (.printStackTrace e)))))
+
+           ;; otherwise, could not load the program
+           (catch Exception e
+             (binding [*out* *err*]
+               (printf "ERROR loading program '%s/%s':\n\t%s\n"
+                       nsname progname e)
+               (flush)
+               (when (:debug options)
+                 (.printStackTrace e)))))
+
+         ;; otherwise, could not load the namespace
+         (catch Exception e
+           (binding [*out* *err*]
+             (printf "ERROR loading namespace 'embang.%s':\n\t%s\n"
+                     (:inference-algorithm options) e))))))))
 
 (defn -cmd
   "auxiliary commands"

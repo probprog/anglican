@@ -292,7 +292,7 @@
         ;; application
         (cps-of-application expr cont)))
     ;; atomic
-    (cps-of-atomic expr)))
+    (cps-of-atomic expr cont)))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
