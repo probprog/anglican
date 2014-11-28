@@ -14,22 +14,35 @@
     (is (not (simple-expr? '(fn [] 1))) "fn is never simple")))
 
 (deftest test-primitive-procedure
-  (testing "primitive-procedure?"
-    (is (primitive-procedure? 'inc) "inc is primitive")
-    (is (not (primitive-procedure? 'fact))
-             "fact is not primitive")
-    (is (try (cps-of-expr '(fn [dec] dec) '_)
-             false
-             (catch AssertionError e true))
-        "primitive procedure name can't be used as parameter")
-    (is (try (cps-of-expr '(let [dec 1] dec) '_)
-             false
-             (catch AssertionError e true))
-        "primitive procedure name can't be used in local binding")
-    (is (try (cps-of-expr '(let [x dec] (x 1)) '_)
-             false
-             (catch AssertionError e true))
-        "primitive procedure can't be locally bound")))
+  (binding [*gensym* symbol]
+    (testing "primitive-procedure?"
+      (is (primitive-procedure? 'inc) "inc is primitive")
+      (is (not (primitive-procedure? 'fact))
+          "fact is not primitive")
+      (is (try (cps-of-expr '(fn [dec] dec) '_)
+               false
+               (catch AssertionError e true))
+          "primitive procedure name can't be used as parameter")
+      (is (try (cps-of-expr '(let [dec 1] dec) '_)
+               false
+               (catch AssertionError e true))
+          "primitive procedure name can't be used in local binding")
+      (is (= (cps-of-expr '(let [x dec] (x 1)) 'ret)
+             '((fn [V $state] (let [x V] (fn [] (x ret $state 1))))
+               (fn
+                 [C $state & P]
+                 (C (apply dec P) $state))
+               $state))
+          "primitive procedure can be locally bound")
+      (is (= (cps-of-expr '(list inc dec) 'ret)
+             '((fn
+                 [A $state]
+                 ((fn [A $state] (ret (list A A) $state))
+                  (fn [C $state & P] (C (apply dec P) $state))
+                  $state))
+               (fn [C $state & P] (C (apply inc P) $state))
+               $state))
+          "primitive procedure can be passed as a parameter"))))
 
 (deftest test-cps-of-fn
   (binding [*gensym* symbol]

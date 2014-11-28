@@ -56,17 +56,17 @@
 (defn simple-expr?
   "true if expr has no continuation"
   [expr]
-  (or (nil? expr)
-      (not (seq? expr))
-      (case (first expr)
-        quote true
-        (begin if cond do) (every? simple-expr? (rest expr))
-        let (let [[_ bindings & body] expr]
-              (and (every? simple-expr? (map second bindings))
-                   (every? simple-expr? body)))
-        ;; application
-        (and (primitive-procedure? (first expr))
-             (every? simple-expr? (rest expr))))))
+  (if (seq? expr)
+    (case (first expr)
+      quote true
+      (begin if cond do) (every? simple-expr? (rest expr))
+      let (let [[_ bindings & body] expr]
+            (and (every? simple-expr? (map second bindings))
+                 (every? simple-expr? body)))
+      ;; application
+      (and (primitive-procedure? (first expr))
+           (every? simple-expr? (rest expr))))
+    (not (primitive-procedure? expr))))
 
 ;; CPS transformation rules
 
@@ -75,7 +75,6 @@
 
 (defn ^:private cps-of-elist
   [exprs cont]
-  (assert-no-pp exprs "primitive procedure as expression")
   (let [[fst & rst] exprs]
     (cps-of-expr fst
                  (if (seq rst)
@@ -106,8 +105,8 @@
     (let [[name value & bindings] bindings
           rst (cps-of-let `(~bindings ~@body) cont)]
       (assert-no-pp [name] "primitive procedure name rebound")
-      (assert-no-pp [value] "primitive procedure locally bound")
-      (if (simple-expr? value)
+      (if (and (simple-expr? value)
+               (not (primitive-procedure? value)))
         `(~'let [~name ~value]
            ~rst)
         (cps-of-expr value
@@ -162,22 +161,27 @@
   "builds lexical bindings for all compound args
   and then calls `make' to build expression
   out of the args; used by predict, observe, sample, application"
-  [args make]
-  (let [substs (map (fn [arg]
-                      (if (simple-expr? arg)
-                        [nil arg]
-                        [arg (*gensym* "A")]))
-                    args)]
-    (letfn [(make-of-slist [slist]
-              (if (seq slist)
-                (let [[[arg subst] & slist] slist]
-                  (if arg ;; is a compound expression
-                    (cps-of-expr arg `(~'fn [~subst ~'$state]
-                                        ~(make-of-slist slist)))
-                    (make-of-slist slist)))
-                (make (map second substs))))]
+  ([args make] (make-of-args args false make))
+  ([args first-is-rator make]
+   (let [substs (map (fn [arg is-rator]
+                       (if (or (simple-expr? arg)
+                                (and is-rator
+                                     (primitive-procedure? arg)))
+                         [nil arg]
+                         [arg (*gensym* "A")]))
+                     args
+                     (cons first-is-rator (repeat false)))]
+     (letfn [(make-of-slist [slist]
+               (if (seq slist)
+                 (let [[[arg subst] & slist] slist]
+                   (if arg ;; is a compound expression
+                     (cps-of-expr arg
+                                  `(~'fn [~subst ~'$state]
+                                         ~(make-of-slist slist)))
+                     (make-of-slist slist)))
+                 (make (map second substs))))]
 
-      (make-of-slist substs))))
+       (make-of-slist substs)))))
 
 (defn cps-of-predict
   "transforms predict to cps,
@@ -241,52 +245,54 @@
   apply of user-defined (not primitive) procedures
   is trampolined --- wrapped into a parameterless closure"
   [args cont]
-  (make-of-args args
+  (make-of-args args :first-is-rator
                 (fn [acall]
                   (let [[rator & rands] acall]
                     (if (primitive-procedure? rator)
                       `(~cont (apply ~@acall) ~'$state) ; clojure `apply'
-                      (do (assert-no-pp rands
-                                        "primitive procedure as operand")
-                          `(~'fn [] (apply ~rator
-                                           ~cont ~'$state ~@rands))))))))
+                      `(~'fn [] (apply ~rator
+                                       ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-application
   "transforms application to cps;
   application of user-defined (not primitive) procedures
   is trampolined --- wrapped into a parameterless closure"
   [exprs cont]
-  (make-of-args exprs
+  (make-of-args exprs :first-is-rator
                 (fn [call]
                   (let [[rator & rands] call]
                     (if (primitive-procedure? rator)
                       `(~cont ~call ~'$state)
-                      (do (assert-no-pp rands
-                                        "primitive procedure as operand")
-                          `(~'fn [] (~rator ~cont ~'$state ~@rands))))))))
+                      `(~'fn [] (~rator ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-expr
   [expr cont]
   (cond
-   (nil? expr) `(~cont ~expr ~'$state)
-   (seq? expr) 
-   (let [[kwd & args] expr]
-     (case kwd
-       quote   `(~cont ~expr ~'$state)
-       fn      (cps-of-fn args cont)
-       let     (cps-of-let args cont)
-       if      (cps-of-if args cont)
-       cond    (cps-of-cond args cont)
-       do      (cps-of-do args cont)
-       predict (cps-of-predict args cont)
-       observe (cps-of-observe args cont)
-       sample  (cps-of-sample args cont)
-       mem     (cps-of-mem args cont)
-       apply   (cps-of-apply args cont)
-       ;; application
-       (cps-of-application expr cont)))
-   ;; atomic
-   :else `(~cont ~expr ~'$state)))
+    (nil? expr) `(~cont ~expr ~'$state)
+    (seq? expr) 
+    (let [[kwd & args] expr]
+      (case kwd
+        quote   `(~cont ~expr ~'$state)
+        fn      (cps-of-fn args cont)
+        let     (cps-of-let args cont)
+        if      (cps-of-if args cont)
+        cond    (cps-of-cond args cont)
+        do      (cps-of-do args cont)
+        predict (cps-of-predict args cont)
+        observe (cps-of-observe args cont)
+        sample  (cps-of-sample args cont)
+        mem     (cps-of-mem args cont)
+        apply   (cps-of-apply args cont)
+        ;; application
+        (cps-of-application expr cont)))
+    ;; atomic
+    :else `(~cont ~(if (primitive-procedure? expr)
+                     (let [cont (*gensym* "C")
+                           parms (*gensym* "P")]
+                       `(~'fn [~cont ~'$state & ~parms]
+                          (~cont (~'apply ~expr ~parms) ~'$state)))
+                     expr)
+                  ~'$state)))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
@@ -309,7 +315,7 @@
      sinh cosh tanh
      log log10 exp
      pow cbrt sqrt
-     
+
      ;; sequence operations
      sum mean normalize range
 
