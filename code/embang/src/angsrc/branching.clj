@@ -20,7 +20,7 @@
 ;; Functions can be defined outside of the program
 ;; body, and used in multiple Anglican programs.
 
-(def-lambda afib (n)
+(defun afib (n)
   (cond ((= n 0) 0)
         ((= n 1) 1)
         (else (+ (afib (- n 1))

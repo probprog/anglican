@@ -77,7 +77,7 @@
   `(overriding-higher-order-functions
     (cps-fn ~@(next (alambda nil args)))))
 
-(defmacro def-lambda 
+(defmacro defun
   "binds variable to function in Anglican syntax"
   [name & args]
   `(overriding-higher-order-functions
