@@ -36,6 +36,8 @@
                                         output-format]
                                  :or {number-of-particles 2
                                       output-format :clojure}}]
+  (assert (>= number-of-particles 1)
+          ":number-of-particles must be at least 1")
   (loop [i 0]
     (when-not (= i number-of-sweeps)
       (doseq [res (smc-sweep prog number-of-particles)]

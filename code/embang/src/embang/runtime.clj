@@ -165,7 +165,7 @@
 (from-incanter uniform-continuous [min max] (uniform min max))
 (from-incanter uniform-discrete [min max] (integer min max))
 
-;; CPS versions of higher order functions.
+;; CPS versions of higher-order functions.
 
 (def-cps-fn ^:private $map1 
   "map on a single sequence"

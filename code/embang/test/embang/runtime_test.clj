@@ -3,7 +3,7 @@
   (:use [embang.trap :only [value-cont]]
         embang.runtime))
 
-(deftest test-high-order-functions
+(deftest test-higher-order-functions
   (testing "map in CPS"
     (is (= (trampoline
             ($map value-cont nil (fn [cont $state lst]
