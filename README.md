@@ -15,5 +15,5 @@ The points where inference algorithms must intervene and affect sampling are
 exposed by stopping the execution and returning continuation, along with auxiliary
 information.
 
-The implementation, documentation, and examples are in code/embang. This is work
+The implementation, documentation, and examples are in [`code/embang`](https://bitbucket.org/dtolpin/em-bang/src/HEAD/code/embang/). This is work
 in progress in its early stage.
