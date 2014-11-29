@@ -1,5 +1,6 @@
 (ns embang.runtime
-  (:require [incanter.distributions :as dist]))
+  (:require [incanter.distributions :as dist])
+  (:use [embang.emit :only [def-cps-fn]]))
 
 ;;; Anglican core functions beyond clojure.core
 
@@ -102,8 +103,8 @@
       (prob [this value] 
         (/ (nth weights value) total-weight)))))
 
-(declare gamma)              ; distribution, used to sample
-                             ; from the Dirichlet distribution
+(declare gamma) ; Gamma distribution used in Dirichlet distribution
+
 (let [p [0.99999999999980993
          676.5203681218851
          -1259.1392167224028
@@ -163,3 +164,49 @@
 (from-incanter poisson [lambda])
 (from-incanter uniform-continuous [min max] (uniform min max))
 (from-incanter uniform-discrete [min max] (integer min max))
+
+;; CPS versions of higher order functions.
+
+(def-cps-fn ^:private $map1 
+  "map on a single sequence"
+  [fun lst]
+  (if (empty? lst) nil
+      (cons (fun (first lst))
+            ($map1 fun (rest lst)))))
+
+(def-cps-fn ^private nils? 
+  "true if the list contains nil"
+  [lst]
+  (and (seq lst)
+       (or (nil? (first lst))
+           (nils? (rest lst)))))
+
+(def-cps-fn $map 
+  "map in CPS"
+  [fun & lsts]
+  (let [tuple ($map1 first lsts)]
+    (if (nils? tuple) nil
+        (let [lsts ($map1 rest lsts)]
+          (cons (apply fun tuple)
+                (apply $map fun lsts))))))
+
+(def-cps-fn ^:private $reduce1
+  "reduce with explicit init in CPS"
+  [fun init lst]
+  (if (empty? lst) init
+      ($reduce1 fun
+                (fun init (first lst))
+                (rest lst))))
+
+(def-cps-fn $reduce
+  "reduce in CPS"
+  [fun & args]
+  (let [init (if (seq (rest args))
+               (first args) 
+               (first (first args)))
+        lst (if (seq (rest args))
+              (second args)
+              (rest (first args)))]
+    ($reduce1 fun init lst)))
+
+

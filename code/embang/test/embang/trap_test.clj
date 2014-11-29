@@ -85,13 +85,26 @@
           "compound if")
       (is (= (cps-of-if '(1 2) 'ret)
              '(if 1 (ret 2 $state) (ret nil $state)))
-          "missing else")
-      (testing "cps-of-cond"
-        (is (= (cps-of-cond '(1 2 3 4) 'ret)
-               '(if 1 (ret 2 $state)
-                    (if 3 (ret 4 $state)
-                        (ret nil $state))))
-            "cond via if")))))
+          "missing else"))
+    (testing "cps-of-cond"
+      (is (= (cps-of-cond '(1 2 3 4) 'ret)
+             '(if 1 (ret 2 $state)
+                  (if 3 (ret 4 $state)
+                      (ret nil $state))))
+            "cond via if"))
+
+    (testing "cps-of-and"
+      (is (= (cps-of-and '(x y) 'ret)
+             '(if (not x) (ret false $state)
+                (if (not y) (ret false $state)
+                    (ret true $state))))
+          "and via if")
+
+      (is (= (cps-of-or '(x y) 'ret)
+             '(if x (ret true $state)
+                  (if y (ret true $state)
+                      (ret false $state))))
+          "or via if"))))
 
 (deftest test-cps-of-do
   (testing "cps-of-do"

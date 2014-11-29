@@ -53,10 +53,15 @@
   (if (seq? expr)
     (case (first expr)
       quote true
-      (begin if cond do) (every? simple-expr? (rest expr))
+
+      (begin
+       if cond
+       and or do) (every? simple-expr? (rest expr))
+
       let (let [[_ bindings & body] expr]
             (and (every? simple-expr? (map second bindings))
                  (every? simple-expr? body)))
+
       ;; application
       (and (primitive-procedure? (first expr))
            (every? simple-expr? (rest expr))))
@@ -115,18 +120,23 @@
 (defmacro ^:private defn-with-named-cont
   "binds the continuation to a name to make the code
   slightly easier to reason about"
-  [cps-of parms & body]
-  (let [cont (last parms)]
-    `(defn ~cps-of ~parms
-       (if (symbol? ~cont)
-         (do ~@body)
-         (let [~'named-cont (*gensym* "C")]
-           `(~~''let [~~'named-cont ~~cont]
-              ~(~cps-of ~@(butlast parms) ~'named-cont)))))))
+  [cps-of & args]
+  (let [[docstring [parms & body]]
+        (if (string? (first args)) 
+          [(first args) (rest args)]
+          [(format "CPS transformation macro '%s'" cps-of) args])]
+    (let [cont (last parms)]
+      `(defn ~(with-meta cps-of {:doc docstring})
+          ~parms
+         (if (symbol? ~cont)
+           (do ~@body)
+           (let [~'named-cont (*gensym* "C")]
+             `(~~''let [~~'named-cont ~~cont]
+                ~(~cps-of ~@(butlast parms) ~'named-cont))))))))
 
 (defn-with-named-cont
-  ^{:doc "transforms if to CPS"}
   cps-of-if
+  "transforms if to CPS"
   [[cnd thn els] cont]
   (if (simple-expr? cnd)
     `(~'if ~cnd
@@ -140,14 +150,32 @@
                         ~(cps-of-expr els cont)))))))
 
 (defn-with-named-cont
-  ^{:doc "transforms cond to CPS"}
   cps-of-cond
+  "transforms cond to CPS"
   [clauses cont]
   (if clauses
     (let [[cnd thn & clauses] clauses]
       (cps-of-if [cnd thn `(~'cond ~@clauses)] cont))
     (cps-of-expr nil cont)))
 
+(defn-with-named-cont
+  cps-of-and
+  "transforms and to CPS"
+  [args cont]
+  (if args
+    (let [[cnd & args] args]
+      (cps-of-if [`(~'not ~cnd) false `(~'and ~@args)] cont))
+    (cps-of-expr true cont)))
+
+(defn-with-named-cont
+  cps-of-or
+  "transforms or to CPS"
+  [args cont]
+  (if args
+    (let [[cnd & args] args]
+      (cps-of-if [cnd true `(~'or ~@args)] cont))
+    (cps-of-expr false cont)))
+  
 (defn cps-of-do
   "transforms do to CPS"
   [exprs cont]
@@ -283,6 +311,8 @@
         let     (cps-of-let args cont)
         if      (cps-of-if args cont)
         cond    (cps-of-cond args cont)
+        and     (cps-of-and args cont)
+        or      (cps-of-or args cont)
         do      (cps-of-do args cont)
         predict (cps-of-predict args cont)
         observe (cps-of-observe args cont)
@@ -299,10 +329,13 @@
   '#{;; tests
      boolean? symbol? string? proc? number?
      ratio? integer? float? even? odd?
-     nil? some? empty? list? seq?
+     nil? some? list? seq?
 
      ;; custom math tests
      isfinite? isnan?
+
+     ;; unary
+     not
 
      ;; relational
      not= = > >= < <=
@@ -323,8 +356,8 @@
      boolean double long str
 
      ;; data structures
-     list conj concat                   ; constructors
-     count                              ; properties
+     list conj concat seq cons          ; constructors
+     empty? count                       ; properties
      first second nth rest              ; accessors
 
      ;; console I/O, for debugging

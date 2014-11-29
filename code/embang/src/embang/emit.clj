@@ -12,10 +12,19 @@
   `(~'fn [~'_ ~'$state]
      ~(cps-of-expr (program source) `run-cont)))
 
+(defmacro overriding-high-order-functions
+  "binds names of high order functions
+  to their CPS implementations"
+  [& body]
+  `(let [~'map ~'$map
+         ~'reduce ~'$reduce]
+     ~@body))
+    
 (defmacro anglican 
   "macro for embedding anglican programs"
   [& source]
-  (anglican->fn source))
+  `(overriding-high-order-functions
+    ~(anglican->fn source)))
 
 (defmacro defanglican
   "binds variable to anglican program"
@@ -37,8 +46,9 @@
   "converts function to CPS,
   useful for defining functions outside of defanglican"
   [& args]
-  `(~'let [~'$state nil]
-    ~(cps-of-fn args value-cont)))
+  `(overriding-high-order-functions
+    (~'let [~'$state nil]
+      ~(cps-of-fn args value-cont))))
   
 (defmacro def-cps-fn
   "binds variable to function in CPS form"

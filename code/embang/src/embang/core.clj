@@ -16,7 +16,7 @@
 (def cli-options
   [;; problems
    ["-a" "--inference-algorithm NAME" "Inference algorithm"
-    :default "importance"]
+    :default "pgibbs"]
 
    ["-d" "--debug" "Print debugging information"
     :default false
