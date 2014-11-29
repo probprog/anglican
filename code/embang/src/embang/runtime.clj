@@ -174,7 +174,7 @@
       (cons (fun (first lst))
             ($map1 fun (rest lst)))))
 
-(def-cps-fn ^private nils? 
+(def-cps-fn ^:private $nils? 
   "true if the list contains nil"
   [lst]
   (and (seq lst)
@@ -185,7 +185,7 @@
   "map in CPS"
   [fun & lsts]
   (let [tuple ($map1 first lsts)]
-    (if (nils? tuple) nil
+    (if ($nils? tuple) nil
         (let [lsts ($map1 rest lsts)]
           (cons (apply fun tuple)
                 (apply $map fun lsts))))))
