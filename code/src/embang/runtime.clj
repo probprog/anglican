@@ -179,7 +179,7 @@
   [lst]
   (and (seq lst)
        (or (nil? (first lst))
-           (nils? (rest lst)))))
+           ($nils? (rest lst)))))
 
 (def-cps-fn $map 
   "map in CPS"
