@@ -5,13 +5,6 @@
 
 ;;; Code manipulation
 
-(defn anglican->fn
-  "converts anglican source code to a
-  trampoline-ready clojure function"
-  [source]
-  `(~'fn [~'_ ~'$state]
-     ~(cps-of-expr (program source) `run-cont)))
-
 (defmacro overriding-higher-order-functions
   "binds names of higher-order functions
   to their CPS implementations"
@@ -24,7 +17,8 @@
   "macro for embedding anglican programs"
   [& source]
   `(overriding-higher-order-functions
-    ~(anglican->fn source)))
+    (~'fn [~'_ ~'$state]
+      ~(cps-of-expr (program source) `run-cont))))
 
 (defmacro defanglican
   "binds variable to anglican program"
