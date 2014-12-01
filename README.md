@@ -8,4 +8,4 @@ and affect sampling are exposed by stopping the execution and
 returning continuation, along with auxiliary information.
 
 The implementation, documentation, and examples are in the
-leiningen project tree rooted at [`code`](code/).
+leiningen project tree rooted at [`code`](https://bitbucket.org/dtolpin/embang/src/HEAD/code/).
