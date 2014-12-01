@@ -13,11 +13,11 @@ outlined in the book.
 
 ## Installation
 
-Use git to download from https://bitbucket.org/dtolpin/mappp:
+Use git to download from https://bitbucket.org/dtolpin/embang:
 
-	$ git clone https://bitbucket.org/dtolpin/mappp
+	$ git clone https://bitbucket.org/dtolpin/embang
 
-__m!__ is in `code/embang`.
+__m!__ is in `code`.
 
 ## Usage
 
