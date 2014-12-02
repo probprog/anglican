@@ -5,19 +5,19 @@
 
 ;;; Code manipulation
 
-(defmacro overriding-higher-order-functions
+(defn ^:private overriding-higher-order-functions
   "binds names of higher-order functions
   to their CPS implementations"
   [& body]
-  `(let [~'map ~'$map
-         ~'reduce ~'$reduce]
+  `(~'let [~'map ~'$map
+           ~'reduce ~'$reduce]
      ~@body))
-    
+
 (defmacro anglican 
   "macro for embedding anglican programs"
   [& source]
-  `(overriding-higher-order-functions
-    (~'fn [~'_ ~'$state]
+  (overriding-higher-order-functions
+   `(~'fn [~'_ ~'$state]
       ~(cps-of-expr (program source) `run-cont))))
 
 (defmacro defanglican
@@ -47,7 +47,7 @@
   [& args]
   `(~'let [~'$state nil]
      ~(cps-of-fn args value-cont)))
-  
+
 (defmacro def-cps-fn
   "binds variable to function in CPS form"
   [name & args]
@@ -57,9 +57,9 @@
           [(format "CPS function '%s'" name) args])
         arglist (first source)]
     `(def ~(with-meta name
-                      {:doc docstring
-                       :arglists `'([~'$cont ~'$state
-                                     ~@(first source)])})
+             {:doc docstring
+              :arglists `'([~'$cont ~'$state
+                            ~@(first source)])})
        (cps-fn ~name ~@source))))
 
 ;; Functions can also be defined in Anglican rather
@@ -68,11 +68,11 @@
 (defmacro lambda
   "defines function in Anglican syntax"
   [& args]
-  `(overriding-higher-order-functions
-    (cps-fn ~@(next (alambda nil args)))))
+  (overriding-higher-order-functions
+   `(cps-fn ~@(next (alambda nil args)))))
 
 (defmacro defun
   "binds variable to function in Anglican syntax"
   [name & args]
-  `(overriding-higher-order-functions
-    (def-cps-fn ~@(next (alambda name args)))))
+  (overriding-higher-order-functions
+   `(def-cps-fn ~@(next (alambda name args)))))
