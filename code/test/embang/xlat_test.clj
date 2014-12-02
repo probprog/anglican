@@ -43,18 +43,6 @@
   (testing "expression"
     (is (= (expression '()) ()) "empty list")))
 
-(deftest test-dlist
-  (testing "dlist"
-    (is (= (dlist '([assume x 1]
-                    [assume y 2]
-                    [predict y]
-                    [observe (normal x 1) 1]))
-           '((let [x 1]
-               (let [y 2]
-                 (predict 'y y)
-                 (observe (normal x 1) 1)))))
-        "assumes, predict, observe")))
-
 (deftest test-program
   (testing "program"
     (is (= (program
