@@ -292,17 +292,16 @@
 (defn cps-of-primitive-procedure
   "wraps primitive procedure"
   [expr cont]
-  (let [cont (*gensym* "C")
+  (let [fncont (*gensym* "C")
         parms (*gensym* "P")]
-    `(~'fn [~cont ~'$state & ~parms]
-       (~cont (~'apply ~expr ~parms) ~'$state))))
+    `(~cont (~'fn [~fncont ~'$state & ~parms]
+              (~fncont (~'apply ~expr ~parms) ~'$state))
+            ~'$state)))
 
 (defn cps-of-atomic
   "transforms atomic expression to CPS"
   [expr cont]
-  (if (primitive-procedure? expr)
-    (cps-of-primitive-procedure expr cont)
-    `(~cont ~expr ~'$state)))
+  `(~cont ~expr ~'$state))
 
 (defn cps-of-expression
   "dispatches CPS transformation by expression type"
@@ -326,7 +325,9 @@
         ;; application
         (cps-of-application expr cont)))
     ;; atomic
-    (cps-of-atomic expr cont)))
+    (if (primitive-procedure? expr)
+      (cps-of-primitive-procedure expr cont)
+      (cps-of-atomic expr cont))))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"

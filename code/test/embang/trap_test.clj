@@ -1,4 +1,4 @@
-(Ns embang.trap-test
+(ns embang.trap-test
     (:require [clojure.test :refer [deftest testing is]])
     (use embang.trap))
 
