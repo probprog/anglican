@@ -9,9 +9,10 @@
   (when (seq exprs)
     (lazy-seq
       (let [[expr & exprs] exprs]
-        (if (and (seq? expr) (= (first expr) 'define))
+        (if (and (or (seq? expr) (vector? expr))
+                 (#{'define 'assume} (first expr)))
           (let [[name value] (rest expr)]
-            `((~'let [~name ~(expression value)]
+            `((~'let [~name ~(expression value :name name)]
                 ~@(elist exprs))))
           `(~(expression expr) 
             ~@(elist exprs)))))))
@@ -53,6 +54,15 @@
   [exprs]
   `(~'do ~@(elist exprs)))
 
+(defn apredict
+  "translates predict"
+  ;; In Clojure representation `predict' has two arguments:
+  ;; symbolic expression and value. This is necessary to
+  ;; display predicted expressions in Anglican rather than
+  ;; Clojure syntax.
+  [[expr]]
+  `(~'predict '~expr ~(expression expr)))
+        
 (defn aform
   "translates compatible forms and function applications"
   [expr]
@@ -60,7 +70,7 @@
 
 (defn expression [expr & {:keys [name] :or {name nil}}]
   "translates expression"
-  (if (seq? expr)
+  (if (or (seq? expr) (vector? expr))
     (let [[kwd & args] expr]
       (case kwd
         quote  expr
@@ -69,6 +79,7 @@
         mem    (amem name args)
         cond   (acond args)
         begin  (abegin args)
+        predict (apredict args)
         ;; other forms (if, and, or, application)
         ;;  have compatible structure
         (aform expr)))
@@ -79,31 +90,8 @@
       fn 'lambda
       expr)))
 
-(defn dlist
-  "translates directive list, replacing assume with let"
-  [ds]
-  (when (seq ds)
-    (lazy-seq
-      (let [[[kwd & args :as d] & ds] ds]
-        (case kwd
-          assume (let [[name value] args]
-                   `((~'let [~name ~(expression value :name name)]
-                       ~@(dlist ds))))
-          observe `((~'observe ~@(map expression args))
-                    ~@(dlist ds))
-
-          ;; In Clojure representation `predict' has two arguments:
-          ;; symbolic expression and value. This is necessary to
-          ;; display predicted expressions in Anglican rather than
-          ;; Clojure syntax.
-
-          predict (let [[expr] args]
-                     `((~'predict '~expr ~(expression expr))
-                       ~@(dlist ds)))
-          (assert false (str "unrecognized directive: " d)))))))
-
 (defn program
   "translates anglican program to clojure function"
   [p]
   `(~'fn []
-     ~@(dlist p)))
+     ~@(elist p)))
