@@ -78,8 +78,8 @@
   (overriding-higher-order-functions
    `(def-cps-fn ~@(next (alambda name args)))))
 
-;; Any non-CPS procedures can be used in the code
-;; but they must be wrapped.
+;; Any non-CPS procedures can be used in the code,
+;; but must be wrapped and re-bound.
 
 (defmacro
   with-primitive-procedures

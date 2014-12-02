@@ -53,18 +53,21 @@
   (if (seq? expr)
     (case (first expr)
       quote true
-
+      fn false
       (begin
        if cond
        and or do) (every? simple-expression? (rest expr))
-
-       let (let [[_ bindings & body] expr]
+      let (let [[_ bindings & body] expr]
              (and (every? simple-expression? (map second bindings))
                   (every? simple-expression? body)))
-
-       ;; application
-       (and (primitive-procedure? (first expr))
-            (every? simple-expression? (rest expr))))
+      (predict
+       observe
+       sample
+       mem
+       apply) false
+      ;; application
+      (and (primitive-procedure? (first expr))
+           (every? simple-expression? (rest expr))))
     (not (primitive-procedure? expr))))
 
 ;; CPS transformation rules
@@ -331,52 +334,40 @@
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
-  '#{;; tests
-     boolean? symbol? string? proc? number?
-     ratio? integer? float? even? odd?
-     nil? some? list? seq?
+  (let [;; exclude procedures for which CPS counterparts are provided
+        exclude '#{map reduce}
+        ;; collect all public functions in clojure.core
+        core (keep (fn [[k v]]
+                     (when (and (not (exclude k))
+                                (fn? (var-get v)))
+                       k))
+                   (ns-publics 'clojure.core))]
+    ;; add functions provided by the runtime
+    (into (set core)
+          '[;; custom math tests
+            isfinite? isnan?
 
-     ;; custom math tests
-     isfinite? isnan?
+            ;; scalar arithmetics
+            inc dec
+            + - * / mod
+            abs floor ceil round
+            sin cos tan asin acos atan
+            sinh cosh tanh
+            log log10 exp
+            pow cbrt sqrt
 
-     ;; unary
-     not
+            ;; sequence operations
+            sum mean normalize range
 
-     ;; relational
-     not= = > >= < <=
-
-     ;; scalar arithmetics
-     inc dec
-     + - * / mod
-     abs floor ceil round
-     sin cos tan asin acos atan
-     sinh cosh tanh
-     log log10 exp
-     pow cbrt sqrt
-
-     ;; sequence operations
-     sum mean normalize range
-
-     ;; casting
-     boolean double long str
-
-     ;; data structures
-     list conj concat seq cons          ; constructors
-     empty? count                       ; properties
-     first second nth rest              ; accessors
-
-     ;; console I/O, for debugging
-     prn
-
-     ;; ERPs (alphabetically)
-     beta
-     binomial
-     dirichlet
-     discrete
-     exponential
-     flip
-     gamma
-     normal
-     poisson
-     uniform-continuous
-     uniform-discrete})
+            ;; ERPs (alphabetically)
+            beta
+            binomial
+            dirichlet
+            discrete
+            exponential
+            flip
+            gamma
+            normal
+            poisson
+            uniform-continuous
+            uniform-discrete])))
