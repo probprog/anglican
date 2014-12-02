@@ -1,17 +1,17 @@
-(ns embang.trap-test
-  (:require [clojure.test :refer [deftest testing is]])
-  (use embang.trap))
+(Ns embang.trap-test
+    (:require [clojure.test :refer [deftest testing is]])
+    (use embang.trap))
 
-(deftest test-simple-expr
-  (testing "simple-expr?"
-    (is (simple-expr? 1) "number")
-    (is (simple-expr? '(quote (1 2 3))) "quote")
-    (is (simple-expr? 'x) "variable")
-    (is (simple-expr? '(if 1 2 3)) "if with simple subexpressions")
-    (is (not (simple-expr? '(a b c))) "application")
-    (is (not (simple-expr? '(cond a 1 (b) 2)))
+(deftest test-simple-expression?
+  (testing "simple-expression?"
+    (is (simple-expression? 1) "number")
+    (is (simple-expression? '(quote (1 2 3))) "quote")
+    (is (simple-expression? 'x) "variable")
+    (is (simple-expression? '(if 1 2 3)) "if with simple subexpressions")
+    (is (not (simple-expression? '(a b c))) "application")
+    (is (not (simple-expression? '(cond a 1 (b) 2)))
         "cond with compound subexpression")
-    (is (not (simple-expr? '(fn [] 1))) "fn is never simple")))
+    (is (not (simple-expression? '(fn [] 1))) "fn is never simple")))
 
 (deftest test-primitive-procedure
   (binding [*gensym* symbol]
@@ -19,20 +19,20 @@
       (is (primitive-procedure? 'inc) "inc is primitive")
       (is (not (primitive-procedure? 'fact))
           "fact is not primitive")
-      (is (= (cps-of-expr '(fn [dec] dec) 'ret)
+      (is (= (cps-of-expression '(fn [dec] dec) 'ret)
              '(ret (fn [C $state dec] (C dec $state)) $state))
           "primitive procedure name can be used as parameter")
-      (is (= (cps-of-expr '(let [dec 1] dec) 'ret)
+      (is (= (cps-of-expression '(let [dec 1] dec) 'ret)
              '(let [dec 1] (ret dec $state)))
           "primitive procedure name can be locally rebound")
-      (is (= (cps-of-expr '(let [x dec] (x 1)) 'ret)
+      (is (= (cps-of-expression '(let [x dec] (x 1)) 'ret)
              '((fn [V $state] (let [x V] (fn [] (x ret $state 1))))
                (fn
                  [C $state & P]
                  (C (apply dec P) $state))
                $state))
           "primitive procedure can be locally bound")
-      (is (= (cps-of-expr '(list inc dec) 'ret)
+      (is (= (cps-of-expression '(list inc dec) 'ret)
              '((fn
                  [A $state]
                  ((fn [A $state] (ret (list A A) $state))
@@ -79,8 +79,8 @@
       (is (= (cps-of-if '((a) (b) (c)) 'ret)
              '(fn []
                 (a (fn [I $state] (if I
-                                     (fn [] (b ret $state))
-                                     (fn [] (c ret $state))))
+                                    (fn [] (b ret $state))
+                                    (fn [] (c ret $state))))
                    $state)))
           "compound if")
       (is (= (cps-of-if '(1 2) 'ret)
@@ -91,13 +91,13 @@
              '(if 1 (ret 2 $state)
                   (if 3 (ret 4 $state)
                       (ret nil $state))))
-            "cond via if"))
+          "cond via if"))
 
     (testing "cps-of-and"
       (is (= (cps-of-and '(x y) 'ret)
              '(if (not x) (ret false $state)
-                (if (not y) (ret false $state)
-                    (ret true $state))))
+                  (if (not y) (ret false $state)
+                      (ret true $state))))
           "and via if")
 
       (is (= (cps-of-or '(x y) 'ret)

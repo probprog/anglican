@@ -47,7 +47,7 @@
 ;; only appear in call position, and a primitive procedure
 ;; name cannot be rebound locally.
 
-(defn simple-expr?
+(defn simple-expression?
   "true if expr has no continuation"
   [expr]
   (if (seq? expr)
@@ -56,30 +56,30 @@
 
       (begin
        if cond
-       and or do) (every? simple-expr? (rest expr))
+       and or do) (every? simple-expression? (rest expr))
 
-      let (let [[_ bindings & body] expr]
-            (and (every? simple-expr? (map second bindings))
-                 (every? simple-expr? body)))
+       let (let [[_ bindings & body] expr]
+             (and (every? simple-expression? (map second bindings))
+                  (every? simple-expression? body)))
 
-      ;; application
-      (and (primitive-procedure? (first expr))
-           (every? simple-expr? (rest expr))))
+       ;; application
+       (and (primitive-procedure? (first expr))
+            (every? simple-expression? (rest expr))))
     (not (primitive-procedure? expr))))
 
 ;; CPS transformation rules
 
-(declare cps-of-expr)
+(declare cps-of-expression)
 (def ^:dynamic *gensym* gensym) ;; bound to `symbol' in tests
 
 (defn ^:private cps-of-elist
   [exprs cont]
   (let [[fst & rst] exprs]
-    (cps-of-expr fst
-                 (if (seq rst)
-                   `(~'fn [~'_ ~'$state]
-                      ~(cps-of-elist rst cont))
-                   cont))))
+    (cps-of-expression fst
+                       (if (seq rst)
+                         `(~'fn [~'_ ~'$state]
+                            ~(cps-of-elist rst cont))
+                         cont))))
 
 ;; Continuation is the first, rather than the last, parameter of a
 ;; function to support functions with variable arguments.
@@ -106,15 +106,15 @@
       (binding [*primitive-procedures*
                 (disj *primitive-procedures* name)]
         (let [rst (cps-of-let `(~bindings ~@body) cont)]
-          (if (and (simple-expr? value)
+          (if (and (simple-expression? value)
                    (not (primitive-procedure? value)))
             `(~'let [~name ~value]
                ~rst)
-            (cps-of-expr value
-                         (let [value (*gensym* "V")]
-                           `(~'fn [~value ~'$state]
-                              (~'let [~name ~value]
-                                ~rst))))))))
+            (cps-of-expression value
+                               (let [value (*gensym* "V")]
+                                 `(~'fn [~value ~'$state]
+                                    (~'let [~name ~value]
+                                      ~rst))))))))
     (cps-of-elist body cont)))
 
 (defmacro ^:private defn-with-named-cont
@@ -127,7 +127,7 @@
           [(format "CPS transformation macro '%s'" cps-of) args])]
     (let [cont (last parms)]
       `(defn ~(with-meta cps-of {:doc docstring})
-          ~parms
+         ~parms
          (if (symbol? ~cont)
            (do ~@body)
            (let [~'named-cont (*gensym* "C")]
@@ -138,16 +138,16 @@
   cps-of-if
   "transforms if to CPS"
   [[cnd thn els] cont]
-  (if (simple-expr? cnd)
+  (if (simple-expression? cnd)
     `(~'if ~cnd
-       ~(cps-of-expr thn cont)
-       ~(cps-of-expr els cont))
-    (cps-of-expr cnd
-                 (let [cnd (*gensym* "I")]
-                   `(~'fn [~cnd ~'$state]
-                      (~'if ~cnd
-                        ~(cps-of-expr thn cont)
-                        ~(cps-of-expr els cont)))))))
+       ~(cps-of-expression thn cont)
+       ~(cps-of-expression els cont))
+    (cps-of-expression cnd
+                       (let [cnd (*gensym* "I")]
+                         `(~'fn [~cnd ~'$state]
+                            (~'if ~cnd
+                              ~(cps-of-expression thn cont)
+                              ~(cps-of-expression els cont)))))))
 
 (defn-with-named-cont
   cps-of-cond
@@ -156,7 +156,7 @@
   (if clauses
     (let [[cnd thn & clauses] clauses]
       (cps-of-if [cnd thn `(~'cond ~@clauses)] cont))
-    (cps-of-expr nil cont)))
+    (cps-of-expression nil cont)))
 
 (defn-with-named-cont
   cps-of-and
@@ -165,7 +165,7 @@
   (if args
     (let [[cnd & args] args]
       (cps-of-if [`(~'not ~cnd) false `(~'and ~@args)] cont))
-    (cps-of-expr true cont)))
+    (cps-of-expression true cont)))
 
 (defn-with-named-cont
   cps-of-or
@@ -174,8 +174,8 @@
   (if args
     (let [[cnd & args] args]
       (cps-of-if [cnd true `(~'or ~@args)] cont))
-    (cps-of-expr false cont)))
-  
+    (cps-of-expression false cont)))
+
 (defn cps-of-do
   "transforms do to CPS"
   [exprs cont]
@@ -187,25 +187,25 @@
   out of the args; used by predict, observe, sample, application"
   ([args make] (make-of-args args false make))
   ([args first-is-rator make]
-   (let [substs (map (fn [arg is-rator]
-                       (if (or (simple-expr? arg)
-                                (and is-rator
-                                     (primitive-procedure? arg)))
-                         [nil arg]
-                         [arg (*gensym* "A")]))
-                     args
-                     (cons first-is-rator (repeat false)))]
-     (letfn [(make-of-slist [slist]
-               (if (seq slist)
-                 (let [[[arg subst] & slist] slist]
-                   (if arg ;; is a compound expression
-                     (cps-of-expr arg
-                                  `(~'fn [~subst ~'$state]
-                                         ~(make-of-slist slist)))
-                     (make-of-slist slist)))
-                 (make (map second substs))))]
+     (let [substs (map (fn [arg is-rator]
+                         (if (or (simple-expression? arg)
+                                 (and is-rator
+                                      (primitive-procedure? arg)))
+                           [nil arg]
+                           [arg (*gensym* "A")]))
+                       args
+                       (cons first-is-rator (repeat false)))]
+       (letfn [(make-of-slist [slist]
+                 (if (seq slist)
+                   (let [[[arg subst] & slist] slist]
+                     (if arg ;; is a compound expression
+                       (cps-of-expression arg
+                                          `(~'fn [~subst ~'$state]
+                                             ~(make-of-slist slist)))
+                       (make-of-slist slist)))
+                   (make (map second substs))))]
 
-       (make-of-slist substs)))))
+         (make-of-slist substs)))))
 
 (defn cps-of-predict
   "transforms predict to CPS,
@@ -256,7 +256,7 @@
                 ;; apply the function to the arguments with
                 ;; continuation that intercepts the value
                 ;; and updates the state
-                ~(cps-of-expr
+                ~(cps-of-expression
                   `(~'apply (~'fn ~parms ~@body) ~mparms)
                   `(~'fn [~value ~'$state]
                      (~mcont ~value
@@ -289,18 +289,22 @@
                       `(~cont ~call ~'$state)
                       `(~'fn [] (~rator ~cont ~'$state ~@rands)))))))
 
+(defn cps-of-primitive-procedure
+  "wraps primitive procedure"
+  [expr cont]
+  (let [cont (*gensym* "C")
+        parms (*gensym* "P")]
+    `(~'fn [~cont ~'$state & ~parms]
+       (~cont (~'apply ~expr ~parms) ~'$state))))
+
 (defn cps-of-atomic
   "transforms atomic expression to CPS"
   [expr cont]
-  `(~cont ~(if (primitive-procedure? expr)
-             (let [cont (*gensym* "C")
-                   parms (*gensym* "P")]
-               `(~'fn [~cont ~'$state & ~parms]
-                  (~cont (~'apply ~expr ~parms) ~'$state)))
-             expr)
-          ~'$state))
+  (if (primitive-procedure? expr)
+    (cps-of-primitive-procedure expr cont)
+    `(~cont ~expr ~'$state)))
 
-(defn cps-of-expr
+(defn cps-of-expression
   "dispatches CPS transformation by expression type"
   [expr cont]
   (if (seq? expr)

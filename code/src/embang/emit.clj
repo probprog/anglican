@@ -1,7 +1,8 @@
 (ns embang.emit
   (:use [embang.xlat :only [program alambda]])
-  (:use [embang.trap :only [cps-of-expr run-cont 
-                            cps-of-fn value-cont]]))
+  (:use [embang.trap :only [cps-of-expression run-cont 
+                            cps-of-fn value-cont
+                            cps-of-primitive-procedure]]))
 
 ;;; Code manipulation
 
@@ -18,7 +19,7 @@
   [& source]
   (overriding-higher-order-functions
    `(~'fn [~'_ ~'$state]
-      ~(cps-of-expr (program source) `run-cont))))
+      ~(cps-of-expression (program source) `run-cont))))
 
 (defmacro defanglican
   "binds variable to anglican program"
@@ -76,3 +77,16 @@
   [name & args]
   (overriding-higher-order-functions
    `(def-cps-fn ~@(next (alambda name args)))))
+
+;; Any non-CPS procedures can be used in the code
+;; but they must be wrapped.
+
+(defmacro
+  with-primitive-procedures
+  "binds primitive procedure names to their CPS versions"
+  [procedures & body]
+  `(let [~@(mapcat (fn [proc] 
+                     [proc
+                      (cps-of-primitive-procedure proc value-cont)])
+                   procedures)]
+     ~@body))
