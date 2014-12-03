@@ -172,3 +172,12 @@
                         $state)))
                    $state))
           "mem of compound function"))))
+
+(deftest test-cps-of-primitive-procedure
+  (binding [*gensym* symbol]
+    (testing "cps-of-primitive-procedure"
+      (is (= (cps-of-primitive-procedure 'inc 'ret)
+             '(ret (fn [C $state & P]
+                     (C (apply inc P) $state))
+                   $state))
+          "primitive procedure"))))
