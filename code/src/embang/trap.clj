@@ -58,8 +58,9 @@
        if cond
        and or do) (every? simple-expression? (rest expr))
       let (let [[_ bindings & body] expr]
-             (and (every? simple-expression? (map second bindings))
-                  (every? simple-expression? body)))
+            (and (every? simple-expression?
+                         (take-nth 2 (rest bindings)))
+                 (every? simple-expression? body)))
       (predict
        observe
        sample
@@ -78,11 +79,12 @@
 (defn ^:private cps-of-elist
   [exprs cont]
   (let [[fst & rst] exprs]
-    (cps-of-expression fst
-                       (if (seq rst)
-                         `(~'fn [~'_ ~'$state]
-                            ~(cps-of-elist rst cont))
-                         cont))))
+    (cps-of-expression
+      fst
+      (if (seq rst)
+        `(~'fn [~'_ ~'$state]
+           ~(cps-of-elist rst cont))
+        cont))))
 
 ;; Continuation is the first, rather than the last, parameter of a
 ;; function to support functions with variable arguments.
@@ -113,11 +115,12 @@
                    (not (primitive-procedure? value)))
             `(~'let [~name ~value]
                ~rst)
-            (cps-of-expression value
-                               (let [value (*gensym* "V")]
-                                 `(~'fn [~value ~'$state]
-                                    (~'let [~name ~value]
-                                      ~rst))))))))
+            (cps-of-expression
+              value
+              (let [value (*gensym* "V")]
+                `(~'fn [~value ~'$state]
+                   (~'let [~name ~value]
+                     ~rst))))))))
     (cps-of-elist body cont)))
 
 (defmacro ^:private defn-with-named-cont
@@ -145,12 +148,13 @@
     `(~'if ~cnd
        ~(cps-of-expression thn cont)
        ~(cps-of-expression els cont))
-    (cps-of-expression cnd
-                       (let [cnd (*gensym* "I")]
-                         `(~'fn [~cnd ~'$state]
-                            (~'if ~cnd
-                              ~(cps-of-expression thn cont)
-                              ~(cps-of-expression els cont)))))))
+    (cps-of-expression
+      cnd
+      (let [cnd (*gensym* "I")]
+        `(~'fn [~cnd ~'$state]
+           (~'if ~cnd
+             ~(cps-of-expression thn cont)
+             ~(cps-of-expression els cont)))))))
 
 (defn-with-named-cont
   cps-of-cond
@@ -167,7 +171,13 @@
   [args cont]
   (if args
     (let [[cnd & args] args]
-      (cps-of-if [`(~'not ~cnd) false `(~'and ~@args)] cont))
+      (if args
+        (cps-of-expression
+          cnd
+          (let [cnd (*gensym* "I")]
+            `(~'fn [~cnd ~'$state]
+               ~(cps-of-if [cnd `(~'and ~@args) cnd] cont))))
+        (cps-of-expression cnd cont)))
     (cps-of-expression true cont)))
 
 (defn-with-named-cont
@@ -176,7 +186,13 @@
   [args cont]
   (if args
     (let [[cnd & args] args]
-      (cps-of-if [cnd true `(~'or ~@args)] cont))
+      (if args
+        (cps-of-expression
+          cnd
+          (let [cnd (*gensym* "I")]
+            `(~'fn [~cnd ~'$state]
+               ~(cps-of-if [cnd cnd `(~'or ~@args)] cont))))
+        (cps-of-expression cnd cont)))
     (cps-of-expression false cont)))
 
 (defn cps-of-do
@@ -202,9 +218,10 @@
                  (if (seq slist)
                    (let [[[arg subst] & slist] slist]
                      (if arg ;; is a compound expression
-                       (cps-of-expression arg
-                                          `(~'fn [~subst ~'$state]
-                                             ~(make-of-slist slist)))
+                       (cps-of-expression
+                         arg
+                         `(~'fn [~subst ~'$state]
+                            ~(make-of-slist slist)))
                        (make-of-slist slist)))
                    (make (map second substs))))]
 
@@ -301,36 +318,32 @@
               (~fncont (~'apply ~expr ~parms) ~'$state))
             ~'$state)))
 
-(defn cps-of-atomic
-  "transforms atomic expression to CPS"
-  [expr cont]
-  `(~cont ~expr ~'$state))
-
 (defn cps-of-expression
   "dispatches CPS transformation by expression type"
   [expr cont]
-  (if (seq? expr)
-    (let [[kwd & args] expr]
-      (case kwd
-        quote   `(~cont ~expr ~'$state)
-        fn      (cps-of-fn args cont)
-        let     (cps-of-let args cont)
-        if      (cps-of-if args cont)
-        cond    (cps-of-cond args cont)
-        and     (cps-of-and args cont)
-        or      (cps-of-or args cont)
-        do      (cps-of-do args cont)
-        predict (cps-of-predict args cont)
-        observe (cps-of-observe args cont)
-        sample  (cps-of-sample args cont)
-        mem     (cps-of-mem args cont)
-        apply   (cps-of-apply args cont)
-        ;; application
-        (cps-of-application expr cont)))
-    ;; atomic
-    (if (primitive-procedure? expr)
-      (cps-of-primitive-procedure expr cont)
-      (cps-of-atomic expr cont))))
+  (cond
+    (simple-expression?
+      expr) `(~cont ~expr ~'$state)
+    (seq?
+      expr) (let [[kwd & args] expr]
+              (case kwd
+                fn      (cps-of-fn args cont)
+                let     (cps-of-let args cont)
+                if      (cps-of-if args cont)
+                cond    (cps-of-cond args cont)
+                and     (cps-of-and args cont)
+                or      (cps-of-or args cont)
+                do      (cps-of-do args cont)
+                predict (cps-of-predict args cont)
+                observe (cps-of-observe args cont)
+                sample  (cps-of-sample args cont)
+                mem     (cps-of-mem args cont)
+                apply   (cps-of-apply args cont)
+                ;; application
+                (cps-of-application expr cont)))
+    (primitive-procedure?
+      expr) (cps-of-primitive-procedure expr cont)
+    :else (assert false)))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"

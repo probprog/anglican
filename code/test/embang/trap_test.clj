@@ -89,22 +89,36 @@
     (testing "cps-of-cond"
       (is (= (cps-of-cond '(1 2 3 4) 'ret)
              '(if 1 (ret 2 $state)
-                  (if 3 (ret 4 $state)
-                      (ret nil $state))))
+                (ret (cond 3 4) $state)))
           "cond via if"))
 
     (testing "cps-of-and"
-      (is (= (cps-of-and '(x y) 'ret)
-             '(if (not x) (ret false $state)
-                  (if (not y) (ret false $state)
-                      (ret true $state))))
-          "and via if")
+      (is (= (cps-of-and nil 'ret)
+             '(ret true $state))
+          "empty")
+      (is (= (cps-of-and '((y)) 'ret)
+             '(fn [] (y ret $state)))
+          "single argument")
+      (is (= (cps-of-and '(x (y)) 'ret)
+             '((fn [I $state]
+                 (if I (fn [] (y ret $state))
+                   (ret I $state)))
+               x $state))
+          "multiple arguments"))
 
-      (is (= (cps-of-or '(x y) 'ret)
-             '(if x (ret true $state)
-                  (if y (ret true $state)
-                      (ret false $state))))
-          "or via if"))))
+    (testing "cps-of-or"
+      (is (= (cps-of-or nil 'ret)
+             '(ret false $state))
+          "empty")
+      (is (= (cps-of-or '((y)) 'ret)
+             '(fn [] (y ret $state)))
+          "single argument")
+      (is (= (cps-of-or '(x (y)) 'ret)
+             '((fn [I $state]
+                (if I (ret I $state)
+                  (fn [] (y ret $state))))
+               x $state))
+          "multiple arguments"))))
 
 (deftest test-cps-of-do
   (testing "cps-of-do"
@@ -181,3 +195,18 @@
                      (C (apply inc P) $state))
                    $state))
           "primitive procedure"))))
+
+(deftest test-cps-of-expression
+  (binding [*gensym* symbol]
+    (testing "(cps-of-expression simple-expression)"
+      (is (= (cps-of-expression 1 'ret)
+             '(ret 1 $state))
+          "cps of integer")
+      (is (= (cps-of-expression '(if 1 2 3) 'ret)
+             '(ret (if 1 2 3) $state))
+          "cps of simple if"))
+    (testing "(cps-of-expression compound-expression)"
+      (is (= (cps-of-expression '(if x (foo) (bar)) 'ret)
+             '(if x (fn [] (foo ret $state)) (fn [] (bar ret $state))))
+          "cps of compound if"))))
+
