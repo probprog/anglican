@@ -160,7 +160,7 @@
   cps-of-cond
   "transforms cond to CPS"
   [clauses cont]
-  (if clauses
+  (if (seq clauses)
     (let [[cnd thn & clauses] clauses]
       (cps-of-if [cnd thn `(~'cond ~@clauses)] cont))
     (cps-of-expression nil cont)))
@@ -169,9 +169,9 @@
   cps-of-and
   "transforms and to CPS"
   [args cont]
-  (if args
+  (if (seq args)
     (let [[cnd & args] args]
-      (if args
+      (if (seq args)
         (cps-of-expression
           cnd
           (let [cnd (*gensym* "I")]
@@ -184,9 +184,9 @@
   cps-of-or
   "transforms or to CPS"
   [args cont]
-  (if args
+  (if (seq args)
     (let [[cnd & args] args]
-      (if args
+      (if (seq args)
         (cps-of-expression
           cnd
           (let [cnd (*gensym* "I")]
