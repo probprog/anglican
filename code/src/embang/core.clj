@@ -130,5 +130,6 @@ Options:
   (case
     (keyword (first args))
     :freqs (freqs)
+    :meansd (meansd)
     (binding [*out* *err*]
       (println "Unrecognized command: %s" (first args)))))

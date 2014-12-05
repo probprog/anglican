@@ -28,11 +28,6 @@
   (:use [clojure.set :only (intersection difference)]
         [clojure.math.combinatorics :only (combinations)]))
 
-(defn gamma-function
-  "Gamma function" 
-  [x]
-  (cern.jet.stat.Gamma/gamma x))
-
 (defprotocol Distribution
   "
   The distribution protocol defines operations on probability distributions.

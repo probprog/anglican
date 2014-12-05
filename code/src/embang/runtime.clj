@@ -113,8 +113,8 @@
     "Diriclhet distribution"
     ;; borrowed from Anglican runtime
     [alpha]
-    (let [Z (/ (reduce * (map dist/gamma-function alpha))
-               (dist/gamma-function (reduce + alpha)))]
+    (let [Z (/ (reduce * (map gamma-function alpha))
+               (gamma-function (reduce + alpha)))]
       (reify distribution
         (draw [this]
           (let [g (map #(draw (gamma % 1)) alpha)
