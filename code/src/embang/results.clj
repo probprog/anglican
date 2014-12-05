@@ -64,3 +64,37 @@
                              total-weight)]
                (printf "%s, %s, %6g, %6g\n"
                        label value weight (Math/log weight))))))))))
+
+(defn meansd
+  "reads the result file in anglican format
+  and outputs the mean and standard deviation
+  for each predict"
+  ([iname] (redir [:in iname] (freqs)))
+  ([]
+     (loop [lines (line-seq (io/reader *in*))
+            sums {}]
+       (if (seq lines)
+         (let [[line & lines] lines
+               line (str/trim line)]
+           (if (= (subs line 0 1) ";")
+             (recur lines sums) ; comment line
+             (let [fields (str/split line #" *, *")
+                   label (str/join "," (subvec fields
+                                               0 (- (count fields) 2)))
+                   [value weight] (map read-string
+                                       (subvec fields (- (count fields) 2)))]
+               (recur 
+                lines
+                (let [weighted-value (* value weight)]
+                  (-> sums
+                      (update-in [label :weight] (fnil + 0.) weight)
+                      (update-in [label :sum] (fnil + 0.) weighted-value)
+                      (update-in [label :sum2] (fnil + 0.) 
+                                 (* weighted-value weighted-value))))))))
+         (doseq [label (sort (keys sums))]
+           (let [mean (/ (get-in sums [label :sum])
+                         (get-in sums [label :weight]))
+                 sd (Math/sqrt (-(/ (get-in sums [label :sum2])
+                                    (get-in sums [label :weight]))
+                                 (* mean mean)))]
+             (printf "%s, %6g, %6g\n" label mean sd)))))))

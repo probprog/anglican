@@ -122,14 +122,12 @@
   (mean [d] "mean")
   (variance [d] "variance"))
 
-;; Notes: other possible methods include moment generating function, transformations/change of vars
-
 (defn- tabulate
   "Private tabulation function that works on any data type, not just numerical"
   [v]
-    (let [f (frequencies v)
-          total (reduce + (vals f))]
-      (into {} (map (fn [[k v]] [k (/ v total)]) f))))
+  (let [f (frequencies v)
+        total (reduce + (vals f))]
+    (into {} (map (fn [[k v]] [k (/ v total)]) f))))
 
 (defn- simple-cdf
   "
@@ -189,26 +187,26 @@
   src: http://www.mail-archive.com/clojure@googlegroups.com/msg25706.html
   "
   [pred coll]
-    (lazy-seq
-      (when-let [s (seq coll)]
-        (if-not (pred (first s))
-          (cons (first s) (take-to-first pred (rest s)))
-          (list (first s))))))
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (if-not (pred (first s))
+       (cons (first s) (take-to-first pred (rest s)))
+       (list (first s))))))
 
 (defn roulette-wheel
   "Perform a roulette wheel selection given a list of frequencies"
   [freqs]
-    (let [nfreqs (count freqs)
-          tot (reduce + freqs)]
-      (if (= tot 0)
-        nil
-        (let [dist (map #(/ % tot) freqs)
-              rval (double (rand))]
-          (loop [acc 0, i 0]
-            (let [lb acc, ub (+ acc (nth dist i))]
-              (cond (>= (+ i 1) nfreqs) i
-                    (and (>= rval lb) (< rval ub)) i
-                    :else (recur ub (+ i 1)))))))))
+  (let [nfreqs (count freqs)
+        tot (reduce + freqs)]
+    (if (= tot 0)
+      nil
+      (let [dist (map #(/ % tot) freqs)
+            rval (double (rand))]
+        (loop [acc 0, i 0]
+          (let [lb acc, ub (+ acc (nth dist i))]
+            (cond (>= (+ i 1) nfreqs) i
+                  (and (>= rval lb) (< rval ub)) i
+                  :else (recur ub (+ i 1)))))))))
 
 ;; map extension takes values as frequencies
 (extend-type clojure.lang.APersistentMap
@@ -216,7 +214,7 @@
   (pdf [d v] (if-not (contains? d v)
                0
                (/ (get d v) (reduce + (vals d)))))
-  (cdf [d v] (if-not (isa? (class d) clojure.lang.PersistentTreeMap) ; isa? stronger than instance?
+  (cdf [d v] (if-not (isa? (class d) clojure.lang.PersistentTreeMap)
                nil
                (let [nd (count (support d))
                      compd (.comparator d)
@@ -246,18 +244,17 @@
                         (/ (reduce + (map #(* (- (val %) mu) (- (val %) mu)) d))
                            (count d))))))))
 
-; defrecord expands to have a (contains? ...) (or .contains method) that causes
-; a reflection warning. Note much to do about that for now. Perhaps it will be
-; fixed in clojure.core later.
 (defrecord UniformInt [start end]
   Distribution
   (pdf [d v] (/ 1 (- end start)))
   (cdf [d v] (* v (pdf d v)))
-  (draw [d] ; for simplicity, cast to BigInt to use the random bitstream a better implementation would handle different types differently
-    	(let [r (bigint (- end start))
-              f #(+ start (BigInteger. (.bitLength r) (Random.)))] ; TODO replace with reused, threadsafe random
-          (loop [candidate (f)] ; rejection sampler, P(accept) > .5, so don't fret
-            (if (< candidate end) candidate (recur (f))))))
+  (draw [d]
+    ;; for simplicity, cast to BigInt to use the random bitstream;
+    ;; a better implementation would handle different types differently
+    (let [r (bigint (- end start))
+          f #(+ start (BigInteger. (.bitLength r) (Random.)))]
+      (loop [candidate (f)]        ; rejection sampler, P(accept) > .5
+        (if (< candidate end) candidate (recur (f))))))
   (support [d] (range start end))
   (mean [d] (/ (reduce + (support d))
                (- end start)))
@@ -277,11 +274,11 @@
   computing random draws based on the end points of the distribution.
 
   Arguments:
-  start	The lowest end of the interval, such that (>= (draw d) start)
+  start The lowest end of the interval, such that (>= (draw d) start)
         is always true. (Default 0)
-    end	The value at the upper end of the interval, such that
-          (> end (draw d)) is always true. Note the strict inequality.
-          (Default 1)
+    end The value at the upper end of the interval, such that
+        (> end (draw d)) is always true. Note the strict inequality.
+        (Default 1)
 
   See also:
     pdf, cdf, draw, support
@@ -304,9 +301,9 @@
 
 (defn- nCk [n k]
   (cond
-    (or (< n 0) (< k 0) (< n k)) 0
-    (or (= k 0) (= n k)) 1
-    :else (/ (reduce * 1 (range (inc (- n k)) (inc n))) (reduce * 1 (range 1 (inc k))))))
+   (or (< n 0) (< k 0) (< n k)) 0
+   (or (= k 0) (= n k)) 1
+   :else (/ (reduce * 1 (range (inc (- n k)) (inc n))) (reduce * 1 (range 1 (inc k))))))
 
 (defn- decode-combinadic
   "
@@ -315,12 +312,12 @@
   "
   [n k c]
   {:pre [(<= 0 c) (> (nCk n k) c)] }
-    (loop [candidate (dec n) ks (range k 0 -1) remaining c tuple '()]
-      (if (empty? ks) tuple ;; <- return value of function
-          (let [k (first ks)
-                v (first (filter #(>= remaining (nCk % k)) (range candidate (- k 2) -1)))]
-            (assert (not (nil? v)))
-            (recur v (rest ks) (- remaining (nCk v k)) (conj tuple v))))))
+  (loop [candidate (dec n) ks (range k 0 -1) remaining c tuple '()]
+    (if (empty? ks) tuple ;; <- return value of function
+        (let [k (first ks)
+              v (first (filter #(>= remaining (nCk % k)) (range candidate (- k 2) -1)))]
+          (assert (not (nil? v)))
+          (recur v (rest ks) (- remaining (nCk v k)) (conj tuple v))))))
 
 
 
@@ -332,13 +329,10 @@
   [n k]
   (let [res (transient (into [] (range 0 k)))]
     (dorun (map
-     (fn [i] (if (< (/ k i) (rand)) (assoc! res (rand-int k) i)))
-     (range k n)))
+            (fn [i] (if (< (/ k i) (rand)) (assoc! res (rand-int k) i)))
+            (range k n)))
     (persistent! res)))
 
-; defrecord expands to have a (contains? ...) (or .contains method) that causes
-; a reflection warning. Note much to do about that for now. Perhaps it will be
-; fixed in clojure.core later.
 (defrecord Combination [n k u]
   Distribution
   (pdf [d v] (/ 1 (nCk n k)))
@@ -360,8 +354,8 @@
   vector represent the indices of the items in the set.
 
   Arguments:
-    n	  The number of possible items from which to select.
-    k	  The size of a sample (without replacement) to draw.
+    n     The number of possible items from which to select.
+    k     The size of a sample (without replacement) to draw.
 
   See also:
     test-statistic-distribution, integer-distribution, pdf, cdf, draw, support
@@ -371,8 +365,8 @@
 
   "
   [n k]
-    {:pre [(>= n k) (and (<= 0 n) (<= 0 k))] }
-    (Combination. n k (integer-distribution 0 (nCk n k))))
+  {:pre [(>= n k) (and (<= 0 n) (<= 0 k))] }
+  (Combination. n k (integer-distribution 0 (nCk n k))))
 
 (def ^:dynamic *test-statistic-iterations* 1000)
 (def ^:dynamic *test-statistic-map* pmap)
@@ -407,10 +401,10 @@
   thread for computation.
 
   Arguments:
-    test-statistic	A function that takes two vectors and summarizes
+    test-statistic      A function that takes two vectors and summarizes
         the difference between them
-    n	  The number of total units in the pool
-    k	  The number of treatment units per sample
+    n     The number of total units in the pool
+    k     The number of treatment units per sample
 
   See also:
     combination-distribution, pdf, cdf, draw, support
@@ -423,18 +417,14 @@
 
   "
   [test-statistic n k]
-  ; for now returns entire set of computed values, should summarize via frequencies
-    (*test-statistic-map* test-statistic ; *t-s-m* is bound to pmap by default
-      (let [cd (combination-distribution n k)]
-        (if (> (nCk n k) *test-statistic-iterations*)
-          ; simulated method
-          (repeatedly *test-statistic-iterations* #(draw cd))
-          ; exact method
-          (combinations (range 0 n) k)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; NORMAL DISTRIBUTION
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; for now returns entire set of computed values, should summarize via frequencies
+  (*test-statistic-map* test-statistic ; *t-s-m* is bound to pmap by default
+                        (let [cd (combination-distribution n k)]
+                          (if (> (nCk n k) *test-statistic-iterations*)
+                                        ; simulated method
+                            (repeatedly *test-statistic-iterations* #(draw cd))
+                                        ; exact method
+                            (combinations (range 0 n) k)))))
 
 (def inf+ Double/POSITIVE_INFINITY)
 (def inf- Double/NEGATIVE_INFINITY)
@@ -451,10 +441,10 @@
 (defn normal-distribution
   "
   Returns a Normal distribution that implements the
-  incanter.distributions.Distribution protocol.
+  Distribution protocol.
 
   Arguments:
-    mean	The mean of the distribution. One of two parameters
+    mean  The mean of the distribution. One of two parameters
           that summarize the Normal distribution (default 0).
     sd    The standard deviation of the distribution.
           The second parameter that describes the Normal (default 1).
@@ -471,8 +461,6 @@
   ([] (normal-distribution 0 1))
   ([mean sd] (Normal-rec. mean sd)))
 
-;; distributions created using code and default values from http://github.com/markmfredrickson/incanter/blob/distributions/modules/incanter-core/src/incanter/stats.clj
-
 (defrecord Beta-rec [alpha beta]
   Distribution
   (pdf [d v] (.pdf (Beta. alpha beta (MersenneTwister.)) v))
@@ -486,7 +474,7 @@
                       (+ alpha beta 1)))))
 (defn beta-distribution
   "
-  Returns a Beta distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Beta distribution that implements the Distribution protocol.
 
   Arguments:
     alpha      (default 1)
@@ -515,7 +503,7 @@
 
 (defn binomial-distribution
   "
-  Returns a Binomial distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Binomial distribution that implements the Distribution protocol.
 
   Arguments:
     size       (default 1)
@@ -544,7 +532,7 @@
 
 (defn chisq-distribution
   "
-  Returns a Chi-square distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Chi-square distribution that implements the Distribution protocol.
 
   Arguments:
     df         (default 1)
@@ -572,7 +560,7 @@
 
 (defn exponential-distribution
   "
-  Returns a Exponential distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Exponential distribution that implements the Distribution protocol.
 
   Arguments:
     rate       (default 1)
@@ -589,22 +577,23 @@
   ([] (exponential-distribution 1))
   ([rate] (Exponential-rec. rate)))
 
-(defrecord Gamma-rec [shape scale] ; using defrecord since cdf was not matching up in unittest without switching ":lower-tail"
+(defrecord Gamma-rec [shape rate]
   Distribution
-  (pdf [d v] (.pdf (Gamma. shape scale (MersenneTwister.)) v))
-  (cdf [d v] (.cdf (Gamma. (/ 1.0 scale) shape (MersenneTwister.)) v)) ; TODO decide on :lower-tail
-  (draw [d] (Gamma/staticNextDouble shape (/ 1.0 scale)))
+  (pdf [d v] (.pdf (Gamma. shape rate (MersenneTwister.)) v))
+  (cdf [d v] (.cdf (Gamma. shape rate (MersenneTwister.)) v))
+  (draw [d] (Gamma/staticNextDouble shape rate))
   (support [d] [0,inf+])
-  (mean [d] (* shape scale))
-  (variance [d] (* shape scale scale)))
+  (mean [d] (/ shape rate))
+  (variance [d] (/ shape (* rate rate))))
 
 (defn gamma-distribution
   "
-  Returns a Gamma distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Gamma distribution that implements the
+  Distribution protocol.
 
   Arguments:
-    shape (k)  (default 1)
-    scale (θ)  (default 1)
+    shape (α)  (default 1)
+    rate  (β)  (default 1)
 
   See also:
     Distribution, pdf, cdf, draw, support
@@ -616,7 +605,7 @@
     (pdf (gamma-distribution 1 2) 10)
   "
   ([] (gamma-distribution 1 1))
-  ([shape scale] (Gamma-rec. shape scale)))
+  ([shape rate] (Gamma-rec. shape rate)))
 
 (defrecord NegativeBinomial-rec [size prob]
   Distribution
@@ -631,7 +620,7 @@
 
 (defn neg-binomial-distribution
   "
-  Returns a Negative binomial distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Negative binomial distribution that implements the Distribution protocol.
 
   Arguments:
     size       (default 10)
@@ -660,7 +649,7 @@
 
 (defn poisson-distribution
   "
-  Returns a Poisson distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Poisson distribution that implements the Distribution protocol.
 
   Arguments:
     lambda     (default 1)
@@ -689,7 +678,7 @@
                       :else nil)))
 (defn t-distribution
   "
-  Returns a Student-t distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Student-t distribution that implements the Distribution protocol.
 
   Arguments:
     df         (default 1)
@@ -713,17 +702,17 @@
   (draw [d] (cern.jet.random.Uniform/staticNextDoubleFromTo min max))
   (support [d] [min,max])
   (mean [d] (/ (+ min max)
-               2))
+               2.))
   (variance [d] (/ (* (- max min) (- max min))
-                   12)))
+                   12.)))
 
 (defn uniform-distribution
   "
-  Returns a Uniform distribution that implements the incanter.distributions.Distribution protocol.
+  Returns a Uniform distribution that implements the Distribution protocol.
 
   Arguments:
-    min        (default 0)
-    max        (default 1)
+    min        (default 0.)
+    max        (default 1.)
 
   See also:
     Distribution, pdf, cdf, draw, support
@@ -732,7 +721,7 @@
     http://en.wikipedia.org/wiki/Uniform_distribution
 
   Example:
-    (pdf (uniform-distribution 1.0 10.0) 5)
+    (pdf (uniform-distribution 1. 10.) 5)
   "
-  ([] (uniform-distribution 0.0 1.0)) ; since "0 1" not implicitly promoted, otherwise no matching ctor...
+  ([] (uniform-distribution 0. 1.))
   ([min max] (Uniform-rec. min max)))
