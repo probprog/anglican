@@ -1,10 +1,13 @@
 (ns embang.runtime
-  (:require incanter.core
-            incanter.distributions)
+  (:import cern.jet.stat.Gamma)
+  (:require [my.incanter.distributions
+             :as incanter.distributions]) ; stripped-down for faster start-up
   (:use [embang.emit :only [def-cps-fn]]))
 
-(def ^:private gamma-function "Gamma function" incanter.core/gamma)
-(def ^:private beta-function "Beta function" incanter.core/beta)
+(defn ^:private gamma-function
+  "Gamma function, required for dirichlet pdf" 
+  [x]
+  (cern.jet.stat.Gamma/gamma x))
 
 ;;; Anglican core functions beyond clojure.core
 
