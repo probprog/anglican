@@ -1,13 +1,7 @@
 (ns embang.runtime
-  (:import cern.jet.stat.Gamma)
-  (:require [my.incanter.distributions
-             :as incanter.distributions]) ; stripped-down for faster start-up
+  (:require [embang.colt.distributions
+             :as dist])
   (:use [embang.emit :only [def-cps-fn]]))
-
-(defn ^:private gamma-function
-  "Gamma function, required for dirichlet pdf" 
-  [x]
-  (cern.jet.stat.Gamma/gamma x))
 
 ;;; Anglican core functions beyond clojure.core
 
@@ -76,25 +70,25 @@
 
 ;;; Distributions, in alphabetical order
 
-(defmacro from-incanter
+(defmacro from-colt
   "wraps incanter distribution"
   ([name args]
      ;; the name and the argument order is the same
-     `(from-incanter ~name ~args (~name ~@args)))
+     `(from-colt ~name ~args (~name ~@args)))
 
   ([name args [incanter-name & incanter-args]]
      `(defn ~(with-meta  name {:doc (str name " distribution")})
         ~args
         (let [~'dist (~(symbol (format 
-                                "incanter.distributions/%s-distribution"
+                                "dist/%s-distribution"
                                 incanter-name))
                       ~@incanter-args)]
           ~'(reify distribution
-              (draw [this] (incanter.distributions/draw dist))
-              (prob [this value] (incanter.distributions/pdf dist value)))))))
+              (draw [this] (dist/draw dist))
+              (prob [this value] (dist/pdf dist value)))))))
 
-(from-incanter beta [alpha beta])
-(from-incanter binomial [n p] (binomial p n))
+(from-colt beta [alpha beta])
+(from-colt binomial [n p] (binomial p n))
 
 (defn discrete
   "discrete distribution, accepts unnormalized weights"
@@ -113,24 +107,26 @@
 
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
-(defn dirichlet
-  "Diriclhet distribution"
-  ;; borrowed from Anglican runtime
-  [alpha]
-  (let [Z (/ (reduce * (map gamma-function alpha))
-             (gamma-function (reduce + alpha)))]
-    (reify distribution
-      (draw [this]
-        (let [g (map #(draw (gamma % 1)) alpha)
-              t (reduce + g)]
-          (map #(/ % t) g)))
-      (prob [this value]
-        (/ (reduce * (map (fn [v a] (Math/pow v (- a 1))) 
-                          value
-                          alpha))
-           Z)))))
+(letfn [(gamma-function [x]
+          (cern.jet.stat.Gamma/gamma x))]
+  (defn dirichlet
+    "Diriclhet distribution"
+    ;; borrowed from Anglican runtime
+    [alpha]
+    (let [Z (/ (reduce * (map dist/gamma-function alpha))
+               (dist/gamma-function (reduce + alpha)))]
+      (reify distribution
+        (draw [this]
+          (let [g (map #(draw (gamma % 1)) alpha)
+                t (reduce + g)]
+            (map #(/ % t) g)))
+        (prob [this value]
+          (/ (reduce * (map (fn [v a] (Math/pow v (- a 1))) 
+                            value
+                            alpha))
+             Z))))))
 
-(from-incanter exponential [rate])
+(from-colt exponential [rate])
 
 (defn flip
   "flip (bernoulli) distribution"
@@ -139,11 +135,11 @@
     (draw [this] (< (rand) p))
     (prob [this value] (if value p (- 1. p)))))
 
-(from-incanter gamma [shape rate])
-(from-incanter normal [mean sd])
-(from-incanter poisson [lambda])
-(from-incanter uniform-continuous [min max] (uniform min max))
-(from-incanter uniform-discrete [min max] (integer min max))
+(from-colt gamma [shape rate])
+(from-colt normal [mean sd])
+(from-colt poisson [lambda])
+(from-colt uniform-continuous [min max] (uniform min max))
+(from-colt uniform-discrete [min max] (integer min max))
 
 ;; CPS versions of higher-order functions.
 

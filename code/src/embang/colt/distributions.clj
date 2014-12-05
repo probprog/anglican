@@ -13,10 +13,13 @@
 ;; agreeing to be bound by the terms of this license.  You must not
 ;; remove this notice, or any other, from this software.
 
+;; Stripped down and modified by David Tolpin for use with embang,
+;; http://bitbucket.org/dtolpin/embang, and up-to-date version of colt.
+
 (ns ^{:doc "Probability functions (pdf, cdf, draw, etc.) for common distributions,
            and for collections, sets, and maps."
       :author "Mark M. Fredrickson and William Leung"}
-  my.incanter.distributions
+  embang.colt.distributions
   (:import java.util.Random
            (cern.jet.random Beta Binomial ChiSquare Uniform Exponential
                             Gamma NegativeBinomial Normal Poisson StudentT)
@@ -24,6 +27,11 @@
            (cern.jet.random.engine MersenneTwister))
   (:use [clojure.set :only (intersection difference)]
         [clojure.math.combinatorics :only (combinations)]))
+
+(defn gamma-function
+  "Gamma function" 
+  [x]
+  (cern.jet.stat.Gamma/gamma x))
 
 (defprotocol Distribution
   "
