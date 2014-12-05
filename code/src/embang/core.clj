@@ -1,7 +1,7 @@
 (ns embang.core
   (:gen-class)
   (:require [clojure.string :as str]
-            [clojure.tools.cli :refer [parse-opts]])
+            [clojure.tools.cli :as cli])
   (:use [embang.inference :only [infer]])
   (:use embang.results))
 
@@ -58,7 +58,7 @@ Options:
   in REPL run (-main \"--help\") for option summary."
   [& args]
   (let [{:keys [options arguments errors summary] :as parsed-options}
-        (parse-opts args cli-options)]
+        (cli/parse-opts args cli-options)]
 
     ;; Handle help and error conditions.
     (cond

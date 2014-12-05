@@ -1,6 +1,6 @@
 (ns embang.runtime
-  (:require incanter.core)
-  (:require [incanter.distributions :as dist])
+  (:require incanter.core
+            incanter.distributions)
   (:use [embang.emit :only [def-cps-fn]]))
 
 (def ^:private gamma-function "Gamma function" incanter.core/gamma)
@@ -82,12 +82,13 @@
   ([name args [incanter-name & incanter-args]]
      `(defn ~(with-meta  name {:doc (str name " distribution")})
         ~args
-        (let [~'dist (~(symbol (format "dist/%s-distribution"
-                                       incanter-name))
+        (let [~'dist (~(symbol (format 
+                                "incanter.distributions/%s-distribution"
+                                incanter-name))
                       ~@incanter-args)]
           ~'(reify distribution
-              (draw [this] (dist/draw dist))
-              (prob [this value] (dist/pdf dist value)))))))
+              (draw [this] (incanter.distributions/draw dist))
+              (prob [this value] (incanter.distributions/pdf dist value)))))))
 
 (from-incanter beta [alpha beta])
 (from-incanter binomial [n p] (binomial p n))
