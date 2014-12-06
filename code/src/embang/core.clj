@@ -123,6 +123,11 @@ Options:
              (printf "ERROR loading namespace 'embang.%s':\n\t%s\n"
                      (:inference-algorithm options) e))))))))
 
+(defmacro m!
+  "invoking -main from the REPL"
+  [& args]
+  `(-main ~@(map str args)))
+
 (defn -cmd
   "auxiliary commands"
   [& args]
