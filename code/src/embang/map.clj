@@ -41,10 +41,6 @@
 
 ;;; Mean reward belief, via Gamma distribution
 
-;; TODO: this is wrong, logarithimic rather than
-;; actual rewards are accumulated. What is the right
-;; distribution.
-
 (defn mean-reward-belief
   [shape rate]
   ;; We use log-Gamma belief for log-rewards and impose 
@@ -64,6 +60,45 @@
   ;; Uninformative prior --- we know nothing about
   ;; the absolute values of rewards in general.
   (mean-reward-belief Double/MIN_NORMAL Double/MIN_NORMAL))
+
+;;; Bandit
+
+;; selects arms using randomized probability matching
+
+
+(defn best-bet-arm
+  "select an arm with the best bet"
+  ([arms] (best-bet-arm arms Double/NEGATIVE_INFINITY nil))
+  ([arms best-bet best-arm]
+   (if-let [[[sample belief :as arm] & arms] (seq arms)]
+     (let [bet (bb-sample belief)]
+       (if (>= bet best-bet)
+         (recur arms bet arm)
+         (recur arms best-bet best-arm)))
+     best-arm)))
+
+(defn select-arm
+  "returns the sample of an existing arm
+  or generates a new sample"
+  [arms select-new-arm]
+  (if (seq arms)
+    ;; First, select an arm which belief is used
+    ;; as the new arm belief:
+    (let [[_ belief] (best-bet-arm arms)
+          new-arm-bet (bb-sample belief)]
+      ;; Then, select an arm with the best bet;
+      ;; if the bet of the arm selected above is the best
+      ;; add a new arm.
+      (if-let [[sample _] (best-bet-arm arms new-arm-bet nil)]
+        sample
+        (select-new-arm)))
+    (select-new-arm)))
+
+(defn update-arm 
+  "updates the belief about arm in arms"
+  [arms arm reward]
+  (update-in arms [arm]
+             (fnil bb-update initial-mean-reward-belief) reward))
 
 ;;; MAP inference
 
