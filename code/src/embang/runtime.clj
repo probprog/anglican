@@ -135,7 +135,7 @@
     (draw [this] (< (rand) p))
     (prob [this value] (if value p (- 1. p)))))
 
-(from-colt gamma [shape rate])
+(from-colt gamma [shape rate] (gamma shape (/ 1. rate)))
 (from-colt normal [mean sd])
 (from-colt poisson [lambda])
 (from-colt uniform-continuous [min max] (uniform min max))
