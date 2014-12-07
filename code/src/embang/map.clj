@@ -61,7 +61,8 @@
 
 (def initial-mean-reward-belief
   "initial belief about mean reward" 
-  ;; Uninformative prior
+  ;; Uninformative prior --- we know nothing about
+  ;; the absolute values of rewards in general.
   (mean-reward-belief Double/MIN_NORMAL Double/MIN_NORMAL))
 
 ;;; MAP inference
