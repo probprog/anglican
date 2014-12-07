@@ -1,6 +1,7 @@
 (ns embang.map
   (:require [embang.colt.distributions :as dist])
   (:use [embang.state :exclude [initial-state]]
+        [embang.runtime :only [sample observe]]
         embang.inference))
 
 ;;;; Maximum a Posteriori Estimation Through Sampling
@@ -15,8 +16,9 @@
 ;;  - the ::select mode is used to simulate
 ;;    a trace with the highest MAP estimate
 
-(derive ::explore :embang.inference/algorithm)
-(derive ::select :embang.inference/algorithm)
+(derive ::algorithm :embang.inference/algorithm)
+(derive ::explore ::algorithm)
+(derive ::select ::algorithm)
 
 ;;; Particle state
 
@@ -25,28 +27,6 @@
   (into embang.state/initial-state
         {::bandits {}
          ::trace []}))
-
-;; State transformations
-
-(defn backpropagate
-  "back propagate reward to bandits"
-  [state]
-  (let [reward (get-log-weight state)]
-    (loop [trace (::trace state)
-           bandits (::bandits state)]
-      (if (seq trace)
-        (let [[[id sample] & trace] trace]
-          (recur trace
-                 (update-in bandits [id]
-                            (fnil update-arm {}) sample reward)))
-        (assoc initial-state
-               ::bandits bandits)))))
-
-(defn maximum-a-posteriori
-  "given the state, returns a vector of
-  maximum a posteriori samples"
-  [state]
-  (map second (::trace state)))
 
 ;;; Bayesian updating, for randomized probability matching
 
@@ -97,7 +77,7 @@
 (defn best-arm
   "select an arm with the best core"
   [arms bb-score best-score best-arm]
-  (if-let [[[sample belief :as arm] & arms] (seq arms)]
+  (if-let [[[value belief :as arm] & arms] (seq arms)]
     (let [score (bb-score belief)]
       (if (>= score best-score)
         (recur arms bb-score score arm)
@@ -105,8 +85,8 @@
     best-arm))
 
 (defn select-arm
-  "returns the sample of an existing arm,
-  or nil if a new sample to be drawn"
+  "returns the value of an existing arm,
+  or nil if a new value to be drawn"
   [arms]
   ;; First, select an arm which belief will be used
   ;; for a bet of the new arm.
@@ -114,18 +94,18 @@
                                   Double/NEGATIVE_INFINITY nil)]
     ;; Then, select an arm with the best bet; if the bet
     ;; of a new arm is the best, add a new arm.
-    (when-let [[sample _] (best-arm arms bb-sample
-                                    (bb-sample belief) nil)]
-      sample)))
+    (when-let [[value _] (best-arm arms bb-sample
+                                   (bb-sample belief) nil)]
+      value)))
 
 (defn select-map-arm
-  "returns the sample of an arm with
+  "returns the value of an arm with
   the highest mode of the belief,
   o nil if there are no arms"
   [arms]
-  (when-let [[sample _] (best-arm arms bb-mode
+  (when-let [[value _] (best-arm arms bb-mode
                                   Double/NEGATIVE_INFINITY nil)]
-    sample))
+    value))
 
 (defn update-arm 
   "updates the belief about arm in arms"
@@ -135,6 +115,50 @@
 
 ;;; MAP inference
 
+;; State transformations
+
+(defn backpropagate
+  "back propagate reward to bandits"
+  [state]
+  (let [reward (get-log-weight state)]
+    (loop [trace (::trace state)
+           bandits (::bandits state)]
+      (if (seq trace)
+        (let [[[id sample] & trace] trace]
+          (recur trace
+                 (update-in bandits [id]
+                            (fnil update-arm {}) sample reward)))
+        (assoc initial-state
+               ::bandits bandits)))))
+
+(defn maximum-a-posteriori
+  "given the state, returns a vector of
+  maximum a posteriori samples"
+  [state]
+  (map second (::trace state)))
+
+(defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
+  (let [state (:state smp)
+        id [(:id smp) (count (::trace state))]
+        arms ((::bandits state) id)
+        ;; select a value
+        value (or ((case algorithm
+                     ::explore select-arm     ;; probability matching
+                     ::select select-map-arm) ;; greatest mode
+                   arms)
+                  ;; or sample a new value
+                  (sample (:dist smp)))
+
+        ;; update the state
+        state (-> state
+                  ;; add the log-weight of the sample
+                  (add-log-weight (observe (:dist smp) value))
+
+                  ;; store the sampled value in the trace
+                  (update-in [::trace] conj [id value]))]
+
+    ;; Finally, continue the execution.
+    #((:cont smp) value state)))
 
 (defmethod infer :map [_ prog & {:keys [number-of-samples
                                         output-format]
@@ -144,7 +168,8 @@
     (if-not (= i number-of-samples)
       (recur (inc i) (backpropagate
                        (:state (exec ::explore prog nil state))))
-      (let [state (exec ::select prog nil state)]
-        (print-predicts state output-format)
-        ;; return a vector of MAP sample choices
-        (maximum-a-posteriori state)))))
+      (do
+        (let [state (:state (exec ::select prog nil state))]
+          (print-predicts state output-format)
+          ;; return a vector of MAP sample choices
+          (maximum-a-posteriori state))))))
