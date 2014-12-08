@@ -38,38 +38,39 @@
 
 (defmulti parse-line 
   "parses output line and returns [label value height]"
-  (fn [format line] format))
+  (fn [line format] format))
 
 ;; legacy anglican syntax
-(defmethod parse-line :anglican [_ line]
+(defmethod parse-line :anglican [line format]
   (let [fields (str/split line #" *, *")
         [label value weight] (map edn/read-string
                                   (take-last 3 fields))]
     [label value (or weight 1.)]))
 
-(defmethod parse-line :clojure [_ line]
+(defmethod parse-line :clojure [line format]
   (edn/read-string line))
 
-(defmethod parse-line :json [_ line]
+(defmethod parse-line :json [line format]
   (json/read-str line))
+
+;; consistent with the default for print-predict
+;; and compatible with original Anglican
+(defmethod parse-line :default [line format]
+  (parse-line line :anglican))
 
 (defn parsed-line-seq
   "parses line sequence"
-  ([lines] (parsed-line-seq lines :anglican))
+  ([lines] (parsed-line-seq lines nil))
   ([lines format]
-     (println "FORMAT:" format)
      (when-let [[line & lines] (seq lines)]
-       (println "LINE:" line)
-       (if (re-find #"^\s*;" line)
+       (if (re-find #"^\s*;|^\s*$" line)
          ;; meta-info or comment
          (if-let [format-option (re-matches
                                  #"^;;\s*:output-format\s+:(.+)"
                                  line)]
-           (do
-             (println "format-option" format-option)
-             (recur lines (keyword (format-option 1))))
+           (recur lines (keyword (format-option 1)))
            (recur lines format))
-         (cons (parse-line format line)
+         (cons (parse-line line format)
                (lazy-seq (parsed-line-seq lines format)))))))
 
 (defn freqs
@@ -82,7 +83,6 @@
             weights {}]
        (if (seq lines)
          (let [[[label value weight] & lines] lines]
-           (println "PARSED LINE: " label value weight)
            (recur 
             lines
             (if (or (integer? value) (symbol? value))

@@ -105,8 +105,7 @@
 (defmethod infer :pgibbs [_ prog & {:keys [number-of-sweeps
                                         number-of-particles
                                         output-format]
-                                 :or {number-of-particles 2
-                                      output-format :clojure}}]
+                                 :or {number-of-particles 2}}]
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
   (loop [i 0

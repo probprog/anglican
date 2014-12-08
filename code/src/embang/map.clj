@@ -167,8 +167,7 @@
     #((:cont smp) value state)))
 
 (defmethod infer :map [_ prog & {:keys [number-of-samples
-                                        output-format]
-                                 :or {output-format :clojure}}]
+                                        output-format]}]
   (loop [i 0
          state initial-state]
     (if-not (= i number-of-samples)

@@ -47,8 +47,10 @@
   (prn [label value weight]))
 
 (defmethod print-predict :json [label value weight format]
-  (json/pprint [(str label) value weight])
-  (prn))
+  (json/pprint [(str label) value weight]))
+
+(defmethod print-predict :default [label value weight format]
+  (print-predict label value weight :anglican))
   
 (defn print-predicts
   "print predicts as returned by a probabilistic program
