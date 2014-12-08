@@ -124,10 +124,14 @@
     (loop [trace (::trace state)
            bandits (::bandits state)]
       (if (seq trace)
-        (let [[[id sample] & trace] trace]
+        (let [[[id sample shared-reward] & trace] trace]
           (recur trace
-                 (update-in bandits [id]
-                            (fnil update-arm {}) sample reward)))
+                 (-> bandits
+                     (update-in [id :arms]
+                                (fnil update-arm {})
+                                sample (- reward shared-reward))
+                     (update-in [id :count] (fnil inc 0)))))
+
         (assoc initial-state
                ::bandits bandits)))))
 
@@ -140,11 +144,13 @@
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)
         id [(:id smp) (count (::trace state))]
-        arms ((::bandits state) id)
+        arms (get-in (::bandits state) [id :arms])
+        shared-reward (get-log-weight state)
+
         ;; select a value
         value (or ((case algorithm
-                     ::explore select-arm     ;; probability matching
-                     ::select select-map-arm) ;; greatest mode
+                     ::explore select-arm     ; probability matching
+                     ::select select-map-arm) ; greatest mode
                    arms)
                   ;; or sample a new value
                   (sample (:dist smp)))
@@ -155,7 +161,7 @@
                   (add-log-weight (observe (:dist smp) value))
 
                   ;; store the sampled value in the trace
-                  (update-in [::trace] conj [id value]))]
+                  (update-in [::trace] conj [id value shared-reward]))]
 
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
