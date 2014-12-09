@@ -24,21 +24,21 @@
 
 (defn retained-initial-state
   "returns the initial state for a retained particle"
-  [state]
+  [retained-particle]
   (assoc initial-state
-         ::future-samples (::past-samples state)))
+         ::future-samples ((:state retained-particle) ::past-samples)))
 
 (defn retained-state?
   "whether the state is retained"
   [state]
-  (seq (::future-samples state)))
+  (seq (state ::future-samples)))
 
 (defn retrieve-retained-sample
   "returns the updated state with the rest of samples
   and the retained sample"
   [state]
   [(update-in state [::future-samples] rest) 
-   (first (::future-samples state))])
+   (first (state ::future-samples))])
 
 (defn release-retained-state
   "returns the updated state with ::future-samples removed,
@@ -69,13 +69,12 @@
 
 (defn pgibbs-sweep
   "a single PGibbs sweep"
-  [prog retained-particle number-of-particles]
+  [prog retained-state number-of-particles]
   (loop [particles 
          (conj
           (repeatedly (- number-of-particles 1)
                       #(exec ::algorithm prog nil initial-state))
-          (exec ::algorithm prog nil
-                (retained-initial-state (:state retained-particle))))]
+          (exec ::algorithm prog nil retained-state))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec ::algorithm (:cont %) nil (:state %))
@@ -109,10 +108,11 @@
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
   (loop [i 0
-         retained-particle nil]
+         retained-state initial-state]
     (when-not (= i number-of-sweeps)
       (let [particles (pgibbs-sweep
-                       prog retained-particle number-of-particles)]
+                        prog retained-state number-of-particles)]
         (doseq [res particles]
           (print-predicts (:state res) output-format))
-        (recur (inc i) (rand-nth particles))))))
+        (recur (inc i) 
+               (retained-initial-state (rand-nth particles)))))))

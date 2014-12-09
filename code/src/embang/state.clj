@@ -29,7 +29,7 @@
 (defn get-log-weight
   "get accumulated log-weight"
   [state]
-  (::log-weight state))
+  (state ::log-weight))
 
 (defn add-predict
   "add predict label and value to the list of predicts"
@@ -39,7 +39,7 @@
 (defn get-predicts
   "get collected predicts"
   [state]
-  (::predicts state))
+  (state ::predicts))
 
 ;; The following three methods are used by the `mem' form. The
 ;; memoized values are kept in the state, independently for each
@@ -48,14 +48,15 @@
 (defn in-mem?
   "true when the function call is memoized"
   [state id args] 
-  (contains? ((::mem state) id) args))
+  (contains? ((state ::mem) id) args))
 
 (defn get-mem
   "retrieves memoized function call"
   [state id args]
-  (get-in state [::mem id args]))
+  (get-in (state ::mem) [id args]))
 
 (defn set-mem
-  "stores memoized result of function call"
+  "stores memoized result of function call,
+  returns the update state"
   [state id args value]
-  (assoc-in state [::mem id args] value))
+  (assoc-in state [::mem id args] value)

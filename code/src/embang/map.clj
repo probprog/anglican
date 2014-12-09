@@ -7,18 +7,11 @@
 ;;;; Maximum a Posteriori Estimation through Sampling
 
 ;; Uses MCTS to find maximum a posteriori estimate of
-;; program trace
-
-;; Unlike inference sampling algorithms, has two
-;; execution modes:
-;;  - the ::explore mode is used to discover 
-;;    the most probable choices
-;;  - the ::select mode is used to simulate
-;;    a trace with the highest MAP estimate
+;; program trace.
 
 (derive ::algorithm :embang.inference/algorithm)
 
-;;; Particle state
+;;;; Particle state
 
 (def initial-state
   "initial state for MAP estimation"
@@ -26,7 +19,7 @@
         {::bandits {}
          ::trace []}))
 
-;;; Bayesian updating, for randomized probability matching
+;;;; Bayesian updating, for randomized probability matching
 
 (defprotocol bayesian-belief
   "Bayesian belief"
@@ -37,7 +30,7 @@
   (bb-mode [belief]
     "returns the mode of the distribution"))
 
-;;; Mean reward belief, via Gamma distribution
+;;;; Mean reward belief, via Gamma distribution
 
 (defn mean-reward-belief
   [shape rate]
@@ -64,7 +57,7 @@
   ;; the absolute values of rewards in general.
   (mean-reward-belief 1. Double/MIN_NORMAL))
 
-;;; Bandit
+;;;; Bandit
 
 ;; selects arms using randomized probability matching
 
@@ -82,8 +75,9 @@
         (recur arms bb-score best-score best-arm)))
     best-arm))
 
-(defn select-arm
-  "returns the value of an existing arm,
+(defn select-most-promising-arm
+  "selects an arm by sampling from mean's belief,
+  returns the value of an existing arm,
   or nil if a new value is to be drawn"
   [arms]
   ;; First, select an arm which belief will be used
@@ -96,10 +90,10 @@
                                    (bb-sample belief) nil)]
       value)))
 
-(defn select-map-arm
+(defn select-maximum-a-posteriori-arm
   "returns the value of an arm with
   the highest mode of the belief,
-  o nil if there are no arms"
+  or nil if there are no arms"
   [arms]
   (when-let [[value _] (best-arm arms bb-mode
                                   Double/NEGATIVE_INFINITY nil)]
@@ -111,47 +105,98 @@
   (update-in arms [arm]
              (fnil bb-update initial-mean-reward-belief) reward))
 
-;;; MAP inference
+;;;; MAP inference
 
-;; State transformations
+;;; Random choice bandit
+
+;; A bandit is in either default or frozen `mood.'  When
+;; a bandit is in the default mood, the arm is selected by
+;; sampling from the mean's belief. When the bandit is frozen,
+;; the arm with the maximum probability mass is selected.
+
+(defmulti select-arm :mood)
+
+(defmethod select-arm :frozen [bandit]
+  (select-maximum-a-posteriori-arm (:arms bandit)))
+
+(defmethod select-arm :default [bandit]
+  (select-most-promising-arm (:arms bandit)))
+
+(defn update-bandit
+  "updates bandit's belief"
+  [bandit sample reward]
+  (-> bandit
+      (update-in [:arms] (fnil update-arm {}) sample reward)
+      (update-in [:count] (fnil inc 0))))
+
+(defn freeze-bandit
+  "sets the bandit's mood to frozen"
+  [bandit]
+  (printf "FREEZING %d %d %s\n" (:count bandit) (count (:arms bandit)) (keys (:arms bandit)))
+  (assoc bandit :mood :frozen))
+
+(defn frozen?
+  "true when the bandit is frozen"
+  [bandit]
+  (= (:mood bandit) :frozen))
+
+;;; State transformations
+
+(defn freeze
+  "freeze bandits that satisfy the condition"
+  [bandits can-be-frozen?]
+  (reduce (fn [bandits id]
+            (update-in bandits [id] freeze-bandit))
+          bandits
+          ;; find ids of all bandits that can be frozen
+          (keep (fn [[id bandit]]
+                  (when (can-be-frozen? bandit)
+                    (printf "CAN BE FROZEN: %s\n" id)
+                    id))
+                bandits)))
 
 (defn backpropagate
   "back propagate reward to bandits"
-  [state]
+  [state can-be-frozen?]
   (let [reward (get-log-weight state)]
-    (loop [trace (::trace state)
-           bandits (::bandits state)]
+    (loop [trace (state ::trace)
+           bandits (state ::bandits)]
       (if (seq trace)
-        (let [[[id sample shared-reward] & trace] trace]
+        (let [[[id sample past-reward] & trace] trace]
           (recur trace
-                 (-> bandits
-                     (update-in [id :arms]
-                                (fnil update-arm {})
-                                sample (- reward shared-reward))
-                     (update-in [id :count] (fnil inc 0)))))
-
+                 (update-in bandits [id]
+                            update-bandit sample (- reward past-reward))))
         (assoc initial-state
-               ::bandits bandits)))))
+               ::bandits (freeze bandits can-be-frozen?))))))
 
 (defn maximum-a-posteriori
   "given the state, returns a vector of
   maximum a posteriori samples"
   [state]
-  (map second (::trace state)))
+  (map second (state ::trace)))
+
+;; Bandit id: different random choices should get different
+;; ids, ideally structurally similar random choices should
+;; get the same id, just like addresses in Random DB
+(defn bandit-id [smp trace]
+  "returns bandit id for the checkpoint"
+  (let [[id value _] (last trace)]
+    (if id
+      (list* (:id smp) value id)
+      (list (:id smp)))))
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)
-        id [(:id smp) (count (::trace state))]
-        arms (get-in (::bandits state) [id :arms])
-        shared-reward (get-log-weight state)
+        id (bandit-id smp (state ::trace))
+        bandit ((state ::bandits) id)
+        ;; Past reward is the reward collected by the particle
+        ;; until the checkpoint. To make rewards collected by
+        ;; arms commensurate past-reward is subtracted from
+        ;; the final reward.
+        past-reward (get-log-weight state)
 
         ;; select a value
-        value (or ((case algorithm
-                     ::explore select-arm     ; probability matching
-                     ::select select-map-arm) ; greatest mode
-                   arms)
-                  ;; or sample a new value
-                  (sample (:dist smp)))
+        value (or (select-arm bandit) (sample (:dist smp)))
 
         ;; update the state
         state (-> state
@@ -159,29 +204,30 @@
                   (add-log-weight (observe (:dist smp) value))
 
                   ;; store the sampled value in the trace
-                  (update-in [::trace] conj [id value shared-reward]))]
+                  (update-in [::trace] conj [id value past-reward]))]
 
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
 
-;; TODO: instead of having two modes:
-;; freeze bandit nodes as a freeze condition
+;; Freeze bandit nodes as a freeze condition
 ;; --- the simplest is the number of samples
-;; per node --- has ben reached.
+;; per node --- has been reached.
 ;;
 ;; When the maximum total number of samples
 ;; is reached, freeze all nodes. After a trace
 ;; with all frozen nodes, print and return.
 
 (defmethod infer :map [_ prog & {:keys [number-of-samples
-                                        output-format]}]
+                                        freeze-point
+                                        output-format]
+                                 :or {freeze-point 1}}]
   (loop [i 0
-         state initial-state]
-    (if-not (= i number-of-samples)
-      (recur (inc i) (backpropagate
-                       (:state (exec ::explore prog nil state))))
-      (do
-        (let [state (:state (exec ::select prog nil state))]
-          (print-predicts state output-format)
+         end-state (:state (exec ::algorithm prog nil initial-state))]
+    (let [begin-state (backpropagate end-state #(= (:count %) freeze-point))
+          end-state (:state (exec ::algorithm prog nil begin-state))]
+      (if (or (= i number-of-samples) (every? frozen? begin-state))
+        (do
+          (print-predicts end-state output-format)
           ;; return a vector of MAP sample choices
-          (maximum-a-posteriori state))))))
+          (maximum-a-posteriori end-state))
+        (recur (inc i) end-state)))))
