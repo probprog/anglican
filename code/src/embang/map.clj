@@ -179,7 +179,8 @@
 ;; ids, ideally structurally similar random choices should
 ;; get the same id, just like addresses in Random DB
 (defn bandit-id [smp trace]
-  "returns bandit id for the checkpoint"
+  "returns bandit id for the checkpoint,
+  the id includes the complete trace prefix"
   (let [[id value _] (last trace)]
     (if id
       (list* (:id smp) value id)
