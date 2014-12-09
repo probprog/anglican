@@ -4,7 +4,7 @@
         [embang.runtime :only [sample observe]]
         embang.inference))
 
-;;;; Maximum a Posteriori Estimation Through Sampling
+;;;; Maximum a Posteriori Estimation through Sampling
 
 ;; Uses MCTS to find maximum a posteriori estimate of
 ;; program trace
@@ -17,8 +17,6 @@
 ;;    a trace with the highest MAP estimate
 
 (derive ::algorithm :embang.inference/algorithm)
-(derive ::explore ::algorithm)
-(derive ::select ::algorithm)
 
 ;;; Particle state
 
@@ -86,7 +84,7 @@
 
 (defn select-arm
   "returns the value of an existing arm,
-  or nil if a new value to be drawn"
+  or nil if a new value is to be drawn"
   [arms]
   ;; First, select an arm which belief will be used
   ;; for a bet of the new arm.
@@ -165,6 +163,15 @@
 
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
+
+;; TODO: instead of having two modes:
+;; freeze bandit nodes as a freeze condition
+;; --- the simplest is the number of samples
+;; per node --- has ben reached.
+;;
+;; When the maximum total number of samples
+;; is reached, freeze all nodes. After a trace
+;; with all frozen nodes, print and return.
 
 (defmethod infer :map [_ prog & {:keys [number-of-samples
                                         output-format]}]

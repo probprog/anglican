@@ -34,7 +34,7 @@
 (defmethod infer :smc [_ prog & {:keys [number-of-sweeps
                                         number-of-particles
                                         output-format]
-                                 :or {number-of-particles 2}}]
+                                 :or {number-of-particles 1}}]
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
   (loop [i 0]
