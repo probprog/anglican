@@ -33,29 +33,24 @@
 ;;;; Mean reward belief, via Gamma distribution
 
 (defn mean-reward-belief
-  [shape rate]
-  ;; Bayesian belief about the mean reward  (log-weight).
-  ;; 
-  ;; We use log-Gamma belief for rewards and impose 
-  ;; Gamma prior on the rate of the reward distribution.
-  (let [distribution (dist/gamma-distribution shape rate)]
+  "belief about reward mean"
+  [s1 s2 n]
+  (let [mean (/ s1 n)
+        sd (Math/sqrt (/ (- (/ s2 n) (* mean mean)) n))
+        dist (dist/normal-distribution mean sd)]
     (reify bayesian-belief
       (bb-update [mr reward]
-        (mean-reward-belief (+ shape 1.) (+ rate (Math/exp reward))))
-      ;; Since  the mean reward distributions
-      ;; are used for comparison only, the absolute value of
-      ;; the shape of the reward distribution does not matter,
-      ;; provided it is assumed to be the same for all arms.
+        (mean-reward-belief (+ s1 reward) (+ s2 (* reward reward)) (inc n)))
       (bb-sample [mr]
-        (Math/log (/ (dist/draw distribution))))
+        (dist/draw dist))
       (bb-mode [mr]
-        (Math/log (/ rate (- shape 1.)))))))
+        (/ s1 n)))))
 
 (def initial-mean-reward-belief
   "initial belief about mean reward" 
   ;; Uninformative prior --- we know nothing about
   ;; the absolute values of rewards in general.
-  (mean-reward-belief 1. Double/MIN_NORMAL))
+  (mean-reward-belief 0. 0. Double/MIN_VALUE))
 
 ;;;; Bandit
 
@@ -132,7 +127,6 @@
 (defn freeze-bandit
   "sets the bandit's mood to frozen"
   [bandit]
-  (printf "FREEZING %d %d %s\n" (:count bandit) (count (:arms bandit)) (keys (:arms bandit)))
   (assoc bandit :mood :frozen))
 
 (defn frozen?
@@ -151,7 +145,6 @@
           ;; find ids of all bandits that can be frozen
           (keep (fn [[id bandit]]
                   (when (can-be-frozen? bandit)
-                    (printf "CAN BE FROZEN: %s\n" id)
                     id))
                 bandits)))
 
@@ -182,9 +175,7 @@
   "returns bandit id for the checkpoint,
   the id includes the complete trace prefix"
   (let [[id value _] (last trace)]
-    (if id
-      (list* (:id smp) value id)
-      (list (:id smp)))))
+    (list* (:id smp) value id)))
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)
