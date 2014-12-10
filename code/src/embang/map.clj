@@ -33,24 +33,29 @@
 ;;;; Mean reward belief, via Gamma distribution
 
 (defn mean-reward-belief
-  "belief about reward mean"
-  [s1 s2 n]
-  (let [mean (/ s1 n)
-        sd (Math/sqrt (/ (- (/ s2 n) (* mean mean)) n))
-        dist (dist/normal-distribution mean sd)]
+  [shape rate]
+  ;; Bayesian belief about the mean reward  (log-weight).
+  ;; 
+  ;; We use log-Gamma belief for rewards and impose 
+  ;; Gamma prior on the rate of the reward distribution.
+  (let [distribution (dist/gamma-distribution shape rate)]
     (reify bayesian-belief
       (bb-update [mr reward]
-        (mean-reward-belief (+ s1 reward) (+ s2 (* reward reward)) (inc n)))
+        (mean-reward-belief (+ shape 1.) (+ rate (Math/exp reward))))
+      ;; Since  the mean reward distributions
+      ;; are used for comparison only, the absolute value of
+      ;; the shape of the reward distribution does not matter,
+      ;; provided it is assumed to be the same for all arms.
       (bb-sample [mr]
-        (dist/draw dist))
+        (Math/log (/ (dist/draw distribution))))
       (bb-mode [mr]
-        (/ s1 n)))))
+        (Math/log (/ rate (- shape 1.)))))))
 
 (def initial-mean-reward-belief
   "initial belief about mean reward" 
   ;; Uninformative prior --- we know nothing about
   ;; the absolute values of rewards in general.
-  (mean-reward-belief 0. 0. Double/MIN_VALUE))
+  (mean-reward-belief 1. Double/MIN_NORMAL))
 
 ;;;; Bandit
 
@@ -174,8 +179,7 @@
 (defn bandit-id [smp trace]
   "returns bandit id for the checkpoint,
   the id includes the complete trace prefix"
-  (let [[id value _] (last trace)]
-    (list* (:id smp) value id)))
+  [(:id smp) (count trace)])
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)
