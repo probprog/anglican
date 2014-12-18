@@ -179,7 +179,10 @@
 (defn bandit-id [smp trace]
   "returns bandit id for the checkpoint,
   the id includes the complete trace prefix"
-  [(:id smp) (count trace)])
+  [(:id smp)  ; static identifier of the random choice
+   (count     ; number of preceding draws from the same choice
+     (filter (fn [[[smp-id _] & _]] (= smp-id (:id smp)))
+             trace))])
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)

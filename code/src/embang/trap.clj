@@ -65,6 +65,8 @@
        observe
        sample
        mem
+       get-store
+       set-store
        apply) false
       ;; application
       (and (primitive-procedure? (first expr))
@@ -111,8 +113,7 @@
       (binding [*primitive-procedures*
                 (disj *primitive-procedures* name)]
         (let [rst (cps-of-let `(~bindings ~@body) cont)]
-          (if (and (simple-expression? value)
-                   (not (primitive-procedure? value)))
+          (if (simple-expression? value)
             `(~'let [~name ~value]
                ~rst)
             (cps-of-expression
@@ -143,18 +144,22 @@
 (defn-with-named-cont
   cps-of-if
   "transforms if to CPS"
-  [[cnd thn els] cont]
-  (if (simple-expression? cnd)
-    `(~'if ~cnd
-       ~(cps-of-expression thn cont)
-       ~(cps-of-expression els cont))
-    (cps-of-expression
-      cnd
-      (let [cnd (*gensym* "I")]
-        `(~'fn [~cnd ~'$state]
-           (~'if ~cnd
-             ~(cps-of-expression thn cont)
-             ~(cps-of-expression els cont)))))))
+  [args cont]
+  (let [[cnd thn els & rst] args]
+    (assert (empty? rst)
+            (format "Invalid number of args (%d) passed to if"
+                    (count args)))
+    (if (simple-expression? cnd)
+      `(~'if ~cnd
+         ~(cps-of-expression thn cont)
+         ~(cps-of-expression els cont))
+      (cps-of-expression
+        cnd
+        (let [cnd (*gensym* "I")]
+          `(~'fn [~cnd ~'$state]
+             (~'if ~cnd
+               ~(cps-of-expression thn cont)
+               ~(cps-of-expression els cont))))))))
 
 (defn-with-named-cont
   cps-of-cond
@@ -284,6 +289,29 @@
                                       '~id ~mparms ~value))))))
             ~'$state)))
 
+(defn cps-of-get-store
+  "transforms (get-store) to CPS"
+  [args cont]
+  (assert (empty? args) 
+          (format "Wrong number of arguments (%d) passed to get-store"
+                  (count args)))
+  `(~cont (~'get-store ~'$state) ~'$state))
+
+(defn cps-of-set-store
+  "transforms (set-store) to CPS;
+  the continuation receives the stored value"
+  [[expr & rst :as args] cont]
+  (assert (empty? rst)
+          (format "Wrong number of arguments (%d) passed to set-store"
+                  (count args)))
+  (if (simple-expression? expr)
+    `(~cont ~expr (~'set-store ~'$state ~expr))
+    (cps-of-expression
+      expr
+      (let [value (*gensym* "V")]
+        `(~'fn  [~value ~'$state]
+           (~cont ~value (~'set-store ~'$state ~value)))))))
+
 (defn cps-of-apply
   "transforms apply to CPS;
   apply of user-defined (not primitive) procedures
@@ -327,18 +355,20 @@
     (seq?
       expr) (let [[kwd & args] expr]
               (case kwd
-                fn      (cps-of-fn args cont)
-                let     (cps-of-let args cont)
-                if      (cps-of-if args cont)
-                cond    (cps-of-cond args cont)
-                and     (cps-of-and args cont)
-                or      (cps-of-or args cont)
-                do      (cps-of-do args cont)
-                predict (cps-of-predict args cont)
-                observe (cps-of-observe args cont)
-                sample  (cps-of-sample args cont)
-                mem     (cps-of-mem args cont)
-                apply   (cps-of-apply args cont)
+                fn        (cps-of-fn args cont)
+                let       (cps-of-let args cont)
+                if        (cps-of-if args cont)
+                cond      (cps-of-cond args cont)
+                and       (cps-of-and args cont)
+                or        (cps-of-or args cont)
+                do        (cps-of-do args cont)
+                predict   (cps-of-predict args cont)
+                observe   (cps-of-observe args cont)
+                sample    (cps-of-sample args cont)
+                mem       (cps-of-mem args cont)
+                get-store (cps-of-get-store args cont)
+                set-store (cps-of-set-store args cont)
+                apply     (cps-of-apply args cont)
                 ;; application
                 (cps-of-application expr cont)))
     (primitive-procedure?

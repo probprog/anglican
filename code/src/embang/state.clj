@@ -9,7 +9,8 @@
   "initial program state"
   {::log-weight 0.0
    ::predicts []
-   ::mem {}})
+   ::mem {}
+   ::store nil})
 
 ;; The weight is not read or written by the deterministic
 ;; computation, and can be maintained outside the state;
@@ -60,3 +61,17 @@
   returns the update state"
   [state id args value]
   (assoc-in state [::mem id args] value))
+
+;; A probabilistic program has a store. The code can get the 
+;; value currently in the store, and update the store by
+;; putting a new value into it. 
+
+(defn get-store
+  "retrieves store contents"
+  [state]
+  (state ::store))
+
+(defn set-store
+  "updates the store with a new value"
+  [state value]
+  (assoc state ::store value))

@@ -187,6 +187,20 @@
                    $state))
           "mem of compound function"))))
 
+(deftest test-cps-of-store
+  (binding [*gensym* symbol]
+    (testing "cps-of-get-store"
+      (is (= (cps-of-get-store [] 'ret)
+             '(ret (get-store $state) $state))
+          "get-store"))
+    (testing "cps-of-set-store"
+      (is (= (cps-of-set-store [1] 'ret)
+             '(ret 1 (set-store $state 1)))
+          "simple set-store")
+      (is (= (cps-of-set-store ['(foo)] 'ret)
+             '(fn [] (foo (fn [V $state] (ret V (set-store $state V))) $state)))
+          "compound set-store"))))
+
 (deftest test-cps-of-primitive-procedure
   (binding [*gensym* symbol]
     (testing "cps-of-primitive-procedure"
