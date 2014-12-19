@@ -4,6 +4,10 @@
 ;;; Scratch pad
 
 (defanglican scratch
-  [assume ops (list inc dec)]
-  [predict ((first ops) 1)]
-  [predict ((second ops) 1)])
+  (store :a 1)
+  (store :b 2)
+  [predict (retrieve :a)]
+  [predict (retrieve :b)]
+  (store :a 3)
+  [predict (retrieve :a)]
+  [predict (retrieve :c)])
