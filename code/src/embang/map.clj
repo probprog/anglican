@@ -219,12 +219,15 @@
 (defmethod infer :map [_ prog & {:keys [number-of-samples
                                         freeze-point
                                         output-format]
-                                 :or {freeze-point 1}}]
+                                 :or {freeze-point nil}}]
   (loop [i 0
          end-state (:state (exec ::algorithm prog nil initial-state))]
-    (let [begin-state (backpropagate end-state #(= (:count %) freeze-point))
+    (let [begin-state (backpropagate end-state 
+                                     (if (= i number-of-samples)
+                                        (fn [_] true)
+                                        #(= (:count %) freeze-point)))
           end-state (:state (exec ::algorithm prog nil begin-state))]
-      (if (or (= i number-of-samples) (every? frozen? begin-state))
+      (if (every? frozen? (vals (begin-state ::bandits)))
         (do
           (print-predicts end-state output-format)
           ;; return a vector of MAP sample choices
