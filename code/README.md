@@ -59,8 +59,14 @@ point of view.
   object, `sample` must be called explicitly on the object.
 
 A program in __m!__  has access to a store through special
-forms `get-store` and `set-store`. These forms are useful
-for implementing stochastic processes.
+forms `store` and `retrieve`. These forms are useful for
+implementing stochastic processes. Both forms access a
+possibly empty list of keys, which can be arbitrary
+expressions; in addition, `store` accepts a value arguments.
+Values stored for a particular key sequence can be retrieved
+by the same key sequence. New values for the same key
+sequence can be stored by recurring invocation of `store`.
+The last stored value is retrieved.
 
 Functions can be defined outside Anglican programs, and
 implemented either in Clojure or in Anglican. See 
