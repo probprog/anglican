@@ -58,6 +58,10 @@ point of view.
   return distribution objects. To obtain a sample from the
   object, `sample` must be called explicitly on the object.
 
+A program in __m!__  has access to a store through special
+forms `get-store` and `set-store`. These forms are useful
+for implementing stochastic processes.
+
 Functions can be defined outside Anglican programs, and
 implemented either in Clojure or in Anglican. See 
 [`src/angsrc/branching.clj`](src/angsrc/branching.clj)
