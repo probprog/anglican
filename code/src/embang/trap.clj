@@ -65,8 +65,8 @@
        observe
        sample
        mem
-       get-store
-       set-store
+       store
+       retrieve
        apply) false
       ;; application
       (and (primitive-procedure? (first expr))
@@ -76,7 +76,10 @@
 ;; CPS transformation rules
 
 (declare cps-of-expression)
-(def ^:dynamic *gensym* gensym) ;; bound to `symbol' in tests
+(def ^:dynamic *gensym* 
+  "customized gensym for code generation,
+  bound to `symbol' in tests"
+  (comp gensym (partial str "$")))
 
 (defn ^:private cps-of-elist
   [exprs cont]
@@ -289,28 +292,22 @@
                                       '~id ~mparms ~value))))))
             ~'$state)))
 
-(defn cps-of-get-store
-  "transforms (get-store) to CPS"
-  [args cont]
-  (assert (empty? args) 
-          (format "Wrong number of arguments (%d) passed to get-store"
-                  (count args)))
-  `(~cont (~'get-store ~'$state) ~'$state))
-
-(defn cps-of-set-store
-  "transforms (set-store) to CPS;
+(defn cps-of-store
+  "transforms store to CPS;
   the continuation receives the stored value"
-  [[expr & rst :as args] cont]
-  (assert (empty? rst)
-          (format "Wrong number of arguments (%d) passed to set-store"
-                  (count args)))
-  (if (simple-expression? expr)
-    `(~cont ~expr (~'set-store ~'$state ~expr))
-    (cps-of-expression
-      expr
-      (let [value (*gensym* "V")]
-        `(~'fn  [~value ~'$state]
-           (~cont ~value (~'set-store ~'$state ~value)))))))
+  [args cont]
+  (make-of-args args
+                (fn [args]
+                  `(~cont ~(last args)
+                          (store ~'$state ~@args)))))
+
+(defn cps-of-retrieve
+  "transforms retrieve to CPS"
+  [args cont]
+  (make-of-args args
+                (fn [args]
+                  `(~cont (retrieve ~'$state ~@args)
+                          ~'$state))))
 
 (defn cps-of-apply
   "transforms apply to CPS;
@@ -366,8 +363,8 @@
                 observe   (cps-of-observe args cont)
                 sample    (cps-of-sample args cont)
                 mem       (cps-of-mem args cont)
-                get-store (cps-of-get-store args cont)
-                set-store (cps-of-set-store args cont)
+                store (cps-of-store args cont)
+                retrieve (cps-of-retrieve args cont)
                 apply     (cps-of-apply args cont)
                 ;; application
                 (cps-of-application expr cont)))

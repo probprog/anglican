@@ -189,17 +189,17 @@
 
 (deftest test-cps-of-store
   (binding [*gensym* symbol]
-    (testing "cps-of-get-store"
-      (is (= (cps-of-get-store [] 'ret)
-             '(ret (get-store $state) $state))
-          "get-store"))
-    (testing "cps-of-set-store"
-      (is (= (cps-of-set-store [1] 'ret)
-             '(ret 1 (set-store $state 1)))
-          "simple set-store")
-      (is (= (cps-of-set-store ['(foo)] 'ret)
-             '(fn [] (foo (fn [V $state] (ret V (set-store $state V))) $state)))
-          "compound set-store"))))
+    (testing "cps-of-retrieve"
+      (is (= (cps-of-retrieve [:a] 'ret)
+             '(ret (embang.state/retrieve $state :a) $state))
+          "retrieve"))
+    (testing "cps-of-store"
+      (is (= (cps-of-store [1] 'ret)
+             '(ret 1 (embang.state/store $state 1)))
+          "simple store")
+      (is (= (cps-of-store [:a '(foo)] 'ret)
+             '(fn [] (foo (fn [A $state] (ret A (embang.state/store $state :a A))) $state)))
+          "compound store"))))
 
 (deftest test-cps-of-primitive-procedure
   (binding [*gensym* symbol]

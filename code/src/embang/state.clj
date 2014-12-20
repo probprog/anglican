@@ -66,12 +66,14 @@
 ;; value currently in the store, and update the store by
 ;; putting a new value into it. 
 
-(defn get-store
-  "retrieves store contents"
-  [state]
-  (state ::store))
-
-(defn set-store
+(defn store
   "updates the store with a new value"
-  [state value]
-  (assoc state ::store value))
+  [state & args]
+  (let [keys (butlast args)
+        value (last args)]
+    (assoc-in state `[::store ~@keys] value)))
+
+(defn retrieve
+  "retrieves store contents"
+  [state & keys]
+  (get-in (state ::store) keys))
