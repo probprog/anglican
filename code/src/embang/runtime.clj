@@ -161,7 +161,5 @@
        random-process
        (succ [this value] 
          (crp 
-           (if (= value (count counts))
-             (conj counts value)
-             (update-in counts [value] inc))
+           (update-in counts [value] (fnil inc 0))
            alpha))))))

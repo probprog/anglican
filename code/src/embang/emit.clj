@@ -93,7 +93,19 @@
                    procedures)]
      ~@body))
 
-;;; CPS versions of higher-order functions.
+
+;;;; Program prologue
+
+;; Common anglican code that must be available to all
+;; programs goes here. 
+
+;;; CPS versions of higher-order functions
+
+;; Higher-order functions must be re-implemented in CPS,
+;; such that both the functions themselves and the
+;; functional arguments follow the CPS calling convention.
+;; They are rebound in macros defining anglican code by
+;; calling `overriding-higher-order-functions'.
 
 (def-cps-fn ^:private $map1 
   "map on a single sequence"
