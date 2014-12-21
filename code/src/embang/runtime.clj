@@ -55,26 +55,16 @@
   (let [Z (sum coll)]
     (map #(/ % Z) coll)))
 
+;;; Random distributions
+
 (defprotocol distribution
   "random distribution"
-  (draw [this]
+  (sample [this]
     "draws a sample from the distribution")
-  (prob [this value]
+  (observe [this value]
     "return the probability [density] of the value"))
 
-;; runtime distribution methods
-
-(defn sample
-  "draws a sample from the distribution"
-  [dist] 
-  (draw dist))
-
-(defn observe
-  "computes log-probability [density] of the value"
-  [dist value]
-  (Math/log (prob dist value)))
-
-;;; Distributions, in alphabetical order
+;; distributions, in alphabetical order
 
 (defmacro from-colt
   "wraps incanter distribution"
@@ -90,8 +80,8 @@
                                 incanter-name))
                       ~@incanter-args)]
           ~'(reify distribution
-              (draw [this] (dist/draw dist))
-              (prob [this value] (dist/pdf dist value)))))))
+              (sample [this] (dist/draw dist))
+              (observe [this value] (log (dist/pdf dist value))))))))
 
 (from-colt beta [alpha beta])
 (from-colt binomial [n p] (binomial p n))
@@ -101,15 +91,15 @@
   [weights]
   (let [total-weight (reduce + weights)]
     (reify distribution
-      (draw [this] 
+      (sample [this] 
         (let [x (rand total-weight)]
           (loop [[weight & weights] weights
                  acc 0. value 0]
             (let [acc (+ acc weight)]
               (if (< x acc) value
                   (recur weights acc (inc value)))))))
-      (prob [this value] 
-        (/ (nth weights value) total-weight)))))
+      (observe [this value] 
+        (Math/log (/ (nth weights value) total-weight))))))
 
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
@@ -122,12 +112,12 @@
     (let [Z (delay (/ (reduce * (map gamma-function alpha))
                       (gamma-function (reduce + alpha))))]
       (reify distribution
-        (draw [this]
-          (let [g (map #(draw (gamma % 1)) alpha)
+        (sample [this]
+          (let [g (map #(sample (gamma % 1)) alpha)
                 t (reduce + g)]
             (map #(/ % t) g)))
-        (prob [this value]
-          (/ (reduce * (map (fn [v a] (Math/pow v (- a 1))) 
+        (observe [this value]
+          (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1))) 
                             value
                             alpha))
              @Z))))))
@@ -138,8 +128,8 @@
   "flip (bernoulli) distribution"
   [p]
   (reify distribution
-    (draw [this] (< (rand) p))
-    (prob [this value] (if value p (- 1. p)))))
+    (sample [this] (< (rand) p))
+    (observe [this value] (Math/log (if value p (- 1. p))))))
 
 (from-colt gamma [shape rate])
 (from-colt normal [mean sd])
@@ -154,16 +144,17 @@
         {Lcov :L} (ml/cholesky (m/matrix cov) {:return [:L]})
         ;; delayed because used only by one of the methods
         unit-normal (delay (normal 0 1))
-        |Lcov| (delay (reduce * (m/diagonal Lcov)))]
+        Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
+                   (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
+                             (Math/log |Lcov|)))))]
     (reify distribution
-      (draw [this]
+      (sample [this]
         (mo/+ mean
               (m/mmul Lcov
-                      (repeatedly k #(draw @unit-normal)))))
-      (prob [this value]
+                      (repeatedly k #(sample @unit-normal)))))
+      (observe [this value]
         (let [dx (m/mmul (m/inverse Lcov) (mo/- value mean))]
-          (* (/ (Math/sqrt (* (Math/pow (* 2 Math/PI) k) @|Lcov|)))
-             (Math/exp (* -0.5 (m/dot dx dx)))))))))
+          (- (* -0.5 (m/dot dx dx)) @Z))))))
 
 (defn wishart
   "Wishart distribution"
@@ -174,33 +165,36 @@
         {L :L} (ml/cholesky (m/matrix V) {:return [:L]})
         unit-normal (delay (normal 0 1))]
     (reify distribution
-      (draw [this]
+      (sample [this]
         (let [X (m/matrix (repeatedly
                             n (fn [] (m/mmul L (repeatedly
-                                                 d #(draw @unit-normal))))))]
+                                                 d #(sample @unit-normal))))))]
           (m/mmul (m/transpose X) X))))))
-;; `prob' is not implemented because the only use of Wishart distribution
+;; `observe' is not implemented because the only use of Wishart distribution
 ;; is sampling prior for covariance matrix of multivariate normal
 
 ;;; Random processes
 
 (defprotocol random-process
   "random process"
-  (succ [this value]
-        "returns process ready for the next draw"))
+  (advance [this value]
+        "returns process ready for the next sample"))
+
+;; random processes, in alphabetical order
 
 (defn crp
   "chinese restaurant process"
   ([alpha] (crp [] alpha))
   ([counts alpha] {:pre [(vector? counts)]}
+   (prn counts)
    (let [dist (delay (discrete (conj counts alpha)))]
      (reify
        distribution
-       (draw [this] (draw @dist))
-       (prob [this value] (prob @dist value))
+       (sample [this] (sample @dist))
+       (observe [this value] (observe @dist value))
 
        random-process
-       (succ [this value] 
+       (advance [this value] 
          (crp 
            (update-in counts [value] (fnil inc 0))
            alpha))))))

@@ -58,6 +58,10 @@ point of view.
   return distribution objects. To obtain a sample from the
   object, `sample` must be called explicitly on the object.
 
+  3. Random processes are implemented functionally. To get
+  the next state of the random process, `advance` must be
+  called on the current state and the sampled value.
+
 A program in __m!__  has access to a store through special
 forms `store` and `retrieve`. These forms are useful for
 implementing stochastic processes. Both forms access a

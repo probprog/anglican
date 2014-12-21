@@ -89,7 +89,7 @@
               (update-in weights [label value] (fnil + 0.) weight)
               weights)))
 
-         (doseq [label (sort (keys weights))]
+         (doseq [label (sort-by str (keys weights))]
            (let [total-weight (reduce + (vals (weights label)))]
              (doseq [value (sort (keys (weights label)))]
                (let [weight (/ (double (get-in weights [label value]))

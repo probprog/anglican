@@ -87,7 +87,8 @@
   with-primitive-procedures
   "binds primitive procedure names to their CPS versions"
   [procedures & body]
-  `(let [~@(mapcat (fn [proc] 
+  `(let [~'$state nil
+         ~@(mapcat (fn [proc] 
                      [proc
                       (cps-of-primitive-procedure proc value-cont)])
                    procedures)]
