@@ -1,7 +1,6 @@
 (ns embang.runtime
   (:require [embang.colt.distributions
-             :as dist])
-  (:use [embang.emit :only [def-cps-fn]]))
+             :as dist]))
 
 ;;; Anglican core functions beyond clojure.core
 
@@ -51,6 +50,7 @@
     (map #(/ % Z) coll)))
 
 (defprotocol distribution
+  "random distribution"
   (draw [this]
     "draws a sample from the distribution")
   (prob [this value]
@@ -141,48 +141,27 @@
 (from-colt uniform-continuous [min max] (uniform min max))
 (from-colt uniform-discrete [min max] (integer min max))
 
-;; CPS versions of higher-order functions.
+;;; Random processes
 
-(def-cps-fn ^:private $map1 
-  "map on a single sequence"
-  [fun lst]
-  (if (empty? lst) nil
-      (cons (fun (first lst))
-            ($map1 fun (rest lst)))))
+(defprotocol random-process
+  "random process"
+  (succ [this value]
+        "returns process ready for the next draw"))
 
-(def-cps-fn ^:private $nils? 
-  "true if the list contains nil"
-  [lst]
-  (and (seq lst)
-       (or (nil? (first lst))
-           ($nils? (rest lst)))))
+(defn crp
+  "chinese restaurant process"
+  ([alpha] (crp [] alpha))
+  ([counts alpha] {:pre [(vector? counts)]}
+   (let [dist (delay (discrete (conj counts alpha)))]
+     (reify
+       distribution
+       (draw [this] (draw @dist))
+       (prob [this value] (prob @dist value))
 
-(def-cps-fn $map 
-  "map in CPS"
-  [fun & lsts]
-  (let [tuple ($map1 first lsts)]
-    (if ($nils? tuple) nil
-        (let [lsts ($map1 rest lsts)]
-          (cons (apply fun tuple)
-                (apply $map fun lsts))))))
-
-(def-cps-fn ^:private $reduce1
-  "reduce with explicit init in CPS"
-  [fun init lst]
-  (if (empty? lst) init
-      ($reduce1 fun
-                (fun init (first lst))
-                (rest lst))))
-
-(def-cps-fn $reduce
-  "reduce in CPS"
-  [fun & args]
-  (let [init (if (seq (rest args))
-               (first args) 
-               (first (first args)))
-        lst (if (seq (rest args))
-              (second args)
-              (rest (first args)))]
-    ($reduce1 fun init lst)))
-
-
+       random-process
+       (succ [this value] 
+         (crp 
+           (if (= value (count counts))
+             (conj counts value)
+             (update-in counts [value] inc))
+           alpha))))))

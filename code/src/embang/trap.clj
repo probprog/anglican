@@ -1,4 +1,5 @@
 (ns embang.trap
+  (:require embang.runtime)
   (:use embang.state))
 
 ;;; Trampoline-ready Anglican program
@@ -374,40 +375,12 @@
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
-  (let [;; exclude procedures for which CPS counterparts are provided
+  (let [;; procedures for which CPS counterparts are provided
         exclude '#{map reduce}
-        ;; collect all public functions in clojure.core
-        core (keep (fn [[k v]]
-                     (when (and (not (exclude k))
-                                (fn? (var-get v)))
-                       k))
-                   (ns-publics 'clojure.core))]
-    ;; add functions provided by the runtime
-    (into (set core)
-          '[;; custom math tests
-            isfinite? isnan?
-
-            ;; scalar arithmetics
-            inc dec
-            + - * / mod
-            abs floor ceil round
-            sin cos tan asin acos atan
-            sinh cosh tanh
-            log log10 exp
-            pow cbrt sqrt
-
-            ;; sequence operations
-            sum mean normalize range
-
-            ;; ERPs (alphabetically)
-            beta
-            binomial
-            dirichlet
-            discrete
-            exponential
-            flip
-            gamma
-            normal
-            poisson
-            uniform-continuous
-            uniform-discrete])))
+        ;; runtime namespaces
+        runtime-namespaces '[clojure.core embang.runtime]]
+    (set (keep (fn [[k v]]
+                 (when (and (not (exclude k))
+                            (fn? (var-get v)))
+                   k))
+               (mapcat ns-publics runtime-namespaces)))))

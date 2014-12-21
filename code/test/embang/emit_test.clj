@@ -1,7 +1,7 @@
-(ns embang.runtime-test
+(ns embang.emit-test
   (:require [clojure.test :refer [deftest testing is]])
   (:use [embang.trap :only [value-cont]]
-        embang.runtime))
+        embang.emit))
 
 (deftest test-higher-order-functions
   (testing "map in CPS"
