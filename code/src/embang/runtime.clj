@@ -165,6 +165,23 @@
           (* (/ (Math/sqrt (* (Math/pow (* 2 Math/PI) k) @|Lcov|)))
              (Math/exp (* -0.5 (m/dot dx dx)))))))))
 
+(defn wishart
+  "Wishart distribution"
+  ;; http://en.wikipedia.org/wiki/Wishart_distribution
+  [n V] 
+  {:pre [(integer? n) (>= n (first (m/shape V)))]}
+  (let [d (first (m/shape V))
+        {L :L} (ml/cholesky (m/matrix V) {:return [:L]})
+        unit-normal (delay (normal 0 1))]
+    (reify distribution
+      (draw [this]
+        (let [X (m/matrix (repeatedly
+                            n (fn [] (m/mmul L (repeatedly
+                                                 d #(draw @unit-normal))))))]
+          (m/mmul (m/transpose X) X))))))
+;; `prob' is not implemented because the only use of Wishart distribution
+;; is sampling prior for covariance matrix of multivariate normal
+
 ;;; Random processes
 
 (defprotocol random-process
