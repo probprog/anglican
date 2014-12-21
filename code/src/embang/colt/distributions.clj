@@ -472,6 +472,7 @@
                    (* (+ alpha beta)
                       (+ alpha beta)
                       (+ alpha beta 1)))))
+
 (defn beta-distribution
   "
   Returns a Beta distribution that implements the Distribution protocol.

@@ -1,12 +1,12 @@
 (ns angsrc.hdp-hmm-ks
-  (:require [clojure.core.matrix :refer [identity-matrix join reshape mul mmul]])
+  (:require [clojure.core.matrix :refer [identity-matrix join reshape add sub mul mmul]])
   (:use [embang emit runtime]
         [angsrc dp-mem
                 hdp-hmm-ks-data]))
 
 (def eye identity-matrix)
 
-(with-primitive-procedures [eye join reshape mul mmul]
+(with-primitive-procedures [eye join reshape add sub mul mmul]
   (defanglican hdp-hmm-ks
     ;; next 4 directives are an HDP-HMM backbone in CRF representation
     [assume G-0 (lambda ()
@@ -78,14 +78,10 @@
     [assume W (lambda (a) (nth (activity-motion-model-params a) 2))]
     [assume Q (lambda (a) (nth (activity-motion-model-params a) 3))]
 
-    ;; generator of true latent pose (varying activity)
-    [assume latent-pose
-            (mem (lambda (t) 
-                   (if (<= t 0)
-                     initial-pose
-                     (sample
-                       (mvn (mmul (latent-pose (- t 1)) (A (activity (- t 1))))
-                            (H (activity (- t 1))))))))]
+    ;; Pose noise is memoized to speed-up computation
+    [assume pose-noise
+            (mem (lambda (a)
+                   (mvn (repeat latent-dimension 0.) (H a))))]
 
     ;; generator of true latent pose (single activity for
     ;; whole time sequence)
@@ -93,13 +89,27 @@
             (mem (lambda (a t) 
                    (if (<= t 0)
                      initial-pose
-                     (sample
-                       (mvn (mmul (latent-pose-single-activity a (- t 1)) (A a))
-                            (H a))))))]
+                     (add (mmul (latent-pose-single-activity a (- t 1)) (A a))
+                          (sample (pose-noise a))))))]
+
+    ;; generator of true latent pose (varying activity)
+    [assume latent-pose
+            (mem (lambda (t) 
+                   (if (<= t 0)
+                     initial-pose
+                     (add (mmul (latent-pose (- t 1)) (A (activity (- t 1))))
+                          (sample (pose-noise (activity (- t 1))))))))]
 
     ;; Activity model parameters learned in parallel,
     ;; allowing the top-tier model to draw samples from
     ;; their posterior distributions.
+
+    ;; Pose belief is shifted to the observation and memoized
+    ;; to speed-up computations
+    [assume measurement-noise
+            (mem (lambda (a)
+                   (mvn (repeat observable-dimension 0.)
+                        (Q a))))]
 
     ;; single activity observations
     (reduce (lambda (_ single-activity)
@@ -108,10 +118,10 @@
                 (reduce (lambda (_ record)
                           (let ((time (first record))
                                 (pose (second record)))
-                            [observe (mvn (mmul (latent-pose-single-activity activity time)
+                            [observe (measurement-noise activity)
+                                     (sub (mmul (latent-pose-single-activity activity time) 
                                                 (W activity))
-                                          (Q activity))
-                                     pose]))
+                                          pose)]))
                         nil data)))
             nil (list (list 1 walking-data)
                       (list 2 running-data)
@@ -122,10 +132,10 @@
     (reduce (lambda (_ record)
               (let ((time (first record))
                     (pose (second record)))
-                [observe (mvn (mmul (latent-pose time)
+                [observe (measurement-noise (activity time))
+                         (sub (mmul (latent-pose time)
                                     (W (activity time)))
-                              (Q (activity time)))
-                         pose]))
+                              pose)]))
             nil mixed-data)
 
     ;; predict latent activity class 

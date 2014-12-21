@@ -2,8 +2,7 @@
   (:require [embang.colt.distributions
              :as dist]
             [clojure.core.matrix :as m]
-            [clojure.core.matrix.linear :as ml]
-            [clojure.core.matrix.operators :as mo]))
+            [clojure.core.matrix.linear :as ml]))
 
 ;; matrix library uses vectorz for protocol implementations
 (m/set-current-implementation :vectorz)
@@ -144,17 +143,17 @@
         {Lcov :L} (ml/cholesky (m/matrix cov) {:return [:L]})
         ;; delayed because used only by one of the methods
         unit-normal (delay (normal 0 1))
-        Z (delay 1) #_ (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
+        Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
                    (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
                              (Math/log |Lcov|)))))
-        iLcov (delay Lcov)] ; (m/inverse Lcov))]
+        iLcov (delay (m/inverse Lcov))]
     (reify distribution
       (sample [this]
-        (mo/+ mean
-              (m/mmul Lcov
-                      (repeatedly k #(sample @unit-normal)))))
+        (m/add mean
+               (m/mmul Lcov
+                       (repeatedly k #(sample @unit-normal)))))
       (observe [this value]
-        (let [dx (m/mmul @iLcov (mo/- value mean))]
+        (let [dx (m/mmul @iLcov (m/sub value mean))]
           (- (* -0.5 (m/dot dx dx)) @Z))))))
 
 (defn wishart
