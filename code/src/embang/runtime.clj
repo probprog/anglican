@@ -144,16 +144,17 @@
         {Lcov :L} (ml/cholesky (m/matrix cov) {:return [:L]})
         ;; delayed because used only by one of the methods
         unit-normal (delay (normal 0 1))
-        Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
+        Z (delay 1) #_ (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
                    (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
-                             (Math/log |Lcov|)))))]
+                             (Math/log |Lcov|)))))
+        iLcov (delay Lcov)] ; (m/inverse Lcov))]
     (reify distribution
       (sample [this]
         (mo/+ mean
               (m/mmul Lcov
                       (repeatedly k #(sample @unit-normal)))))
       (observe [this value]
-        (let [dx (m/mmul (m/inverse Lcov) (mo/- value mean))]
+        (let [dx (m/mmul @iLcov (mo/- value mean))]
           (- (* -0.5 (m/dot dx dx)) @Z))))))
 
 (defn wishart
