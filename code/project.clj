@@ -7,7 +7,9 @@
                  [org.clojure/tools.cli "0.3.1"]
                  [org.clojure/data.json "0.2.5"]
                  [colt "1.2.0"]
-                 [org.clojure/math.combinatorics "0.0.8"]]
+                 [org.clojure/math.combinatorics "0.0.8"]
+                 [net.mikera/core.matrix "0.31.1"]
+                 [net.mikera/vectorz-clj "0.26.2"]]
   :main ^:skip-aot embang.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

@@ -1,6 +1,12 @@
 (ns embang.runtime
   (:require [embang.colt.distributions
-             :as dist]))
+             :as dist]
+            [clojure.core.matrix :as m]
+            [clojure.core.matrix.linear :as ml]
+            [clojure.core.matrix.operators :as mo]))
+
+;; matrix library uses vectorz for protocol implementations
+(m/set-current-implementation :vectorz)
 
 ;;; Anglican core functions beyond clojure.core
 
@@ -113,8 +119,8 @@
     "Diriclhet distribution"
     ;; borrowed from Anglican runtime
     [alpha]
-    (let [Z (/ (reduce * (map gamma-function alpha))
-               (gamma-function (reduce + alpha)))]
+    (let [Z (delay (/ (reduce * (map gamma-function alpha))
+                      (gamma-function (reduce + alpha))))]
       (reify distribution
         (draw [this]
           (let [g (map #(draw (gamma % 1)) alpha)
@@ -124,7 +130,7 @@
           (/ (reduce * (map (fn [v a] (Math/pow v (- a 1))) 
                             value
                             alpha))
-             Z))))))
+             @Z))))))
 
 (from-colt exponential [rate])
 
@@ -140,6 +146,24 @@
 (from-colt poisson [lambda])
 (from-colt uniform-continuous [min max] (uniform min max))
 (from-colt uniform-discrete [min max] (integer min max))
+
+(defn mvn
+  "multivariate normal"
+  [mean cov]
+  (let [k (count mean)     ; number of dimensions
+        {Lcov :L} (ml/cholesky (m/matrix cov) {:return [:L]})
+        ;; delayed because used only by one of the methods
+        unit-normal (delay (normal 0 1))
+        |Lcov| (delay (reduce * (m/diagonal Lcov)))]
+    (reify distribution
+      (draw [this]
+        (mo/+ mean
+              (m/mmul Lcov
+                      (repeatedly k #(draw @unit-normal)))))
+      (prob [this value]
+        (let [dx (m/mmul (m/inverse Lcov) (mo/- value mean))]
+          (* (/ (Math/sqrt (* (Math/pow (* 2 Math/PI) k) @|Lcov|)))
+             (Math/exp (* -0.5 (m/dot dx dx)))))))))
 
 ;;; Random processes
 
