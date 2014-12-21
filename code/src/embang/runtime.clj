@@ -186,7 +186,6 @@
   "chinese restaurant process"
   ([alpha] (crp [] alpha))
   ([counts alpha] {:pre [(vector? counts)]}
-   (prn counts)
    (let [dist (delay (discrete (conj counts alpha)))]
      (reify
        distribution

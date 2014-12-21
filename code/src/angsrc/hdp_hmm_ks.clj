@@ -1,16 +1,15 @@
 (ns angsrc.hdp-hmm-ks
-  (:require [clojure.core.matrix :refer [identity-matrix join reshape add sub mul mmul]])
+  (:require [clojure.core.matrix
+             :refer [identity-matrix join reshape add sub mul mmul]
+             :rename {identity-matrix eye}])
   (:use [embang emit runtime]
         [angsrc dp-mem
                 hdp-hmm-ks-data]))
-
-(def eye identity-matrix)
 
 (with-primitive-procedures [eye join reshape add sub mul mmul]
   (defanglican hdp-hmm-ks
     ;; next 4 directives are an HDP-HMM backbone in CRF representation
     [assume G-0 (lambda ()
-                  (prn "G-0 called")
                   (let ((g (or (retrieve :G-0) (crp 10.0)))
                         (sample (sample g)))
                     (store :G-0 (advance g sample))
