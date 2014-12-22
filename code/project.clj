@@ -1,4 +1,4 @@
-(defproject embang "0.1.0-SNAPSHOT"
+(defproject embang "0.1.1-SNAPSHOT"
   :description "MAP inference in anglican programs"
   :url "http://bitbucket.org/dtolpin/mappp"
   :license {:name "Eclipse Public License"
@@ -12,4 +12,4 @@
                  [net.mikera/vectorz-clj "0.26.2"]]
   :main ^:skip-aot embang.core
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot [#"embang.*"]}})
