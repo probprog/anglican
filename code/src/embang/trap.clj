@@ -269,14 +269,20 @@
 
 (defn cps-of-mem
   "transforms mem to CPS"
-  [[[_ & args]] cont]
+  [[arg & _ :as args] cont] {:pre [(= (count args) 1)]}
   (let [mcont (*gensym* "C")
         id (*gensym* "M")
         value (*gensym* "V")
         mparms (*gensym* "P")
-        [name parms & body] (if (vector? (first args))
-                              `(nil ~@args)
-                              args)]
+
+        ;; If the argument of mem is a named lambda,
+        ;; move the name to outer function.
+        [name expr] (if (and (seq? arg)
+                             (= (first arg) 'fn)
+                             (symbol? (second arg)))
+                      [(second arg) `(~'fn ~@(nnext arg))]
+                      [nil arg])]
+
     `(~cont (~'fn ~@(when name [name])
               [~mcont ~'$state & ~mparms]
               (~'if (in-mem? ~'$state '~id ~mparms)
@@ -286,7 +292,7 @@
                 ;; continuation that intercepts the value
                 ;; and updates the state
                 ~(cps-of-expression
-                  `(~'apply (~'fn ~parms ~@body) ~mparms)
+                  `(~'apply ~expr ~mparms)
                   `(~'fn [~value ~'$state]
                      (~mcont ~value
                              (set-mem ~'$state
