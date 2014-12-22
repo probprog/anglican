@@ -7,7 +7,8 @@
 
 (derive ::algorithm :embang.inference/algorithm)
 
-(defmethod checkpoint [::algorithm embang.trap.observe] [algorithm obs]
+(defmethod checkpoint [::algorithm embang.trap.observe]
+  [algorithm obs]
   ;; update the weight and return the observation checkpoint
   ;; for possible resampling
   (update-in obs [:state]
@@ -19,7 +20,8 @@
   "a single SMC sweep"
   [prog number-of-particles]
   (loop [particles (repeatedly number-of-particles
-                               #(exec ::algorithm prog nil initial-state))]
+                               #(exec ::algorithm
+                                      prog nil initial-state))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec ::algorithm (:cont %) nil (:state %))
