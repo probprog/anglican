@@ -94,7 +94,6 @@
                    procedures)]
      ~@body))
 
-
 ;;;; Program prologue
 
 ;; Common anglican code that must be available to all
