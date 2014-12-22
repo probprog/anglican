@@ -11,9 +11,9 @@
     ;; next 4 directives are an HDP-HMM backbone in CRF representation
     [assume G-0 (lambda ()
                   (let ((g (or (retrieve :G-0) (crp 10.0)))
-                        (sample (sample g)))
-                    (store :G-0 (advance g sample))
-                    sample))]
+                        (s (sample g)))
+                    (store :G-0 (advance g s))
+                    s))]
     [assume sticky 0.2]
     [assume trans-dist (mem (lambda (state)
                                     (DPmem 1.0 G-0)))]
