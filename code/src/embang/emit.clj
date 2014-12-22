@@ -21,7 +21,7 @@
   [& source]
   (overriding-higher-order-functions
    `(~'fn [~'_ ~'$state]
-      ~(cps-of-expression (program source) `run-cont))))
+      ~(cps-of-expression (program source) run-cont))))
 
 (defmacro defanglican
   "binds variable to anglican program"

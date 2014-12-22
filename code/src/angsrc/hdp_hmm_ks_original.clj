@@ -1,4 +1,4 @@
-(ns angsrc.hdp-hmm-ks
+(ns angsrc.hdp-hmm-ks-original
   (:require [clojure.core.matrix
              :refer [identity-matrix join reshape add sub mul mmul]
              :rename {identity-matrix eye}])
@@ -6,16 +6,18 @@
         [angsrc dp-mem
                 hdp-hmm-ks-data]))
 
-(with-primitive-procedures [eye join reshape add sub mul mmul]
-  (defanglican hdp-hmm-ks
+(with-primitive-procedures [eye join reshape mul mmul]
+  (defanglican hdp-hmm-ks-original
     ;; next 4 directives are an HDP-HMM backbone in CRF representation
     [assume G-0 (lambda ()
+                  (prn "G-0 called")
                   (let ((g (or (retrieve :G-0) (crp 10.0)))
                         (sample (sample g)))
                     (store :G-0 (advance g sample))
                     sample))]
     [assume sticky 0.2]
     [assume trans-dist (mem (lambda (state)
+                                    (prn "trans-dist")
                                     (DPmem 1.0 G-0)))]
     [assume transition (lambda (prev-state)
                          (if (sample (flip sticky))
@@ -24,12 +26,12 @@
     [assume activity (mem (lambda (t)
                             (if (<= t 0) (G-0)
                               (transition (activity (- t 1))))))]
-  
+
     ;; Could choose anything
     [assume latent-dimension 3]
     ;; Dimensionality of MOCAP data
     [assume observable-dimension 62]
-  
+
     ;; Motion parameters for each activity Kalman Filter
     ;;---------------------------------------------------
     ;; prior on A - state transition matrix 
@@ -58,7 +60,7 @@
     [assume initial-pose 
             (sample (mvn (repeat latent-dimension 0)
                          (eye latent-dimension)))] ; prior on initial pose
-  
+
     ;; lazy per-activity activity model parameter generator
     [assume activity-motion-model-params 
      (mem 
@@ -68,17 +70,21 @@
            (pose-transition-covariance-prior) 
            (measurement-multiple-prior) 
            (measurement-covariance-prior))))]
-  
+
     ;; helper function for accessing activity model KF parameters
     [assume A (lambda (a) (nth (activity-motion-model-params a) 0))]
     [assume H (lambda (a) (nth (activity-motion-model-params a) 1))]
     [assume W (lambda (a) (nth (activity-motion-model-params a) 2))]
     [assume Q (lambda (a) (nth (activity-motion-model-params a) 3))]
-  
-    ;; Pose noise is memoized to speed-up computation
-    [assume pose-noise
-            (mem (lambda (a)
-                   (mvn (repeat latent-dimension 0.) (H a))))]
+
+    ;; generator of true latent pose (varying activity)
+    [assume latent-pose
+            (mem (lambda (t) 
+                   (if (<= t 0)
+                     initial-pose
+                     (sample
+                       (mvn (mmul (latent-pose (- t 1)) (A (activity (- t 1))))
+                            (H (activity (- t 1))))))))]
 
     ;; generator of true latent pose (single activity for
     ;; whole time sequence)
@@ -86,27 +92,13 @@
             (mem (lambda (a t) 
                    (if (<= t 0)
                      initial-pose
-                     (add (mmul (latent-pose-single-activity a (- t 1)) (A a))
-                          (sample (pose-noise a))))))]
-
-    ;; generator of true latent pose (varying activity)
-    [assume latent-pose
-            (mem (lambda (t) 
-                   (if (<= t 0)
-                     initial-pose
-                     (add (mmul (latent-pose (- t 1)) (A (activity (- t 1))))
-                          (sample (pose-noise (activity (- t 1))))))))]
+                     (sample
+                       (mvn (mmul (latent-pose-single-activity a (- t 1)) (A a))
+                            (H a))))))]
 
     ;; Activity model parameters learned in parallel,
     ;; allowing the top-tier model to draw samples from
     ;; their posterior distributions.
-
-    ;; Pose belief is shifted to the observation and memoized
-    ;; to speed-up computations
-    [assume measurement-noise
-            (mem (lambda (a)
-                   (mvn (repeat observable-dimension 0.)
-                        (Q a))))]
 
     ;; single activity observations
     (reduce (lambda (_ single-activity)
@@ -115,10 +107,10 @@
                 (reduce (lambda (_ record)
                           (let ((time (first record))
                                 (pose (second record)))
-                            [observe (measurement-noise activity)
-                                     (sub (mmul (latent-pose-single-activity activity time) 
+                            [observe (mvn (mmul (latent-pose-single-activity activity time)
                                                 (W activity))
-                                          pose)]))
+                                          (Q activity))
+                                     pose]))
                         nil data)))
             nil (list (list 1 walking-data)
                       (list 2 running-data)
@@ -129,10 +121,10 @@
     (reduce (lambda (_ record)
               (let ((time (first record))
                     (pose (second record)))
-                [observe (measurement-noise (activity time))
-                         (sub (mmul (latent-pose time)
+                [observe (mvn (mmul (latent-pose time)
                                     (W (activity time)))
-                              pose)]))
+                              (Q (activity time)))
+                         pose]))
             nil mixed-data)
 
     ;; predict latent activity class 
