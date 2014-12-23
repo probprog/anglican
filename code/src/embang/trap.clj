@@ -43,11 +43,6 @@
   [procedure]
   (*primitive-procedures* procedure))
 
-;; primitive procedures have to be recognized syntactically,
-;; by the name. This means that a primitive procedure can
-;; only appear in call position, and a primitive procedure
-;; name cannot be rebound locally.
-
 (defn simple-expression?
   "true if expr has no continuation"
   [expr]
