@@ -76,4 +76,76 @@ but may actually be 2 weeks if we use the rule `bump up the unit and
 multiply by \pi). Still, I could run the inference with Partical Gibbs
 and compare the performance.
 
+Comparing performance
+---------------------
+
+Encouraged by past speed improvements on small examples, I run
+the inference on my implementation. The speed improvement, compared
+to the same algorithm with the original, was mere 30% increase
+in speed. After a short consideration, one can see why.
+
+The program is actually very simple, and it spends most of time
+computing observation probabilities of 62-dimensional vectors
+given a multivariate normal belief. So, most of the time is
+spent outside of the Anglican code in performing a rather
+expensive computation, and the Anglican code itself, with
+respect to calling that computation, is rather trivial.
+
+But as it is usual in programming, if a very simple program
+runs slowly, making it smarter may save time. If you look
+at the code of multivariate normal, in either the original
+or m! implementation, fot rcsmplr, lines 139-156 in embang/runtime.clj
+
+https://bitbucket.org/dtolpin/embang/src/HEAD/code/src/embang/runtime.clj
+
+every instantiation of multivariate-normal
+for the purpose of computing the probability density involves
+
+ 1) Cholesky decomposion of the variance matrix
+ 2) inversion of the result of Cholesky decomposion
+
+which are rather expensive operations on 62-dimensional matrices,
+where most of the time is spent.
+
+Both these operations only involve the covariance
+matrix, which depends only on the activity index, a small integer ---
+we may have only two dozens of different numbers, so, in fact
+we only perform only two dozens different computations, and if
+we could memoize them, we would speed up this part of the program
+significantly.
+
+Custom memoized mvn is possible but not particularily elegant;
+however, the memoization can also be done inside Anglican code
+with `stock' mvn implementation. An observe directive involves
+three elements: the anticipated value, the observed value, and
+the uncertainty about the anticipated value. Both anticipated
+and observed value depends on time, the anticipated value also
+depends on the activity index,  but the noise (the covariance
+matrix) only depends on the activity index, and can be memoized
+as a mvn, if `observe' statement is rewritten in terms of 
+discrepancy between the observed and the anticipated value.
+
+When I did that --- see lines 104-126 in 
+
+  https://bitbucket.org/dtolpin/embang/src/HEAD/code/src/angsrc/hdp_hmm_ks.clj
+
+I got a rather satisfying 5x increase in performance, making
+the program run 7 times faster than the in the original implementation (or 14x
+if we compare with RDB implementation and re-implement RDB without the superfluous
+rerunning of the particle).  A similar optimization can be applied to the
+latent-pose noise, lines 78-90 in the same file. However, since the latent pose
+dimension is much lower, the improvement is not so crucial.
+
+As a side note, that brings up the question whether the current two-argument
+formulation of observe, where the uncertainty is arbitrarily attached to 
+the anticipated value, is indeed justified, and whether a three-argument
+wouldn't be a better choice.
+
+I think this is as much optimization as we can do in a single particle,
+unless I've missed something. With single-site updating MH (RDB) we can
+do better by re-using probability recomputations from earlier particles,
+and save on another expensive computation --- addition, multiplication, and dot-product
+of 62-dimensional matrices --- at all observes were the probability will
+stay the same.
+
 To be continued.

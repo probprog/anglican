@@ -12,4 +12,7 @@
                  [net.mikera/vectorz-clj "0.26.2"]]
   :main ^:skip-aot embang.core
   :target-path "target/%s"
-  :profiles {:uberjar {:aot [#"embang.*"]}})
+  :profiles {:uberjar { ;; Prevent compilation of Anglican source code,
+                        ;; generation class names are too long for 
+                        ;; file names.
+                       :aot [#"embang.*"]}})
