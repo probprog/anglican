@@ -177,23 +177,33 @@
 
 (defprotocol random-process
   "random process"
-  (advance [this value]
-        "returns process ready for the next sample"))
+  (produce [this]
+    "produces a static random source")
+    
+  (absorb [this sample]
+    "absorbs the sample and returns a new process"))
 
 ;; random processes, in alphabetical order
 
-(defn crp
-  "chinese restaurant process"
-  ([alpha] (crp [] alpha))
-  ([counts alpha] {:pre [(vector? counts)]}
-   (let [dist (delay (discrete (conj counts alpha)))]
+(defn CRP
+  "Chinese Restaurant process"
+  ([alpha] (crp alpha []))
+  ([alpha counts] {:pre [(vector? counts)]}
      (reify
-       distribution
-       (sample [this] (sample @dist))
-       (observe [this value] (observe @dist value))
-
        random-process
-       (advance [this value] 
-         (crp 
-           (update-in counts [value] (fnil inc 0))
-           alpha))))))
+       (produce [this] (discrete (conj counts alpha)))
+       (advance [this sample] 
+         (crp alpha
+              (update-in counts [sample] (fnil inc 0)))))))
+
+(defn GP
+  "Gaussian process"
+  ([m k] (GP m k []))
+  ([m k points]
+     (reify random-process
+       (produce [this] 
+         (let []
+           (fn [x]
+             (assert false "TODO"))))
+       (advance [this sample]
+         (GP m k (conj points sample))))))
