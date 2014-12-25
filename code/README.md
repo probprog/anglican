@@ -62,7 +62,7 @@ point of view.
   produces a static random source from the random process.
   Depending on the process, the returned value can be a 
   distribution, or a function returning a distribution. 
-  To get the next state of the random process, `advance` must
+  To get the next state of the random process, `absorb` must
   be called on the current state and a sample.
 
 A program in __m!__  has access to a store through special

@@ -140,7 +140,7 @@
   "multivariate normal"
   [mean cov]
   (let [k (count mean)     ; number of dimensions
-        {Lcov :L} (ml/cholesky (m/matrix cov) {:return [:L]})
+        {Lcov :L} (ml/cholesky cov {:return [:L]})
         ;; delayed because used only by one of the methods
         unit-normal (delay (normal 0 1))
         Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
@@ -162,13 +162,13 @@
   [n V] 
   {:pre [(integer? n) (>= n (first (m/shape V)))]}
   (let [d (first (m/shape V))
-        {L :L} (ml/cholesky (m/matrix V) {:return [:L]})
+        {L :L} (ml/cholesky V {:return [:L]})
         unit-normal (delay (normal 0 1))]
     (reify distribution
       (sample [this]
-        (let [X (m/matrix (repeatedly
-                            n (fn [] (m/mmul L (repeatedly
-                                                 d #(sample @unit-normal))))))]
+        (let [X (repeatedly
+                 n (fn [] (m/mmul L (repeatedly
+                                     d #(sample @unit-normal)))))]
           (m/mmul (m/transpose X) X))))))
 ;; `observe' is not implemented because the only use of Wishart distribution
 ;; is sampling prior for covariance matrix of multivariate normal
@@ -187,14 +187,19 @@
 
 (defn CRP
   "Chinese Restaurant process"
-  ([alpha] (crp alpha []))
+  ([alpha] (CRP alpha []))
   ([alpha counts] {:pre [(vector? counts)]}
      (reify
        random-process
        (produce [this] (discrete (conj counts alpha)))
-       (advance [this sample] 
-         (crp alpha
+       (absorb [this sample] 
+         (CRP alpha
               (update-in counts [sample] (fnil inc 0)))))))
+
+(defn cov
+  "computes covariance matrix of xs and ys under k"
+  [k xs ys]
+  (for [x xs] (for [y ys] (k x y))))
 
 (defn GP
   "Gaussian process"
@@ -202,8 +207,19 @@
   ([m k points]
      (reify random-process
        (produce [this] 
-         (let []
-           (fn [x]
-             (assert false "TODO"))))
-       (advance [this sample]
+         (if (seq points)
+           (let [xs (map first points)
+                 isigma (m/inverse (cov k xs xs))
+                 zs (let [ys (map second points)
+                          ms (map m xs)]
+                      (m/mmul isigma (m/sub ys ms)))]
+             (fn [x]
+               (let [mx (m x)
+                     sigma* (cov k xs [x])
+                     tsigma* (m/transpose sigma*)]
+                 (normal (+ mx (first (m/mmul tsigma* zs)))
+                         (sqrt (- (k x x)
+                                  (ffirst (m/mmul tsigma* isigma sigma*))))))))
+           (fn [x] (normal (m x) (sqrt (k x x))))))
+       (absorb [this sample]
          (GP m k (conj points sample))))))
