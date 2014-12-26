@@ -10,5 +10,3 @@
         "vector to scalar")
     (is (= (cov str "c" ["a" "b"]) [["ca" "cb"]])
         "scalar to vector")))
-
-

@@ -162,7 +162,7 @@
   [n V] 
   {:pre [(integer? n) (>= n (first (m/shape V)))]}
   (let [d (first (m/shape V))
-        {L :L} (ml/cholesky V {:return [:L]})
+        {L :L} (ml/cholesky (m/matrix V) {:return [:L]})
         unit-normal (delay (normal 0 1))]
     (reify distribution
       (sample [this]
