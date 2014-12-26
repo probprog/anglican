@@ -82,6 +82,7 @@
               weights all-weights
               particles all-particles
               new-particles nil]
+
          (if (= n number-of-new-particles)
            new-particles
            (let [[weight & next-weights] weights

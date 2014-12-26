@@ -34,11 +34,11 @@
                (absorb gp point)))
            (GP m k) data)]
 
-  ;; predict hyper-parameters
   [predict (list a b c d e)]
 
   ;; interpolate
   [assume d (produce gp)]
   [predict (map (lambda (point)
-                  (sample (d (- 0.5 (first point)))))
+                  (let ((x (- (first point) 0.5)))
+                    (list x (sample (d x)))))
                 (next data))])

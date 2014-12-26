@@ -140,7 +140,7 @@
   "multivariate normal"
   [mean cov]
   (let [k (count mean)     ; number of dimensions
-        {Lcov :L} (ml/cholesky cov {:return [:L]})
+        {Lcov :L} (ml/cholesky (m/matrix cov) {:return [:L]})
         ;; delayed because used only by one of the methods
         unit-normal (delay (normal 0 1))
         Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
@@ -217,7 +217,7 @@
 (defn cov
   "computes covariance matrix of xs and ys under k"
   [k xs ys]
-  (for [x xs] (for [y ys] (k x y))))
+  (m/matrix (for [x xs] (for [y ys] (k x y)))))
 
 (defn GP
   "Gaussian process"
@@ -231,10 +231,10 @@
        (produce [this]
          (cps
           (if (seq points)
-            (let [xs (map first points)
+            (let [xs (mapv first points)
                   isgm (m/inverse (cov k xs xs))
-                  zs (let [ys (map second points)
-                           ms (map m xs)]
+                  zs (let [ys (mapv second points)
+                           ms (mapv m xs)]
                        (m/mmul isgm (m/sub ys ms)))]
               (fn [x]
                 (let [mx (m x)
