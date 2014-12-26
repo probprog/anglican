@@ -10,9 +10,9 @@
   (defanglican hdp-hmm-ks
     ;; next 4 directives are an HDP-HMM backbone in CRF representation
     [assume G-0 (lambda ()
-                  (let ((g (or (retrieve :G-0) (crp 10.0)))
-                        (s (sample g)))
-                    (store :G-0 (advance g s))
+                  (let ((g (or (retrieve :G-0) (CRP 10.0)))
+                        (s (sample (produce g))))
+                    (store :G-0 (absorb g s))
                     s))]
     [assume sticky 0.2]
     [assume trans-dist (mem (lambda (state)

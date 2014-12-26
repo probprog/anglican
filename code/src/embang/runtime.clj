@@ -166,9 +166,9 @@
         unit-normal (delay (normal 0 1))]
     (reify distribution
       (sample [this]
-        (let [X (m/matrix (repeatedly
-                            n (fn [] (m/mmul L (repeatedly
-                                                 d #(sample @unit-normal))))))]
+        (let [X (repeatedly
+                 n (fn [] (m/mmul L (repeatedly
+                                     d #(sample @unit-normal)))))]
           (m/mmul (m/transpose X) X))))))
 ;; `observe' is not implemented because the only use of Wishart distribution
 ;; is sampling prior for covariance matrix of multivariate normal
@@ -177,23 +177,73 @@
 
 (defprotocol random-process
   "random process"
-  (advance [this value]
-        "returns process ready for the next sample"))
+  (produce [this]
+    "produces a static random source")
+    
+  (absorb [this sample]
+    "absorbs the sample and returns a new process"))
+
+;; Random processes can accept and return functions,
+;; and translations in and out of CPS form must be
+;; performed. To avoid mutual dependencies, we
+;; define here two wrappers.
+
+(defn ^:private uncps
+  "reconstructs value-returning function from CPS form"
+  [f]
+  (fn [& args]
+    (apply f (fn [v _] v) nil args)))
+
+(defn ^:private cps
+  "wrap value-returning function into CPS form"
+  [f]
+  (fn [cont $state & args]
+    (cont (apply f args) $state)))
+
 
 ;; random processes, in alphabetical order
 
-(defn crp
-  "chinese restaurant process"
-  ([alpha] (crp [] alpha))
-  ([counts alpha] {:pre [(vector? counts)]}
-   (let [dist (delay (discrete (conj counts alpha)))]
+(defn CRP
+  "Chinese Restaurant process"
+  ([alpha] (CRP alpha []))
+  ([alpha counts] {:pre [(vector? counts)]}
      (reify
-       distribution
-       (sample [this] (sample @dist))
-       (observe [this value] (observe @dist value))
-
        random-process
-       (advance [this value] 
-         (crp 
-           (update-in counts [value] (fnil inc 0))
-           alpha))))))
+       (produce [this] (discrete (conj counts alpha)))
+       (absorb [this sample] 
+         (CRP alpha
+              (update-in counts [sample] (fnil inc 0)))))))
+
+(defn cov
+  "computes covariance matrix of xs and ys under k"
+  [k xs ys]
+  (m/matrix (for [x xs] (for [y ys] (k x y)))))
+
+(defn GP
+  "Gaussian process"
+  ([m$ k$]
+     ;; two-parameter call is intended for
+     ;; use from inside m! programs, where
+     ;; CPS-transformed functions are passed
+     (GP (uncps m$) (uncps k$) []))
+  ([m k points]
+     (reify random-process
+       (produce [this]
+         (cps
+          (if (seq points)
+            (let [xs (mapv first points)
+                  isgm (m/inverse (cov k xs xs))
+                  zs (let [ys (mapv second points)
+                           ms (mapv m xs)]
+                       (m/mmul isgm (m/sub ys ms)))]
+              (fn [x]
+                (let [mx (m x)
+                      sgm* (cov k xs [x])
+                      tsgm* (m/transpose sgm*)]
+                  (normal (+ mx (first (m/mmul tsgm* zs)))
+                          (sqrt (- (k x x)
+                                   (ffirst
+                                    (m/mmul tsgm* isgm sgm*))))))))
+            (fn [x] (normal (m x) (sqrt (k x x)))))))
+       (absorb [this sample]
+         (GP m k (conj points sample))))))
