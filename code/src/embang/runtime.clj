@@ -217,7 +217,7 @@
 (defn cov
   "computes covariance matrix of xs and ys under k"
   [k xs ys]
-  (m/matrix (for [x xs] (for [y ys] (k x y)))))
+  (for [x xs] (for [y ys] (k x y))))
 
 (defn GP
   "Gaussian process"
@@ -232,7 +232,7 @@
          (cps
           (if (seq points)
             (let [xs (mapv first points)
-                  isgm (m/inverse (cov k xs xs))
+                  isgm (m/inverse (m/matrix (cov k xs xs)))
                   zs (let [ys (mapv second points)
                            ms (mapv m xs)]
                        (m/mmul isgm (m/sub ys ms)))]
