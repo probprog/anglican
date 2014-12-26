@@ -183,6 +183,24 @@
   (absorb [this sample]
     "absorbs the sample and returns a new process"))
 
+;; Random processes can accept and return functions,
+;; and translations in and out of CPS form must be
+;; performed. To avoid mutual dependencies, we
+;; define here two wrappers.
+
+(defn ^:private uncps
+  "reconstructs value-returning function from CPS form"
+  [f]
+  (fn [& args]
+    (apply f (fn [v _] v) nil args)))
+
+(defn ^:private cps
+  "wrap value-returning function into CPS form"
+  [f]
+  (fn [cont $state & args]
+    (cont (apply f args) $state)))
+
+
 ;; random processes, in alphabetical order
 
 (defn CRP
@@ -203,23 +221,29 @@
 
 (defn GP
   "Gaussian process"
-  ([m k] (GP m k []))
+  ([m$ k$]
+     ;; two-parameter call is intended for
+     ;; use from inside m! programs, where
+     ;; CPS-transformed functions are passed
+     (GP (uncps m$) (uncps k$) []))
   ([m k points]
      (reify random-process
-       (produce [this] 
-         (if (seq points)
-           (let [xs (map first points)
-                 isigma (m/inverse (cov k xs xs))
-                 zs (let [ys (map second points)
-                          ms (map m xs)]
-                      (m/mmul isigma (m/sub ys ms)))]
-             (fn [x]
-               (let [mx (m x)
-                     sigma* (cov k xs [x])
-                     tsigma* (m/transpose sigma*)]
-                 (normal (+ mx (first (m/mmul tsigma* zs)))
-                         (sqrt (- (k x x)
-                                  (ffirst (m/mmul tsigma* isigma sigma*))))))))
-           (fn [x] (normal (m x) (sqrt (k x x))))))
+       (produce [this]
+         (cps
+          (if (seq points)
+            (let [xs (map first points)
+                  isgm (m/inverse (cov k xs xs))
+                  zs (let [ys (map second points)
+                           ms (map m xs)]
+                       (m/mmul isgm (m/sub ys ms)))]
+              (fn [x]
+                (let [mx (m x)
+                      sgm* (cov k xs [x])
+                      tsgm* (m/transpose sgm*)]
+                  (normal (+ mx (first (m/mmul tsgm* zs)))
+                          (sqrt (- (k x x)
+                                   (ffirst
+                                    (m/mmul tsgm* isgm sgm*))))))))
+            (fn [x] (normal (m x) (sqrt (k x x)))))))
        (absorb [this sample]
          (GP m k (conj points sample))))))
