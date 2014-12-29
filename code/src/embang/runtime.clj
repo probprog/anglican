@@ -170,8 +170,9 @@
                  n (fn [] (m/mmul L (repeatedly
                                      d #(sample @unit-normal)))))]
           (m/mmul (m/transpose X) X))))))
-;; `observe' is not implemented because the only use of Wishart distribution
-;; is sampling prior for covariance matrix of multivariate normal
+;; `observe' is not implemented because the only use of Wishart
+;; distribution is sampling prior for covariance matrix of
+;; multivariate normal
 
 ;;; Random processes
 
