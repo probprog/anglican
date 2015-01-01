@@ -47,7 +47,7 @@
     ;; measurement. This needs to be 62x3 with reasonable
     ;; prior params.
     [assume measurement-multiple-prior 
-     (lambda () 
+     (lambda ()
        (reshape
          ;;; 1 x 186
          (join 
