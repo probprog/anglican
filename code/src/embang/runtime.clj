@@ -102,14 +102,14 @@
 
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
-(letfn [(gamma-function [x]
-          (cern.jet.stat.Gamma/gamma x))]
+(letfn [(log-gamma [x]
+          (cern.jet.stat.Gamma/logGamma x))]
   (defn dirichlet
     "Diriclhet distribution"
     ;; borrowed from Anglican runtime
     [alpha]
-    (let [Z (delay (/ (reduce * (map gamma-function alpha))
-                      (gamma-function (reduce + alpha))))]
+    (let [Z (delay (- (reduce + (map log-gamma alpha))
+                      (log-gamma (reduce + alpha))))]
       (reify distribution
         (sample [this]
           (let [g (map #(sample (gamma % 1)) alpha)
@@ -169,10 +169,9 @@
         (let [X (repeatedly
                  n (fn [] (m/mmul L (repeatedly
                                      d #(sample @unit-normal)))))]
-          (m/mmul (m/transpose X) X))))))
-;; `observe' is not implemented because the only use of Wishart
-;; distribution is sampling prior for covariance matrix of
-;; multivariate normal
+          (m/mmul (m/transpose X) X)))
+      (observe [this value]
+        1.0))))
 
 ;;; Random processes
 
