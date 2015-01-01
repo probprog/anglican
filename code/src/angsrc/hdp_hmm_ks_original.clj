@@ -1,12 +1,13 @@
 (ns angsrc.hdp-hmm-ks-original
   (:require [clojure.core.matrix
-             :refer [identity-matrix join reshape add sub mul mmul]
+             :refer [identity-matrix join reshape
+                     add sub mul mmul inverse]
              :rename {identity-matrix eye}])
   (:use [embang emit runtime]
         [angsrc dp-mem
                 hdp-hmm-ks-data]))
 
-(with-primitive-procedures [eye join reshape mul mmul]
+(with-primitive-procedures [eye join reshape mul mmul inverse]
   (defanglican hdp-hmm-ks-original
     ;; next 4 directives are an HDP-HMM backbone in CRF representation
     [assume G-0 (lambda ()
@@ -38,7 +39,9 @@
     ;; prior on W where the process noise is drawn from Normal(w|0,W)
     [assume pose-transition-covariance-prior
             (lambda ()
-              (sample (wishart (+ 1 latent-dimension) (mul 0.1 (eye latent-dimension)))))]
+              (inverse 
+               (sample (wishart (+ 1 latent-dimension)
+                                (mul 0.1 (eye latent-dimension)))))]
     ;; prior on H, the measurement matrix relating state to
     ;; measurement. This needs to be 62x3 with reasonable
     ;; prior params.

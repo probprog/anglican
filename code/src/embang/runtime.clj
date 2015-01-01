@@ -102,24 +102,28 @@
 
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
-(letfn [(gamma-function [x]
-          (cern.jet.stat.Gamma/gamma x))]
-  (defn dirichlet
-    "Diriclhet distribution"
-    ;; borrowed from Anglican runtime
-    [alpha]
-    (let [Z (delay (/ (reduce * (map gamma-function alpha))
-                      (gamma-function (reduce + alpha))))]
-      (reify distribution
-        (sample [this]
-          (let [g (map #(sample (gamma % 1)) alpha)
-                t (reduce + g)]
-            (map #(/ % t) g)))
-        (observe [this value]
-          (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1))) 
-                            value
-                            alpha))
-             @Z))))))
+
+(defn log-gamma-fn 
+  "log gamma function"
+  [x]
+  (cern.jet.stat.Gamma/logGamma x))
+
+(defn dirichlet
+  "Diriclhet distribution"
+  ;; borrowed from Anglican runtime
+  [alpha]
+  (let [Z (delay (- (reduce + (map log-gamma-fn alpha))
+                    (log-gamma-fn (reduce + alpha))))]
+    (reify distribution
+      (sample [this]
+        (let [g (map #(sample (gamma % 1)) alpha)
+              t (reduce + g)]
+          (map #(/ % t) g)))
+      (observe [this value]
+        (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1))) 
+                          value
+                          alpha))
+           @Z)))))
 
 (from-colt exponential [rate])
 
@@ -142,7 +146,7 @@
   (let [k (count mean)     ; number of dimensions
         {Lcov :L} (ml/cholesky (m/matrix cov) {:return [:L]})
         ;; delayed because used only by one of the methods
-        unit-normal (delay (normal 0 1))
+        unit-normal (normal 0 1)
         Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
                    (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
                              (Math/log |Lcov|)))))
@@ -151,27 +155,44 @@
       (sample [this]
         (m/add mean
                (m/mmul Lcov
-                       (repeatedly k #(sample @unit-normal)))))
+                       (repeatedly k #(sample unit-normal)))))
       (observe [this value]
         (let [dx (m/mmul @iLcov (m/sub value mean))]
           (- (* -0.5 (m/dot dx dx)) @Z))))))
+
+(defn log-mv-gamma-fn
+  "multivariate gamma function"
+  [p a]
+  (+ (* 0.25 p (- p 1) (Math/log Math/PI))
+     (reduce + (map (fn [j]
+                      (log-gamma-fn (- a (* 0.5 j))))
+                    (range p)))))
 
 (defn wishart
   "Wishart distribution"
   ;; http://en.wikipedia.org/wiki/Wishart_distribution
   [n V] 
-  {:pre [(integer? n) (>= n (first (m/shape V)))]}
-  (let [d (first (m/shape V))
+  {:pre [(let [[n m] (m/shape V)] (= n m))
+         (integer? n)
+         (>= n (first (m/shape V)))]}
+  (let [p (first (m/shape V))
         {L :L} (ml/cholesky (m/matrix V) {:return [:L]})
-        unit-normal (delay (normal 0 1))]
+        unit-normal (normal 0 1)
+        Z (delay (+ (* 0.5 n p (Math/log 2))
+                    (* 0.5 n (Math/log (m/det V)))
+                    (log-mv-gamma-fn p (* 0.5 n))))]
+                    
     (reify distribution
       (sample [this]
-        (let [X (repeatedly
-                 n (fn [] (m/mmul L (repeatedly
-                                     d #(sample @unit-normal)))))]
-          (m/mmul (m/transpose X) X))))))
-;; `observe' is not implemented because the only use of Wishart distribution
-;; is sampling prior for covariance matrix of multivariate normal
+        (let [X (m/matrix
+                 (repeatedly
+                  n (fn [] (m/mmul L (repeatedly
+                                      p #(sample unit-normal))))))]
+          (m/mmul (m/transpose X) X)))
+      (observe [this value]
+        (- (* 0.5 (- n p 1) (Math/log (m/det value)))
+           (* 0.5 (m/trace (m/mul (m/inverse (m/matrix V)) value)))
+           @Z)))))
 
 ;;; Random processes
 
