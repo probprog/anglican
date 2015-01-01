@@ -184,9 +184,10 @@
                     
     (reify distribution
       (sample [this]
-        (let [X (repeatedly
-                 n (fn [] (m/mmul L (repeatedly
-                                     p #(sample unit-normal)))))]
+        (let [X (m/matrix
+                 (repeatedly
+                  n (fn [] (m/mmul L (repeatedly
+                                      p #(sample unit-normal))))))]
           (m/mmul (m/transpose X) X)))
       (observe [this value]
         (- (* 0.5 (- n p 1) (Math/log (m/det value)))
