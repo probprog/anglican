@@ -43,7 +43,17 @@
   [procedure]
   (*primitive-procedures* procedure))
 
-(defn simple-expression?
+(defn fn-form?
+  "true when the argument is a fn form"
+  [expr]
+  (and (seq? expr) (= (first expr) 'fn)))
+
+;;; Simple expressions
+
+;; Simple expressions are passed to continuations
+;; unmodified.
+
+(defn simple?
   "true if expr has no continuation"
   [expr]
   (if (seq? expr)
@@ -52,11 +62,11 @@
       fn false
       (begin
        if cond
-       and or do) (every? simple-expression? (rest expr))
+       and or do) (every? simple? (rest expr))
       let (let [[_ bindings & body] expr]
-            (and (every? simple-expression?
+            (and (every? simple?
                          (take-nth 2 (rest bindings)))
-                 (every? simple-expression? body)))
+                 (every? simple? body)))
       (predict
        observe
        sample
@@ -66,12 +76,39 @@
        apply) false
       ;; application
       (and (primitive-procedure? (first expr))
-           (every? simple-expression? (rest expr))))
+           (every? simple? (rest expr))))
     (not (primitive-procedure? expr))))
 
-;; CPS transformation rules
+;;; Opaque expresions
+
+;; Some expressions are opaque, they are transformed
+;; into CPS and then passed to continuations as arguments.
+
+(defn opaque?
+  "true when the argument is an expression
+  which is passed to continuation (rather
+  than accepts continuation) in its CPS form"
+  [expr]
+  (or (simple? expr)
+      (primitive-procedure? expr)
+      (fn-form? expr)))
+ 
+;; Simple expressions, primitive procedure wrappers
+;; and fn forms are opaque.
+
+(declare primitive-procedure-cps fn-cps)
+(defn opaque-cps
+  "return CPS form of an opaque expression"
+  [expr] {:pre [(opaque? expr)]}
+  (cond
+   (simple? expr) expr
+   (primitive-procedure? expr) (primitive-procedure-cps expr)
+   (fn-form? expr) (fn-cps (rest expr))))
+
+;;; General CPS transformation rules
 
 (declare cps-of-expression)
+
 (def ^:dynamic *gensym* 
   "customized gensym for code generation,
   bound to `symbol' in tests"
@@ -90,19 +127,18 @@
 ;; Continuation is the first, rather than the last, parameter of a
 ;; function to support functions with variable arguments.
 
-(defn cps-of-fn
-  "transforms function definition into CPS"
-  [args cont]
+(defn fn-cps
+  "transforms function definition to CPS form"
+  [args]
   (if (vector? (first args))
-    (cps-of-fn `[nil ~@args] cont)
+    (fn-cps `[nil ~@args])
     (let [[name parms & body] args
           fncont (*gensym* "C")]
       (binding [*primitive-procedures*
                 (reduce disj *primitive-procedures* parms)]
-        `(~cont (~'fn ~@(when name [name])
-                  [~fncont ~'$state ~@parms]
-                  ~(cps-of-elist body fncont))
-                ~'$state)))))
+        `(~'fn ~@(when name [name])
+           [~fncont ~'$state ~@parms]
+           ~(cps-of-elist body fncont))))))
 
 (defn cps-of-let
   "transforms let to CPS"
@@ -112,8 +148,8 @@
       (binding [*primitive-procedures*
                 (disj *primitive-procedures* name)]
         (let [rst (cps-of-let `(~bindings ~@body) cont)]
-          (if (simple-expression? value)
-            `(~'let [~name ~value]
+          (if (opaque? value)
+            `(~'let [~name ~(opaque-cps value)]
                ~rst)
             (cps-of-expression
               value
@@ -148,8 +184,8 @@
     (assert (empty? rst)
             (format "Invalid number of args (%d) passed to if"
                     (count args)))
-    (if (simple-expression? cnd)
-      `(~'if ~cnd
+    (if (opaque? cnd)
+      `(~'if ~(opaque-cps cnd)
          ~(cps-of-expression thn cont)
          ~(cps-of-expression els cont))
       (cps-of-expression
@@ -211,11 +247,11 @@
   ([args make] (make-of-args args false make))
   ([args first-is-rator make]
      (let [substs (map (fn [arg is-rator]
-                         (if (or (simple-expression? arg)
-                                 (and is-rator
-                                      (primitive-procedure? arg)))
-                           [nil arg]
-                           [arg (*gensym* "A")]))
+                         (cond
+                          (and is-rator
+                               (primitive-procedure? arg)) [nil arg]
+                          (opaque? arg) [nil (opaque-cps arg)]
+                          :else [arg (*gensym* "A")]))
                        args
                        (cons first-is-rator (repeat false)))]
        (letfn [(make-of-slist [slist]
@@ -336,25 +372,23 @@
                       `(~cont ~call ~'$state)
                       `(~'fn [] (~rator ~cont ~'$state ~@rands)))))))
 
-(defn cps-of-primitive-procedure
-  "wraps primitive procedure"
-  [expr cont]
+(defn primitive-procedure-cps
+  "wraps primitive procedure as a CPS form"
+  [expr]
   (let [fncont (*gensym* "C")
         parms (*gensym* "P")]
-    `(~cont (~'fn [~fncont ~'$state & ~parms]
-              (~fncont (~'apply ~expr ~parms) ~'$state))
-            ~'$state)))
-
+    `(~'fn [~fncont ~'$state & ~parms]
+       (~fncont (~'apply ~expr ~parms) ~'$state))))
+    
 (defn cps-of-expression
   "dispatches CPS transformation by expression type"
   [expr cont]
   (cond
-    (simple-expression?
-      expr) `(~cont ~expr ~'$state)
+    (opaque?
+      expr) `(~cont ~(opaque-cps expr) ~'$state)
     (seq?
       expr) (let [[kwd & args] expr]
               (case kwd
-                fn        (cps-of-fn args cont)
                 let       (cps-of-let args cont)
                 if        (cps-of-if args cont)
                 cond      (cps-of-cond args cont)
@@ -370,9 +404,7 @@
                 apply     (cps-of-apply args cont)
                 ;; application
                 (cps-of-application expr cont)))
-    (primitive-procedure?
-      expr) (cps-of-primitive-procedure expr cont)
-    :else (assert false)))
+     :else (assert false)))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"

@@ -2,16 +2,16 @@
     (:require [clojure.test :refer [deftest testing is]])
     (use embang.trap))
 
-(deftest test-simple-expression?
-  (testing "simple-expression?"
-    (is (simple-expression? 1) "number")
-    (is (simple-expression? '(quote (1 2 3))) "quote")
-    (is (simple-expression? 'x) "variable")
-    (is (simple-expression? '(if 1 2 3)) "if with simple subexpressions")
-    (is (not (simple-expression? '(a b c))) "application")
-    (is (not (simple-expression? '(cond a 1 (b) 2)))
+(deftest test-simple?
+  (testing "simple?"
+    (is (simple? 1) "number")
+    (is (simple? '(quote (1 2 3))) "quote")
+    (is (simple? 'x) "variable")
+    (is (simple? '(if 1 2 3)) "if with simple subexpressions")
+    (is (not (simple? '(a b c))) "application")
+    (is (not (simple? '(cond a 1 (b) 2)))
         "cond with compound subexpression")
-    (is (not (simple-expression? '(fn [] 1))) "fn is never simple")))
+    (is (not (simple? '(fn [] 1))) "fn is never simple")))
 
 (deftest test-primitive-procedure
   (binding [*gensym* symbol]
@@ -26,31 +26,25 @@
              '(let [dec 1] (ret dec $state)))
           "primitive procedure name can be locally rebound")
       (is (= (cps-of-expression '(let [x dec] (x 1)) 'ret)
-             '((fn [V $state] (let [x V] (fn [] (x ret $state 1))))
-               (fn
-                 [C $state & P]
-                 (C (apply dec P) $state))
-               $state))
+             '(let [x (fn [C $state & P]
+                        (C (apply dec P) $state))]
+                (fn [] (x ret $state 1))))
           "primitive procedure can be locally bound")
       (is (= (cps-of-expression '(list inc dec) 'ret)
-             '((fn
-                 [A $state]
-                 ((fn [A $state] (ret (list A A) $state))
-                  (fn [C $state & P] (C (apply dec P) $state))
-                  $state))
-               (fn [C $state & P] (C (apply inc P) $state))
-               $state))
+             '(ret (list 
+                      (fn [C $state & P] (C (apply inc P) $state))
+                      (fn [C $state & P] (C (apply dec P) $state)))
+                   $state))
           "primitive procedure can be passed as an argument"))))
 
-(deftest test-cps-of-fn
+(deftest test-fn-cps
   (binding [*gensym* symbol]
-    (testing "cps-of-fn"
-      (is (= (cps-of-fn '([x] x) 'ret)
-             '(ret (fn [C $state x] (C x $state)) $state))
+    (testing "fn-cps"
+      (is (= (fn-cps '([x] x))
+             '(fn [C $state x] (C x $state)))
           "anonymous function")
-      (is (= (cps-of-fn '(foo [x] (bar)) 'ret)
-             '(ret (fn foo [C $state x] (fn [] (bar C $state)))
-                   $state))
+      (is (= (fn-cps '(foo [x] (bar)))
+             '(fn foo [C $state x] (fn [] (bar C $state))))
           "named function with compound body"))))
 
 (deftest test-cps-of-let
@@ -174,32 +168,26 @@
              '(ret (fn [C $state & P]
                      (if (embang.state/in-mem? $state 'M P)
                        (C (embang.state/get-mem $state 'M P) $state)
-                       ((fn [A $state]
-                          (fn []
-                            (clojure.core/apply
-                             A
-                             (fn [V $state]
-                               (C V (embang.state/set-mem $state 'M P V)))
-                             $state
-                             P)))
-                        (fn [C $state x] (C x $state))
-                        $state)))
+                       (fn []
+                         (clojure.core/apply
+                          (fn [C $state x] (C x $state))
+                          (fn [V $state]
+                            (C V (embang.state/set-mem $state 'M P V)))
+                          $state
+                          P))))
                    $state))
           "mem of compound function")
       (is (= (cps-of-mem '((fn foo [x] x)) 'ret)
              '(ret (fn foo [C $state & P]
                      (if (embang.state/in-mem? $state 'M P)
                        (C (embang.state/get-mem $state 'M P) $state)
-                       ((fn [A $state]
-                          (fn []
-                            (clojure.core/apply
-                             A
-                             (fn [V $state]
-                               (C V (embang.state/set-mem $state 'M P V)))
-                             $state
-                             P)))
-                        (fn [C $state x] (C x $state))
-                        $state)))
+                       (fn []
+                         (clojure.core/apply
+                          (fn [C $state x] (C x $state))
+                          (fn [V $state]
+                            (C V (embang.state/set-mem $state 'M P V)))
+                          $state
+                          P))))
                    $state))
           "mem of named compound function")
       (is (= (cps-of-mem '(foo) 'ret)
@@ -230,13 +218,12 @@
              '(fn [] (foo (fn [A $state] (ret A (embang.state/store $state :a A))) $state)))
           "compound store"))))
 
-(deftest test-cps-of-primitive-procedure
+(deftest test-primitive-procedure-cps
   (binding [*gensym* symbol]
-    (testing "cps-of-primitive-procedure"
-      (is (= (cps-of-primitive-procedure 'inc 'ret)
-             '(ret (fn [C $state & P]
-                     (C (apply inc P) $state))
-                   $state))
+    (testing "primitive-procedure-cps"
+      (is (= (primitive-procedure-cps 'inc)
+             '(fn [C $state & P]
+                (C (apply inc P) $state)))
           "primitive procedure"))))
 
 (deftest test-cps-of-expression
