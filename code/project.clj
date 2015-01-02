@@ -8,8 +8,8 @@
                  [org.clojure/data.json "0.2.5"]
                  [colt "1.2.0"]
                  [org.clojure/math.combinatorics "0.0.8"]
-                 [net.mikera/core.matrix "0.31.1"]
-                 [net.mikera/vectorz-clj "0.26.2"]]
+                 [net.mikera/core.matrix "0.32.1"]
+                 [net.mikera/vectorz-clj "0.28.0"]]
   :main ^:skip-aot embang.core
   :target-path "target/%s"
   :profiles {:uberjar { ;; Prevent compilation of Anglican source code,
