@@ -1,8 +1,7 @@
 (ns embang.emit
   (:use [embang.xlat :only [program alambda]])
   (:use [embang.trap :only [cps-of-expression run-cont 
-                            cps-of-fn value-cont
-                            cps-of-primitive-procedure]]))
+                            fn-cps primitive-procedure-cps]]))
 
 ;;;; Top-level forms for anglican programs
 
@@ -48,8 +47,7 @@
   "converts function to CPS,
   useful for defining functions outside of defanglican"
   [& args]
-  `(~'let [~'$state nil]
-     ~(cps-of-fn args value-cont)))
+  (fn-cps args))
 
 (defmacro def-cps-fn
   "binds variable to function in CPS form"
@@ -87,10 +85,8 @@
   with-primitive-procedures
   "binds primitive procedure names to their CPS versions"
   [procedures & body]
-  `(let [~'$state nil
-         ~@(mapcat (fn [proc] 
-                     [proc
-                      (cps-of-primitive-procedure proc value-cont)])
+  `(let [~@(mapcat (fn [proc] 
+                     [proc (primitive-procedure-cps proc)])
                    procedures)]
      ~@body))
 
