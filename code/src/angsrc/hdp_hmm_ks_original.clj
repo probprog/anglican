@@ -41,7 +41,7 @@
             (lambda ()
               (inverse 
                (sample (wishart (+ 1 latent-dimension)
-                                (mul 0.1 (eye latent-dimension)))))]
+                                (mul 0.1 (eye latent-dimension))))))]
     ;; prior on H, the measurement matrix relating state to
     ;; measurement. This needs to be 62x3 with reasonable
     ;; prior params.
