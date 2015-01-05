@@ -41,7 +41,7 @@
 (defmulti print-predict (fn [_ _ _ format] format))
 
 (defmethod print-predict :anglican [label value weight format]
-  (println (str/join "," [label value weight])))
+  (println (str/join "," (map pr-str [label value weight]))))
 
 (defmethod print-predict :clojure [label value weight format]
   (prn [label value weight]))
