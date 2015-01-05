@@ -1,0 +1,151 @@
+Hi,
+
+I helped Neil to prepare the Anglican program for inferring
+motions for running, and to run it. I also made the program
+and the embedded anglican implementation meet --- slightly
+modified the program, as well as extended the implementation
+with matrix stuff, multivariate distributions, and
+random processes.
+
+The program is at:
+
+https://bitbucket.org/fwood/anglican/src/46b8c3cdec0395e36db1771ae801fb76b8e67594/experiments/sticky_HPD_HMM_KS_v1.anglican?at=Neil_Locomotion
+
+I want to share my experiences, some of which are trivial
+for more experienced Anglican users, but some may be useful
+for further improvements.
+
+First, some numbers. I finally started the program properly
+on laura yesterday, 15 hours ago. I have 30 processes running,
+10 each of rdb, pgibbs, and cascade each. So far, 
+                  
+                 |  rdb     |     pgibbs    |    cascade
+Produced samples |  41736   |     113600    |       0
+Unique samples   |    886   |         67    |       0
+
+Cascade does not produce any output, for some reason; I haven't
+investigated yet. pgibbs is roughly 2.5 times faster than rdb,
+but we know the reason --- rdb runs twice as many samples, the
+extra sample to compute conditional transition probability from
+the new to the old particle, which is absolutely unnecessary, and
+can be fixed easily, as we discussed with Yura, and even have a 
+(low priority) issue on this.
+
+The `acceptance rate' is much higher for rdb (which is to be
+expected), 2% for rdb versus 0.06% for pgibbs. I haven't tried
+pgibbs with ancestral resampling, because it does not seem to
+be in the branch. Should I?
+
+I also made changes to m! (and to the program) to make the former
+run the later. The program with only minimal changes is here:
+
+https://bitbucket.org/dtolpin/embang/src/HEAD/code/src/angsrc/hdp_hmm_ks_original.clj
+
+Except for some formatting and renaming (I don't like using
+overloaded arithmetic operators for matrices and prefer writing
+function names: add, sub, mul etc), the differences are
+
+lines 12-16,
+
+   where a CRP-based source for activity indices is defined.
+   In m!, crp (and a random process is general) is still immutable, and
+   has method `advance' (in addition to observe and sample), which
+   produces the next state of the random process. In addition, an m!
+   program has a global `store' (it is a state monad) to which values,
+   indexed by some key, can be stored and from which they can be
+   retrieved. Hence, line 13 retrieves the current state of CRP,
+   line 15 stores the updated state. I believe that this abstraction
+   is useful for implementing random processes without having to
+   hard-code state manipulations.
+
+lines 102-116,
+
+   is a loop over all fixed activity data sets. It does exactly the
+   same as the unrolled loop of observations in the original code,
+   but in my opinion is slighlty better structured. The data itself
+   is in a vector in a separate module (angsrc.hdp-hmm-ks-data).
+
+line 119-126
+
+   the same for varying activity dataset.
+
+
+I haven't implemented RDB yet, so can't really get useful inference
+results (but if decide to, I'd estimate it as a one day effort ---
+but may actually be 2 weeks if we use the rule `bump up the unit and
+multiply by \pi). Still, I could run the inference with Partical Gibbs
+and compare the performance.
+
+Comparing performance
+---------------------
+
+Encouraged by past speed improvements on small examples, I run
+the inference on my implementation. The speed improvement, compared
+to the same algorithm with the original, was mere 30% increase
+in speed. After a short consideration, one can see why.
+
+The program is actually very simple, and it spends most of time
+computing observation probabilities of 62-dimensional vectors
+given a multivariate normal belief. So, most of the time is
+spent outside of the Anglican code in performing a rather
+expensive computation, and the Anglican code itself, with
+respect to calling that computation, is rather trivial.
+
+But as it is usual in programming, if a very simple program
+runs slowly, making it smarter may save time. If you look
+at the code of multivariate normal, in either the original
+or m! implementation, fot rcsmplr, lines 139-156 in embang/runtime.clj
+
+https://bitbucket.org/dtolpin/embang/src/HEAD/code/src/embang/runtime.clj
+
+every instantiation of multivariate-normal
+for the purpose of computing the probability density involves
+
+ 1) Cholesky decomposion of the variance matrix
+ 2) inversion of the result of Cholesky decomposion
+
+which are rather expensive operations on 62-dimensional matrices,
+where most of the time is spent.
+
+Both these operations only involve the covariance
+matrix, which depends only on the activity index, a small integer ---
+we may have only two dozens of different numbers, so, in fact
+we only perform only two dozens different computations, and if
+we could memoize them, we would speed up this part of the program
+significantly.
+
+Custom memoized mvn is possible but not particularily elegant;
+however, the memoization can also be done inside Anglican code
+with `stock' mvn implementation. An observe directive involves
+three elements: the anticipated value, the observed value, and
+the uncertainty about the anticipated value. Both anticipated
+and observed value depends on time, the anticipated value also
+depends on the activity index,  but the noise (the covariance
+matrix) only depends on the activity index, and can be memoized
+as a mvn, if `observe' statement is rewritten in terms of 
+discrepancy between the observed and the anticipated value.
+
+When I did that --- see lines 104-126 in 
+
+  https://bitbucket.org/dtolpin/embang/src/HEAD/code/src/angsrc/hdp_hmm_ks.clj
+
+I got a rather satisfying 5x increase in performance, making
+the program run 7 times faster than the in the original implementation (or 14x
+if we compare with RDB implementation and re-implement RDB without the superfluous
+rerunning of the particle).  A similar optimization can be applied to the
+latent-pose noise, lines 78-90 in the same file. However, since the latent pose
+dimension is much lower, the improvement is not so crucial.
+
+As a side note, that brings up the question whether the current two-argument
+formulation of observe, where the uncertainty is arbitrarily attached to 
+the anticipated value, is indeed justified, and whether a three-argument
+wouldn't be a better choice.
+
+I think this is as much optimization as we can do in a single particle,
+unless I've missed something. With single-site updating MH (RDB) we can
+do better by re-using probability recomputations from earlier particles,
+and save on another expensive computation --- addition, multiplication, and dot-product
+of 62-dimensional matrices --- at all observes were the probability will
+stay the same.
+
+To be continued.
