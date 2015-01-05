@@ -399,8 +399,8 @@
                 observe   (cps-of-observe args cont)
                 sample    (cps-of-sample args cont)
                 mem       (cps-of-mem args cont)
-                store (cps-of-store args cont)
-                retrieve (cps-of-retrieve args cont)
+                store     (cps-of-store args cont)
+                retrieve  (cps-of-retrieve args cont)
                 apply     (cps-of-apply args cont)
                 ;; application
                 (cps-of-application expr cont)))
