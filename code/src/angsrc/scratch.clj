@@ -4,10 +4,8 @@
 ;;; Scratch pad
 
 (defanglican scratch
-  (store :a 1)
-  (store :b 2)
-  [predict (retrieve :a)]
-  [predict (retrieve :b)]
-  (store :a 3)
-  [predict (retrieve :a)]
-  [predict (retrieve :c)])
+  [assume fact (lambda (n)
+                  (loop ((n n) (acc 1))
+                    (if (<= n 1) acc
+                        (recur (- n 1) (* acc n)))))]
+  [predict (map fact (range 10))])

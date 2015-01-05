@@ -5,8 +5,10 @@
 (deftest test-elist
   (testing "elist"
     (is (= (elist '(1 2)) '(1 2)) "simple list")
-    (is (= (elist '((define x 1) x)) '((let [x 1] x))) "define in list")
-    (is (= (elist '((define y 2))) '((let [y 2]))) "define is last")))
+    (is (= (elist '((define x 1) x)) '((let [x 1] x)))
+        "define in list")
+    (is (= (elist '((define y 2))) '((let [y 2])))
+        "define is last")))
 
 (deftest test-alambda
   (testing "alambda"
@@ -22,7 +24,16 @@
 
 (deftest test-alet
   (testing "alet"
-    (is (= (alet '(((x 1) (y 2)) (+ x y))) '(let [x 1 y 2] (+ x y))) "let")))
+    (is (= (alet '(((x 1) (y 2)) (+ x y)))
+           '(let [x 1 y 2] (+ x y)))
+        "let")))
+
+(deftest test-aloop
+  (testing "aloop"
+    (is (= (aloop '(((x 1) (y 2)) (recur (+ x 1) y)))
+           '(let [loop (fn loop [x y] (loop (+ x 1) y))]
+              (loop 1 2)))
+        "loop")))
 
 (deftest test-acond
   (testing "acond"
@@ -33,11 +44,13 @@
 
 (deftest test-abegin
   (testing "abegin"
-    (is (= (abegin '((do 1) 2)) '(do (begin 1) 2)) "begin with name clash")))
+    (is (= (abegin '((do 1) 2)) '(do (begin 1) 2))
+        "begin with name clash")))
 
 (deftest test-aform
   (testing "aform"
-    (is (= (aform '(fn 1 2)) '(lambda 1 2)) "application with name clash")))
+    (is (= (aform '(fn 1 2)) '(lambda 1 2))
+        "application with name clash")))
 
 (deftest test-expression
   (testing "expression"

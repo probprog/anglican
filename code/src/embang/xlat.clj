@@ -22,7 +22,7 @@
   if name is not nil, fn is named"
   [name [parms & body]]
   `(~'fn ~@(when name [name])
-     ~(if (list? parms)
+     ~(if (seq? parms)
         `[~@parms]
         `[& ~parms]) ; variadic
      ~@(elist body)))
@@ -39,6 +39,13 @@
                      [name (expression value :name name)])
                    bindings)]
      ~@(elist body)))
+
+(defn aloop
+  "translates loop+recur"
+  [[bindings & body]]
+  `(~'let [~'loop ~(alambda 'loop (cons (map first bindings)
+                                         body))]
+     (~'loop ~@(map second bindings))))
 
 (defn acond 
   "translates cond"
@@ -76,6 +83,7 @@
         quote  expr
         lambda (alambda name args)
         let    (alet args)
+        loop   (aloop args)
         mem    (amem name args)
         cond   (acond args)
         begin  (abegin args)
@@ -84,10 +92,12 @@
         ;;  have compatible structure
         (aform expr)))
     (case expr
-      ;; replace variable names `do' and `fn' by `begin' and `lambda',
-      ;; to avoid name clashes in Clojure
+      ;; variable names `do' and `fn' are replaced by
+      ;; `begin' and `lambda' to avoid name clashes
       do 'begin
       fn 'lambda
+      ;; loop is translated to function `loop'
+      recur 'loop
       expr)))
 
 (defn program
