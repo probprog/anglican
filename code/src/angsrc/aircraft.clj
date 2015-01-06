@@ -16,8 +16,7 @@
   
   ; Blips are identified by lists like ('blip 0 'ofaircraft 45).
   [assume blip_ids (lambda (aircraft_id)
-      (map (lambda (i) (list 'blip i 'ofaircraft aircraft_id)) (range 0 (num_blips aircraft_id)))
-  )]
+      (map (lambda (i) (list 'blip i 'ofaircraft aircraft_id)) (range 0 (num_blips aircraft_id))))]
   
   ; Given a blip, return the aircraft that generated it.
   [assume source (mem (lambda (blip_id) (nth blip_id 2)))]
@@ -34,6 +33,7 @@
                                         (lambda (lst) (if (nil? lst) false true))
                                         (map blip_ids (range 0 num_aircraft)))))]
  
+  [predict all_blips]
   ; Observe three blips on the radar screen:
   [observe (normal num_blips_total 0.001) 3]
   

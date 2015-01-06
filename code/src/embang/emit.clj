@@ -8,12 +8,13 @@
 ;;; Code manipulation
 
 (defn ^:private overriding-higher-order-functions
-  "binds names of higher-order functions
+  "binds names of essential higher-order functions
   to their CPS implementations"
   [& body]
   `(~'let [~@(mapcat (fn [fun] [fun (symbol (str "$" fun))]) 
                      '[map reduce
-                       filter some])]
+                       filter
+                       comp partial])]
      ~@body))
 
 (defmacro anglican 
@@ -101,8 +102,9 @@
 ;; Higher-order functions must be re-implemented in CPS,
 ;; such that both the functions themselves and the
 ;; functional arguments follow the CPS calling convention.
-;; They are rebound in macros defining anglican code by
-;; calling `overriding-higher-order-functions'.
+;; Essential higher-order functions are implemented here and
+;; rebound in macros defining anglican code by calling
+;; `overriding-higher-order-functions'.
 
 (def-cps-fn ^:private $map1 
   "map on a single sequence"
@@ -154,9 +156,17 @@
    (fun (first lst)) (cons (first lst) ($filter fun (rest lst)))
    :else ($filter fun (rest lst))))
 
-(def-cps-fn $some
-  "some in CPS"
-  [fun lst]
-  (if (seq lst)
-    (or (fun (first lst))
-        ($some fun (rest lst)))))
+(def-cps-fn $comp
+  "comp in CPS"
+  [& funs]
+  (if funs
+    (let [funs (reverse funs)]
+      (fn [& args]
+        ($reduce (fn [res fun] (fun res))
+                 (apply (first funs) args) (rest funs))))
+    identity))
+
+(def-cps-fn $partial
+  "partial in CPS"
+  [fun & bound]
+  (fn [& free] (apply fun (concat bound free))))
