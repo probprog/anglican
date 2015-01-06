@@ -2,6 +2,13 @@
 
 (declare expression)
 
+(defn aseq?
+  "true when the argument is an Anglican sequence expression,
+  both list and vector are sequences for source code
+  compatibility"
+  [expr]
+  (or (seq? expr) (vector? expr)))
+
 (defn elist
   "translates a list of expressions,
   replacing define with let"
@@ -9,8 +16,7 @@
   (when (seq exprs)
     (lazy-seq
       (let [[expr & exprs] exprs]
-        (if (and (or (seq? expr) (vector? expr))
-                 (#{'define 'assume} (first expr)))
+        (if (and (aseq? expr) (#{'define 'assume} (first expr)))
           (let [[name value] (rest expr)]
             `((~'let [~name ~(expression value :name name)]
                 ~@(elist exprs))))
@@ -77,7 +83,7 @@
 
 (defn expression [expr & {:keys [name] :or {name nil}}]
   "translates expression"
-  (if (or (seq? expr) (vector? expr))
+  (if (and (aseq? expr) (seq expr))
     (let [[kwd & args] expr]
       (case kwd
         quote  expr

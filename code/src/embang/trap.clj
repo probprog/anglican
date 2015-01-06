@@ -56,7 +56,7 @@
 (defn simple?
   "true if expr has no continuation"
   [expr]
-  (if (seq? expr)
+  (if (and (seq? expr) (seq expr))
     (case (first expr)
       quote true
       fn false
@@ -408,8 +408,11 @@
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
-  (let [;; procedures for which CPS counterparts are provided
-        exclude '#{map reduce}
+  (let [;; higher-order procedures cannot be primitive
+        exclude '#{map reduce
+                   filter keep keep-indexed remove
+                   every? not-any? some
+                   every-pred some-fn}
         ;; runtime namespaces
         runtime-namespaces '[clojure.core embang.runtime]]
     (set (keep (fn [[k v]]

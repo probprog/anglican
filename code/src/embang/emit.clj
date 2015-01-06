@@ -12,7 +12,8 @@
   to their CPS implementations"
   [& body]
   `(~'let [~'map ~'$map
-           ~'reduce ~'$reduce]
+           ~'reduce ~'$reduce
+           ~'filter ~'$filter]
      ~@body))
 
 (defmacro anglican 
@@ -144,3 +145,11 @@
               (second args)
               (rest (first args)))]
     ($reduce1 fun init lst)))
+
+(def-cps-fn $filter
+  "filter in CPS"
+  [fun lst]
+  (cond
+   (empty? lst) lst
+   (fun (first lst)) (cons (first lst) ($filter fun (rest lst)))
+   :else ($filter fun (rest lst))))
