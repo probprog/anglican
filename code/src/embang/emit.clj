@@ -7,6 +7,15 @@
 
 ;;; Code manipulation
 
+;; Higher-order functions cannot be re-used from Clojure,
+;; they have to be re-implemented in CPS. Clojure has
+;; many higher-order functions in the clojure.core
+;; namespace, some of which are rather esoteric and not
+;; quite appropriate for a small language like Anglican.
+;; Still, some higher-order functions are used ubiquitously 
+;; in functional programs, and should be available by
+;; default.
+
 (defn ^:private overriding-higher-order-functions
   "binds names of essential higher-order functions
   to their CPS implementations"

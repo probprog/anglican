@@ -33,7 +33,6 @@
                                         (lambda (lst) (if (nil? lst) false true))
                                         (map blip_ids (range 0 num_aircraft)))))]
  
-  [predict all_blips]
   ; Observe three blips on the radar screen:
   [observe (normal num_blips_total 0.001) 3]
   
