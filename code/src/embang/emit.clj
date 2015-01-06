@@ -157,6 +157,6 @@
 (def-cps-fn $some
   "some in CPS"
   [fun lst]
-  (when (seq lst)
+  (if (seq lst)
     (or (fun (first lst))
         ($some fun (rest lst)))))
