@@ -11,8 +11,9 @@
   "binds names of higher-order functions
   to their CPS implementations"
   [& body]
-  `(~'let [~'map ~'$map
-           ~'reduce ~'$reduce]
+  `(~'let [~@(mapcat (fn [fun] [fun (symbol (str "$" fun))]) 
+                     '[map reduce
+                       filter some])]
      ~@body))
 
 (defmacro anglican 
@@ -144,3 +145,18 @@
               (second args)
               (rest (first args)))]
     ($reduce1 fun init lst)))
+
+(def-cps-fn $filter
+  "filter in CPS"
+  [fun lst]
+  (cond
+   (empty? lst) lst
+   (fun (first lst)) (cons (first lst) ($filter fun (rest lst)))
+   :else ($filter fun (rest lst))))
+
+(def-cps-fn $some
+  "some in CPS"
+  [fun lst]
+  (if (seq lst)
+    (or (fun (first lst))
+        ($some fun (rest lst)))))

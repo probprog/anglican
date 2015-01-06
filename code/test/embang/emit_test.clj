@@ -31,4 +31,27 @@
                      nil
                      '(1 2 3)))
            '(3 2 1))
-        "reduce with default")))
+        "reduce with default"))
+
+  (testing "filter in CPS"
+    (is (= (trampoline
+            ($filter value-cont nil (fn [cont $state x]
+                                      (cont (odd? x) $state))
+                      '(1 2 3)))
+           '(1 3))
+        "filter"))
+
+  (testing "some in CPS"
+    (is (= (not (trampoline
+                 ($some value-cont nil (fn [cont $state x]
+                                         (prn x)
+                                         (cont (odd? x) $state))
+                        '(2 4 6))))
+           true)
+        "some returns false")
+    (is (= (trampoline
+            ($some value-cont nil (fn [cont $state x]
+                                    (cont (odd? x) $state))
+                   '(2 3 4)))
+           true)
+        "some returns true")))

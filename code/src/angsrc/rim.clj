@@ -140,8 +140,8 @@
   ;; [observe (preference_sample random_order) (list "a" "b")]
   [observe (flip (if (= '("a" "b")
                         (preference_sample random_order))
-                   0.9
-                   0.1))
+                   0.99
+                   0.01))
    true]
                         
   [predict random_order])
