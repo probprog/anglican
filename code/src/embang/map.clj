@@ -89,7 +89,7 @@
 
 (defn backpropagate
   "back propagate reward to bandits"
-  [state can-be-frozen?]
+  [state]
   (let [reward (get-log-weight state)]
     (loop [trace (state ::trace)
            bandits (state ::bandits)]
@@ -99,15 +99,14 @@
                  (update-in bandits [id]
                             update-bandit sample (- reward past-reward))))
         (assoc initial-state
-               ::bandits (freeze bandits can-be-frozen?))))))
+               ::bandits bandits)))))
 
 ;;; Trace
 
-;; the trace is a vector of tuples
+;; The trace is a vector of tuples
 ;;   [bandit-id value past-reward]
 ;; where past reward is the reward accumulated 
-;; before reaching this random choice
-
+;; before reaching this random choice.
 
 ;; Bandit id: different random choices should get different
 ;; ids, ideally structurally similar random choices should
@@ -116,10 +115,8 @@
   "returns bandit id for the checkpoint"
   [(:id smp)  ; static identifier of the random choice
    (count     ; number of preceding draws from the same choice
-     (filter (fn [entry] (= smp-id (:id smp)))
+     (filter (fn [[[smp-id]]]] (= smp-id (:id smp)))
              trace))])
-
-
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)
@@ -145,28 +142,37 @@
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
 
-;; Freeze bandit nodes as a freeze condition
-;; --- the simplest is the number of samples
-;; per node --- is reached.
-;;
-;; When the maximum total number of samples
-;; is reached, freeze all nodes. After a trace
-;; with all frozen nodes, print and return.
+(defn maximum-a-posteriori
+  "returns a sequence of end states of 
+  maximum a posteriori estimates"
+  [prog begin-state]
+  nil)
 
-(defmethod infer :map [_ prog & {:keys [number-of-samples
-                                        freeze-point
+(defmethod infer :map [_ prog & {:keys [number-of-passes
+                                        number-of-samples
+                                        number-of-maps
                                         output-format]
-                                 :or {freeze-point nil}}]
-  (loop [i 0
-         end-state (:state (exec ::algorithm prog nil initial-state))]
-    (let [begin-state (backpropagate end-state 
-                                     (if (= i number-of-samples)
-                                        (fn [_] true)
-                                        #(= (:count %) freeze-point)))
-          end-state (:state (exec ::algorithm prog nil begin-state))]
-      (if (every? frozen? (vals (begin-state ::bandits)))
-        (do
-          (print-predicts end-state output-format)
-          ;; return a vector of MAP sample choices
-          (maximum-a-posteriori end-state))
-        (recur (inc i) end-state)))))
+                                 :or {number-of-passes 1
+                                      number-of-maps 1}}]
+  (dotimes [_ number-of-passes]
+    (loop [isamples 0
+           begin-state initial-state]
+
+      ;; After each sample, the final rewards are
+      ;; back-propagated to the bandits representing subsets
+      ;; of random choices.
+      (let [end-state (:state (exec ::algorithm prog nil begin-state))
+            begin-state (backpropagate end-state)]
+        (if-not (= isamples number-of-samples)
+          (recur (inc i) begin-state)
+
+          ;; The program graph is ready for MAP search.
+          ;; Consume the sequence of end-states of MAP
+          ;; estimates and print the predicts.
+          (loop [imaps 0
+                 end-states (maximum-a-posteriori prog begin-state)]
+            (when-not (= imaps number-of-maps)
+              (let [[end-state end-states] end-state]
+                (when end-state  ; Otherwise, all paths were visited.
+                  (print-predicts end-state output-format)
+                  (recur (inc imaps) end-states))))))))))
