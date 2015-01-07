@@ -153,10 +153,8 @@
                ~rst)
             (cps-of-expression
               value
-              (let [value (*gensym* "V")]
-                `(~'fn [~value ~'$state]
-                   (~'let [~name ~value]
-                     ~rst))))))))
+                `(~'fn [~name ~'$state]
+                   ~rst))))))
     (cps-of-elist body cont)))
 
 (defmacro ^:private defn-with-named-cont
@@ -412,7 +410,8 @@
         exclude '#{map reduce
                    filter keep keep-indexed remove
                    every? not-any? some
-                   every-pred some-fn}
+                   every-pred some-fn
+                   comp juxt partial}
         ;; runtime namespaces
         runtime-namespaces '[clojure.core embang.runtime]]
     (set (keep (fn [[k v]]
