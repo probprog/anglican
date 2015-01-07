@@ -55,7 +55,7 @@
           "simple let")
       (is (= (cps-of-let '([x (foo 1)] x) 'ret)
              '(fn [] 
-                (foo (fn [V $state] (let [x V] (ret x $state)))
+                (foo (fn [x $state] (ret x $state))
                      $state 1)))
           "compound value in let"))))
 

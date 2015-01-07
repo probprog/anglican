@@ -153,10 +153,8 @@
                ~rst)
             (cps-of-expression
               value
-              (let [value (*gensym* "V")]
-                `(~'fn [~value ~'$state]
-                   (~'let [~name ~value]
-                     ~rst))))))))
+                `(~'fn [~name ~'$state]
+                   ~rst))))))
     (cps-of-elist body cont)))
 
 (defmacro ^:private defn-with-named-cont
