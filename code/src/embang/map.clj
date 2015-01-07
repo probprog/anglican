@@ -6,8 +6,8 @@
 
 ;;;; Maximum a Posteriori Estimation through Sampling
 
-;; Uses MCTS to find maximum a posteriori estimate of
-;; program trace.
+;; Uses MCTS and best-first search to find maximum a
+;; posteriori estimate of program trace.
 
 (derive ::algorithm :embang.inference/algorithm)
 
@@ -42,10 +42,10 @@
     (reify bayesian-belief
       (bb-update [mr reward]
         (mean-reward-belief (+ shape 1.) (+ rate (Math/exp reward))))
-      ;; Since  the mean reward distributions
-      ;; are used for comparison only, the absolute value of
-      ;; the shape of the reward distribution does not matter,
-      ;; provided it is assumed to be the same for all arms.
+      ;; Since  the mean reward distributions are used for
+      ;; comparison only, the absolute value of the shape of
+      ;; the reward distribution does not matter, provided
+      ;; it is assumed to be the same for all arms.
       (bb-sample [mr]
         (Math/log (/ (dist/draw distribution))))
       (bb-mode [mr]
@@ -190,7 +190,7 @@
         bandit ((state ::bandits) id)
         ;; Past reward is the reward collected by the particle
         ;; until the checkpoint. To make rewards collected by
-        ;; arms commensurate past-reward is subtracted from
+        ;; arms commensurate, past-reward is subtracted from
         ;; the final reward.
         past-reward (get-log-weight state)
 
@@ -210,7 +210,7 @@
 
 ;; Freeze bandit nodes as a freeze condition
 ;; --- the simplest is the number of samples
-;; per node --- has been reached.
+;; per node --- is reached.
 ;;
 ;; When the maximum total number of samples
 ;; is reached, freeze all nodes. After a trace
