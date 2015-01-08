@@ -142,6 +142,21 @@
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
 
+;;; Best-first search, passive and functional
+;;
+;; A node is a delayed computation.  Nodes are inserted
+;; into the open list ordered by the distance estimate.
+;; When a node is removed from the open list, it is
+;; forced, and then dispatched according to its type,
+;; sample or result.
+;;
+;; On sample, the search continues.
+;; On result, a sequence starting with the state
+;; and followed by a lazy sequence of states of future
+;; found estimates is returned.
+;;
+;; When the open list is empty, nil is returned.
+
 (defn maximum-a-posteriori
   "returns a sequence of end states of 
   maximum a posteriori estimates"
