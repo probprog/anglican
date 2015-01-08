@@ -57,7 +57,7 @@
 ;; sample checkpoint for pgibbs --- sample the value,
 ;; except for retained particle, and store in past-particles
 
-(defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
+(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
   (let [state (:state smp)
         [state value] (if (retained-state? state)
                         (retrieve-retained-sample state)
