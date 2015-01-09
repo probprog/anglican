@@ -92,7 +92,8 @@
         (let [[[id sample past-reward] & trace] trace]
           (recur trace
                  (update-in bandits [id]
-                            update-bandit sample (- reward past-reward))))
+                            update-bandit sample
+                            (- reward past-reward))))
         (assoc initial-state
           ::bandits bandits)))))
 
