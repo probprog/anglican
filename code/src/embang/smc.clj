@@ -7,8 +7,7 @@
 
 (derive ::algorithm :embang.inference/algorithm)
 
-(defmethod checkpoint [::algorithm embang.trap.observe]
-  [_ obs]
+(defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   ;; update the weight and return the observation checkpoint
   ;; for possible resampling
   (update-in obs [:state]

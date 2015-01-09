@@ -10,7 +10,7 @@
 (defmulti infer 
   "main inference procedure, accepts algorithm, program, and
   options; should print predicts using print-predicts"
-  any inference algorithm(fn [algorithm & _] algorithm))
+  (fn [algorithm & _] algorithm))
 
 ;;; Checkpoints
 
