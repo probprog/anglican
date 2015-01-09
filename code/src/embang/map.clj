@@ -28,63 +28,64 @@
   (bb-update [belief evidence]
     "updates belief based on the evidence")
   (bb-sample [belief]
-    "returns a random sample from the belief distribution"))
+    "returns a random sample from the belief distribution")
+  (bb-as-prior [belief]
+    "returns a belief for use as a prior belief"))
 
 ;;;; Mean reward belief
 
 (defn mean-reward-belief
   [shape rate]
   ;; Bayesian belief about the mean reward  (log-weight).
+  ;; make sure this is lazy
   (let [distribution ]
     (reify bayesian-belief
       (bb-update [mr reward]
         )
       (bb-sample [mr]
-        ))))
+        )
+      (bb-as-prior [mr]
+        mr))))
+
+(def initial-mean-reward-belief
+  "uninformative mean reward belief"
+  nil)
 
 ;;;; Bandit
 
-(defrecord multiarmed-bandit [arms count])
+(defrecord multiarmed-bandit [arms new-arm-belief count])
 
 (def fresh-bandit
   "bandit with no arm pulls"
-  (->multiarmed-bandit {} 0))
+  (->multiarmed-bandit {} initial-mean-reward-belief 0))
 
 ;; selects arms using randomized probability matching
 
-(defn best-arm
-  "select an arm with the best core"
-  [arms best-score best-arm]
-  (if-let [[[_ belief :as arm] & arms] (seq arms)]
-    (let [score (bb-sample belief)]
-      (if (>= score best-score)
-        (recur arms score arm)
-        (recur arms best-score best-arm)))
-    best-arm))
-
-(defn update-arm 
-  "updates the belief about arm in arms,
-  uses prior-belief for a new arm"
-  [arms prior-belief arm reward]
-  (update-in arms [arm]
-             (fnil bb-update prior-belief) reward))
-
-;;;; MAP inference
-
-;;; Sampling bandit
-
 (defn select-arm
-  "select a bandit arm"
+  "select an arm with the best core"
   [bandit]
-  ;; TODO
-  nil)
+  (loop [arms (:arms bandit)
+         best-score (bb-sample (:new-arm-belief best-score))
+         best-arm nil]
+    (if-let [[[_ belief :as arm] & arms] (seq arms)]
+      (let [score (bb-sample belief)]
+        (if (>= score best-score)
+          (recur arms score arm)
+          (recur arms best-score best-arm)))
+      best-arm)))
 
 (defn update-bandit
   "updates bandit's belief"
   [bandit sample reward]
   (-> bandit
-      (update-in [:arms] (fnil update-arm fresh-bandit) sample reward)
+      (update-in [:arms arm]
+                 (fnil bb-update
+                       (bb-as-prior (:new-arm-belief bandit)))
+                 sample reward)
+      (update-in [:new-arm-belief] bb-update reward)
       (update-in [:count] (fnil inc 0))))
+
+;;;; MAP inference
 
 ;;; State transformations
 
@@ -98,8 +99,8 @@
         (let [[[id sample past-reward] & trace] trace]
           (recur trace
                  (update-in bandits [id]
-                            update-bandit sample
-                            (- reward past-reward))))
+                            (fnil update-bandit fresh-bandit)
+                            sample (- reward past-reward))))
         (assoc initial-state
           ::bandits bandits)))))
 
@@ -114,8 +115,9 @@
 ;; ids, ideally structurally similar random choices should
 ;; get the same id, just like addresses in Random DB
 
-(defn preceding-count
-  "number of preceding draws from the same random choice"
+(defn preceding-occurences
+  "number of preceding occurences of the same
+  random choice in the trace"
   [smp trace]
   (count 
    (filter (fn [[[smp-id]]] (= smp-id (:id smp)))
@@ -123,7 +125,7 @@
 
 (defn bandit-id [smp trace]
   "returns bandit id for the checkpoint"
-  [(:id smp) (preceding-count smp trace)])
+  [(:id smp) (preceding-occurences smp trace)])
 
 ;;; Building G_prog subgraph 
 
@@ -180,8 +182,8 @@
   "empty open list"
   (->open-list 0 (priority-map-keyfn-by node-key node-less)))
 
-(defn ol-put
-  "adds node to the open list"
+(defn ol-insert
+  "inserts node to the open list"
   [ol node]
   (-> ol
       (assoc-in [:queue] (:key ol) node)
@@ -223,6 +225,7 @@
         bandit ((state ::bandits) id)
         ol (reduce (fn [ol arm]
                      ;; TODO: f, g for child
+                     ;; TODO: insert the child
                      )
                    ol (:arms bandit))]
     (next-node ol))
