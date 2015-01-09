@@ -151,7 +151,7 @@
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
 
-;;; Best-first search, passive and functional
+;;; Best-first search
 
 ;; A node is a delayed computation.  Nodes are inserted
 ;; into the open list ordered by the distance estimate.
@@ -218,9 +218,14 @@
     #(expand @(:comp node) ol)))
 
 (defmethod expand embang.trap.sample [smp ol]
-  ;; push children into the open list
-  ;; pop node from open list, realize the node
-  (next-node ol))
+  (let [state (:state smp)
+        id (bandit-id smp (state ::trace))
+        bandit ((state ::bandits) id)
+        ol (reduce (fn [ol arm]
+                     ;; TODO: f, g for child
+                     )
+                   ol (:arms bandit))]
+    (next-node ol))
 
 (defmethod expand embang.trap.result [res ol]
   (cons (:state res)                    ; return the first estimate
