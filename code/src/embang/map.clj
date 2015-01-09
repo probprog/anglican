@@ -6,7 +6,7 @@
         [embang.runtime :only [sample observe]]
         embang.inference))
 
-;;;; Maximum a Posteriori Estimation through Sampling
+;;;;; Maximum a Posteriori Estimation through Sampling
 
 ;; Uses MCTS and best-first search to find maximum a
 ;; posteriori estimate of program trace.
@@ -44,6 +44,12 @@
 
 ;;;; Bandit
 
+(defrecord multiarmed-bandit [arms count])
+
+(def fresh-bandit
+  "bandit with no arm pulls"
+  (->multiarmed-bandit {} 0))
+
 ;; selects arms using randomized probability matching
 
 (defn best-arm
@@ -65,7 +71,7 @@
 
 ;;;; MAP inference
 
-;;; Random choice bandit
+;;; Sampling bandit
 
 (defn select-arm
   "select a bandit arm"
@@ -77,7 +83,7 @@
   "updates bandit's belief"
   [bandit sample reward]
   (-> bandit
-      (update-in [:arms] (fnil update-arm {}) sample reward)
+      (update-in [:arms] (fnil update-arm fresh-bandit) sample reward)
       (update-in [:count] (fnil inc 0))))
 
 ;;; State transformations
@@ -146,7 +152,7 @@
     #((:cont smp) value state)))
 
 ;;; Best-first search, passive and functional
-;;
+
 ;; A node is a delayed computation.  Nodes are inserted
 ;; into the open list ordered by the distance estimate.
 ;; When a node is removed from the open list, it is
@@ -211,7 +217,7 @@
   (when-let [[node ol] (ol-pop ol)]
     #(expand @(:comp node) ol)))
 
-(defmethod expand embang.trap.observe [obs ol]
+(defmethod expand embang.trap.sample [smp ol]
   ;; push children into the open list
   ;; pop node from open list, realize the node
   (next-node ol))
