@@ -1,6 +1,6 @@
 (ns embang.map
   (:require [embang.colt.distributions :as dist])
-  (:require [clojure.data.priority.map
+  (:require [clojure.data.priority-map
              :refer [priority-map-keyfn-by]])
   (:use [embang.state :exclude [initial-state]]
         [embang.runtime :only [sample observe]]
@@ -35,21 +35,25 @@
 ;;;; Mean reward belief
 
 (defn mean-reward-belief
-  [shape rate]
-  ;; Bayesian belief about the mean reward  (log-weight).
-  ;; make sure this is lazy
-  (let [distribution ]
+  [sum sum2 count]
+  ;; Bayesian belief about the mean reward (log-weight)
+  (let [dist (delay 
+              (let [mean (/ sum count)
+                    sd (Math/sqrt (/ (- (/ sum2 count) (* mean mean))
+                                     count))] ; Var(E(X)) = Var(X)/n
+                (dist/normal-distribution mean sd)))]
     (reify bayesian-belief
       (bb-update [mr reward]
-        )
-      (bb-sample [mr]
-        )
+        (mean-reward-belief
+         (+ sum reward) (+ sum2 (* reward reward)) (+ count 1)))
+      (bb-sample [mr] {:pre [(pos? count)]}
+        (dist/draw @dist))
       (bb-as-prior [mr]
-        mr))))
+        (mean-reward-belief sum sum2 1)))))
 
 (def initial-mean-reward-belief
   "uninformative mean reward belief"
-  nil)
+  (mean-reward-belief 0 0 0))
 
 ;;;; Bandit
 
@@ -62,26 +66,27 @@
 ;; selects arms using randomized probability matching
 
 (defn select-arm
-  "select an arm with the best core"
+  "selects an arm with the best core,
+  returns the arm value"
   [bandit]
   (loop [arms (:arms bandit)
-         best-score (bb-sample (:new-arm-belief best-score))
-         best-arm nil]
-    (if-let [[[_ belief :as arm] & arms] (seq arms)]
+         best-score (bb-sample (:new-arm-belief bandit))
+         best-value nil]
+    (if-let [[[value belief] & arms] (seq arms)]
       (let [score (bb-sample belief)]
         (if (>= score best-score)
-          (recur arms score arm)
-          (recur arms best-score best-arm)))
-      best-arm)))
+          (recur arms score value)
+          (recur arms best-score best-value)))
+      best-value)))
 
 (defn update-bandit
   "updates bandit's belief"
-  [bandit sample reward]
+  [bandit value reward]
   (-> bandit
-      (update-in [:arms arm]
+      (update-in [:arms value]
                  (fnil bb-update
                        (bb-as-prior (:new-arm-belief bandit)))
-                 sample reward)
+                 reward)
       (update-in [:new-arm-belief] bb-update reward)
       (update-in [:count] (fnil inc 0))))
 
@@ -96,11 +101,11 @@
     (loop [trace (state ::trace)
            bandits (state ::bandits)]
       (if (seq trace)
-        (let [[[id sample past-reward] & trace] trace]
+        (let [[[id value past-reward] & trace] trace]
           (recur trace
                  (update-in bandits [id]
                             (fnil update-bandit fresh-bandit)
-                            sample (- reward past-reward))))
+                            value (- reward past-reward))))
         (assoc initial-state
           ::bandits bandits)))))
 
@@ -138,18 +143,15 @@
         ;; arms commensurate, past-reward is subtracted from
         ;; the final reward.
         past-reward (get-log-weight state)
-
         ;; select a value
-        value (or (select-arm bandit) (sample (:dist smp)))
-
+        value (or (and bandit (select-arm bandit))
+                  (sample (:dist smp)))
         ;; update the state
         state (-> state
                   ;; add the log-weight of the sample
                   (add-log-weight (observe (:dist smp) value))
-
                   ;; store the sampled value in the trace
                   (update-in [::trace] conj [id value past-reward]))]
-
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
 
@@ -186,7 +188,7 @@
   "inserts node to the open list"
   [ol node]
   (-> ol
-      (assoc-in [:queue] (:key ol) node)
+      (assoc-in [:queue (:key ol)] node)
       (update-in [:key] inc)))
 
 (defn ol-pop
@@ -217,18 +219,39 @@
   "pops and advances the next node in the open list"
   [ol]
   (when-let [[node ol] (ol-pop ol)]
+    (prn node)
     #(expand @(:comp node) ol)))
+
+(def number-of-h-draws
+  "atom containing the number of draws from
+  the belief to compute distance heuristic"
+  (atom 1))
+
+(defn distance-heuristic
+  "returns distance heuristic given belief"
+  [belief]
+  (let [h (- (reduce max
+                     (repeatedly @number-of-h-draws
+                                 #(bb-sample belief))))]
+    (if (Double/isNaN h) 0 h)))
+        
 
 (defmethod expand embang.trap.sample [smp ol]
   (let [state (:state smp)
         id (bandit-id smp (state ::trace))
         bandit ((state ::bandits) id)
-        ol (reduce (fn [ol arm]
-                     ;; TODO: f, g for child
-                     ;; TODO: insert the child
-                     )
-                   ol (:arms bandit))]
-    (next-node ol))
+        ol (reduce (fn [ol [value belief]]
+                     (let [h (distance-heuristic belief)
+                           f (+ (- (get-log-weight state)) h)
+                           c (- (observe (:dist smp) value))
+                           g (+ f c)]
+                       (ol-insert ol (->node #((:cont smp)
+                                               value
+                                               (-> state
+                                                   (add-log-weight c)))
+                                             f g))))
+                   ol (seq (:arms bandit)))]
+    (next-node ol)))
 
 (defmethod expand embang.trap.result [res ol]
   (cons (:state res)                    ; return the first estimate
@@ -245,9 +268,16 @@
 (defmethod infer :map [_ prog & {:keys [number-of-passes
                                         number-of-samples
                                         number-of-maps
+                                        number-of-h-draws
                                         output-format]
                                  :or {number-of-passes 1
                                       number-of-maps 1}}]
+
+  ;; allows to change number-of-h-draws from the command line;
+  ;; useful for experimenting
+  (when number-of-h-draws
+    (swap! embang.map/number-of-h-draws (fn [_] number-of-h-draws)))
+    
   (dotimes [_ number-of-passes]
     (loop [isamples 0
            begin-state initial-state]
@@ -258,7 +288,7 @@
       (let [end-state (:state (exec ::algorithm prog nil begin-state))
             begin-state (backpropagate end-state)]
         (if-not (= isamples number-of-samples)
-          (recur (inc i) begin-state)
+          (recur (inc isamples) begin-state)
 
           ;; The program graph is ready for MAP search.
           ;; Consume the sequence of end-states of MAP
