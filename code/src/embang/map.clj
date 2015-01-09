@@ -172,7 +172,7 @@
 (defn node-less
   "node order"
   [[fa ga] [fb gb]]
-  (or (< fa fb) (= fa fb) (> ga gb)))
+  (or (< fa fb) (and (= fa fb) (> ga gb))))
 
 ;; The open list is a priority queue; all nodes are
 ;; unique because edge costs are functions of path
@@ -188,7 +188,7 @@
   "inserts node to the open list"
   [ol node]
   (-> ol
-      (assoc-in [:queue (:key ol)] node)
+      (update-in [:queue] #(conj % [(:key ol) node]))
       (update-in [:key] inc)))
 
 (defn ol-pop
@@ -197,11 +197,7 @@
   or nil if the open list is empty"
   [ol]
   (when (seq (:queue ol))
-    (let [res [(peek (:queue ol)) (update-in ol [:queue] pop)]]
-      (prn "res" res)
-      (prn "ol" ol)
-      (prn "(pop (:queue ol))" (pop (:queue ol)))
-      res)))
+    [(second (peek (:queue ol))) (update-in ol [:queue] #(pop %))]))
 
 ;; On sample, the search continues.
 ;; On result, a sequence starting with the state
@@ -222,8 +218,8 @@
 (defn next-node
   "pops and advances the next node in the open list"
   [ol]
-  (when-let [[node ol] (ol-pop ol)]
-    #(expand ((:comp node)) ol)))
+  #(when-let [[node ol] (ol-pop ol)]
+     (expand ((:comp node)) ol)))
 
 (def number-of-h-draws
   "atom containing the number of draws from
@@ -233,9 +229,8 @@
 (defn distance-heuristic
   "returns distance heuristic given belief"
   [belief]
-  (let [h (- (reduce max
-                     (repeatedly @number-of-h-draws
-                                 #(bb-sample belief))))]
+  (let [h (- (reduce max (repeatedly @number-of-h-draws
+                                     #(bb-sample belief))))]
     (if (Double/isNaN h) 0 h)))
         
 
@@ -244,22 +239,27 @@
         id (bandit-id smp (state ::trace))
         bandit ((state ::bandits) id)
         ol (reduce (fn [ol [value belief]]
-                     (let [c (max 0. (- (observe (:dist smp) value)))
-                           h (max 0. (- (distance-heuristic belief) c))
+                     (let [edge-log-weight (observe (:dist smp) value)
+                           c (- edge-log-weight)
+                           h (- (distance-heuristic belief) c)
                            g (+ (- (get-log-weight state)) c)
                            f (+ g h)]
-                       (ol-insert ol (->node #((:cont smp)
-                                               value
-                                               (-> state
-                                                   (add-log-weight c)))
-                                             f g))))
+                       (ol-insert ol (->node
+                                      #(exec ::search
+                                             (:cont smp)
+                                             value
+                                             (-> state
+                                                 (add-log-weight
+                                                  edge-log-weight)))
+                                      f g))))
                    ol (seq (:arms bandit)))]
     (next-node ol)))
 
 (defmethod expand embang.trap.result [res ol]
   (cons (:state res)                    ; return the first estimate
-        (lazy-seq (next-node ol))))     ; and a lazy sequence of 
-                                        ; future estimates
+        (lazy-seq                       ; and a lazy sequence of 
+         (trampoline (next-node ol))))) ; future estimates
+
 (defn maximum-a-posteriori
   "returns a sequence of end states
   of maximum a posteriori estimates"
@@ -298,8 +298,9 @@
           ;; estimates and print the predicts.
           (loop [imaps 0
                  end-states (maximum-a-posteriori prog begin-state)]
+            (prn end-states)
             (when-not (= imaps number-of-maps)
-              (let [[end-state end-states] end-state]
+              (let [[end-state end-states] end-states]
                 (when end-state  ; Otherwise, all paths were visited.
                   (print-predicts end-state output-format)
                   (recur (inc imaps) end-states))))))))))
