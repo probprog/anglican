@@ -197,7 +197,11 @@
   or nil if the open list is empty"
   [ol]
   (when (seq (:queue ol))
-    [(peek (:queue ol)) (update-in ol [:queue] pop)]))
+    (let [res [(peek (:queue ol)) (update-in ol [:queue] pop)]]
+      (prn "res" res)
+      (prn "ol" ol)
+      (prn "(pop (:queue ol))" (pop (:queue ol)))
+      res)))
 
 ;; On sample, the search continues.
 ;; On result, a sequence starting with the state
@@ -219,8 +223,7 @@
   "pops and advances the next node in the open list"
   [ol]
   (when-let [[node ol] (ol-pop ol)]
-    (prn node)
-    #(expand @(:comp node) ol)))
+    #(expand ((:comp node)) ol)))
 
 (def number-of-h-draws
   "atom containing the number of draws from
@@ -241,10 +244,10 @@
         id (bandit-id smp (state ::trace))
         bandit ((state ::bandits) id)
         ol (reduce (fn [ol [value belief]]
-                     (let [h (distance-heuristic belief)
-                           f (+ (- (get-log-weight state)) h)
-                           c (- (observe (:dist smp) value))
-                           g (+ f c)]
+                     (let [c (max 0. (- (observe (:dist smp) value)))
+                           h (max 0. (- (distance-heuristic belief) c))
+                           g (+ (- (get-log-weight state)) c)
+                           f (+ g h)]
                        (ol-insert ol (->node #((:cont smp)
                                                value
                                                (-> state
