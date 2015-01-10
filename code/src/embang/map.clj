@@ -74,11 +74,11 @@
 
 ;;;; Bandit
 
-(defrecord multiarmed-bandit [arms new-arm-belief count])
+(defrecord multiarmed-bandit [arms new-arm-belief])
 
 (def fresh-bandit
   "bandit with no arm pulls"
-  (->multiarmed-bandit {} initial-mean-reward-belief 0))
+  (->multiarmed-bandit {} initial-mean-reward-belief))
 
 ;; Selects arms using open randomized probability matching.
 
@@ -110,8 +110,7 @@
                        ;; about the reward distribution of a random arm.
                        (bb-as-prior (:new-arm-belief bandit)))
                  reward)
-      (update-in [:new-arm-belief] bb-update reward)
-      (update-in [:count] (fnil inc 0))))
+      (update-in [:new-arm-belief] bb-update reward)))
 
 ;;;; MAP inference
 
