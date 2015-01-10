@@ -37,22 +37,35 @@
 ;;;; Mean reward belief
 
 (defn mean-reward-belief
+  "returns reification of bayesian belief
+  about the mean reward of an arm"
   [sum sum2 cnt]
-  ;; Bayesian belief about the mean reward (log-weight)
+  ;; Bayesian belief about the mean reward (log-weight).
+  ;; Currently, the normal distribution with empirical
+  ;; mean and variance is used.
   (let [dist (delay 
-              (let [mean (/ sum cnt)
-                    sd (Math/sqrt (/ (- (/ sum2 cnt) (* mean mean))
-                                     cnt))] ; Var(E(X)) = Var(X)/n
-                (dist/normal-distribution mean sd)))]
+               ;; The distribution object is lazy because 
+               ;; the parameters are updated many times,
+               ;; but the object itself is only used when
+               ;; a value is sampled.
+               (let [mean (/ sum cnt)
+                     sd (Math/sqrt (/ (- (/ sum2 cnt) (* mean mean))
+                                      cnt))] ; Var(E(X)) = Var(X)/n
+                 (dist/normal-distribution mean sd)))]
     (reify bayesian-belief
       (bb-update [mr reward]
         (mean-reward-belief
-         (+ sum reward) (+ sum2 (* reward reward)) (+ cnt 1.)))
+          (+ sum reward) (+ sum2 (* reward reward)) (+ cnt 1.)))
       (bb-sample [mr] {:pre [(pos? cnt)]}
         (dist/draw @dist))
       (bb-as-prior [mr]
+        ;; The current belief is converted to a prior belief
+        ;; by setting the sample count to 1 (another small value
+        ;; may give better results, and the best value can be 
+        ;; allegedly derived; however, this is beyond the scope
+        ;; of this research).
         (if (<= cnt 1) mr
-            (mean-reward-belief (/ sum cnt) (/ sum2 cnt) 1.)))
+          (mean-reward-belief (/ sum cnt) (/ sum2 cnt) 1.)))
       (bb-mode [mr] (/ sum cnt)))))
 
 (def initial-mean-reward-belief
@@ -67,14 +80,17 @@
   "bandit with no arm pulls"
   (->multiarmed-bandit {} initial-mean-reward-belief 0))
 
-;; selects arms using randomized probability matching
+;; Selects arms using open randomized probability matching.
 
 (defn select-arm
   "selects an arm with the best core,
   returns the arm value"
   [bandit]
-  (when (< (rand) 1.0) ;; TODO: rethink new arm's belief
-    (loop [arms (:arms bandit)
+  ;; If the best arm happens to be a new arm,
+  ;; return nil. checkpoint [::algorithm sample]
+  ;; accounts for this and samples a new value
+  ;; from the prior.
+  (loop [arms (:arms bandit)
          best-score (bb-sample (bb-as-prior (:new-arm-belief bandit)))
          best-value nil]
     (if-let [[[value belief] & arms] (seq arms)]
@@ -82,7 +98,7 @@
         (if (>= score best-score)
           (recur arms score value)
           (recur arms best-score best-value)))
-      best-value))))
+      best-value)))
 
 (defn update-bandit
   "updates bandit's belief"
@@ -90,6 +106,8 @@
   (-> bandit
       (update-in [:arms value]
                  (fnil bb-update
+                       ;; The prior belief is derived from the belief
+                       ;; about the reward distribution of a random arm.
                        (bb-as-prior (:new-arm-belief bandit)))
                  reward)
       (update-in [:new-arm-belief] bb-update reward)
@@ -109,10 +127,13 @@
         (let [[[id value past-reward] & trace] trace]
           (recur trace
                  (update-in bandits [id]
+                            ;; Bandit arms grow incrementally.
+                            ;; Fresh bandit has no arms, every time
+                            ;; an arm's value is sampled for the first
+                            ;; time, a new arm is added.
                             (fnil update-bandit fresh-bandit)
                             value (- reward past-reward))))
-        (assoc initial-state
-          ::bandits bandits)))))
+        (assoc initial-state ::bandits bandits)))))
 
 ;;; Trace
 
@@ -143,10 +164,14 @@
   (let [state (:state smp)
         id (bandit-id smp (state ::trace))
         bandit ((state ::bandits) id)
-        ;; select a value
+        ;; Select a value ...
         value (or (and bandit (select-arm bandit))
+                  ;; ... os sample a new one.
                   (sample (:dist smp)))
+        ;; Past reward is the reward collected upto
+        ;; the current sampling point.
         past-reward (get-log-weight state)
+        ;; Update the weight and the trace.
         state (-> state
                   (add-log-weight (observe (:dist smp) value))
                   (update-in [::trace] conj [id value past-reward]))]
@@ -155,11 +180,10 @@
 
 ;;; Best-first search
 
-;; A node is a delayed computation.  Nodes are inserted
-;; into the open list ordered by the distance estimate.
-;; When a node is removed from the open list, it is
-;; forced, and then dispatched according to its type,
-;; sample or result.
+;; A node is a thunk.  Nodes are inserted into the open list
+;; ordered by the distance estimate.  When a node is removed
+;; from the open list, it is executed, and then dispatched
+;; according to its type --- sample or result.
 
 (defrecord node [comp f])
 
@@ -171,11 +195,11 @@
 ;; unique because edge costs are functions of path
 ;; prefix.
 
-(defrecord open-list [min-key next-key queue])
+(defrecord open-list [next-key queue])
 
 (def empty-open-list
   "empty open list"
-  (->open-list 0 0 (priority-map-keyfn-by node-key node-less)))
+  (->open-list 0 (priority-map-keyfn-by node-key node-less)))
 
 (defn ol-insert
   "inserts node to the open list"
@@ -191,18 +215,7 @@
   [ol]
   (when (seq (:queue ol))
     (let [[key node] (peek (:queue ol))
-          ol (-> ol
-                 (update-in [:queue] #(pop %))
-                 (update-in [:min-key]
-                            (if (= key (:min-key ol))
-                              (fn [min-key]
-                                (loop [key (inc min-key)]
-                                  (if (or
-                                       (contains? (:queue ol) key)
-                                       (= key (:next-key ol)))
-                                    key
-                                    (recur (inc key)))))
-                              identity)))]
+          ol (update-in ol [:queue] pop)]
       [node ol])))
 
 ;; On sample, the search continues.
@@ -225,6 +238,9 @@
   "pops and advances the next node in the open list"
   [ol]
   #(when-let [[node ol] (ol-pop ol)]
+     ;; The result of the computation is either a sample
+     ;; or a result node. `expand' is a multimethod that 
+     ;; dispatches on the node type.
      (expand ((:comp node)) ol)))
 
 (def number-of-h-draws
@@ -235,35 +251,66 @@
 (defn distance-heuristic
   "returns distance heuristic given belief"
   [belief] {:post [(not (Double/isNaN %))]}
+  ;; Number of draws controls the properties of the
+  ;; heuristic.
   (cond
-   (pos? @number-of-h-draws)
-   (let [h (- (reduce max (repeatedly @number-of-h-draws
-                                      #(bb-sample belief))))
-         h (if (Double/isNaN h) 0 (max h 0.))]
-     h)
-   (zero? @number-of-h-draws) 0.
-   (neg? @number-of-h-draws) (bb-mode belief)))
-        
+
+    ;;  When the number of draws is positive,
+    ;; increasing the number makes heuristic more
+    ;; conservative, that is the heuristic approaches
+    ;; admissibility.
+    (pos? @number-of-h-draws)
+    (let [h (- (reduce max (repeatedly @number-of-h-draws
+                                       #(bb-sample belief))))
+          h (if (Double/isNaN h) 0 (max h 0.))]
+      h)
+
+    ;;  When the number is 0, 0. is always
+    ;; returned, so that best-first becomes Dijkstra search
+    ;; and will always return the optimal solution first
+    ;; if the edge costs are non-negative (that is, if
+    ;; nodes are discrete, or continuous but the distributions
+    ;; are not too steep. 
+    (zero? @number-of-h-draws) 0.
+
+    ;; A negative number of draws triggers
+    ;; computing the heuristic as the mode of the belief
+    ;; rather than by sampling.
+    (neg? @number-of-h-draws) (bb-mode belief)))
+
 (defmethod expand embang.trap.sample [smp ol]
+  ;; A sample node is expanded by inserting all of the
+  ;; child nodes into the open list. The code partially
+  ;; repeats the code of checkpoint [::algorithm sample].
   (let [state (:state smp)
         id (bandit-id smp (state ::trace))
         bandit ((state ::bandits) id)
         ol (reduce
-            (fn [ol [value belief]]
-              (let [past-reward (get-log-weight state)
-                    state (-> state
-                              (add-log-weight (observe (:dist smp) value))
-                              (update-in [::trace]
-                                         conj [id value past-reward]))
-                    f (+ (- past-reward)
-                         (distance-heuristic belief))]
-                (if-not (Double/isNaN f)
-                  (ol-insert ol
-                             (->node
-                              #(exec ::search (:cont smp) value state)
-                              f))
-                  ol)))
-            ol (seq (:arms bandit)))]
+             ;; For every child of the latent variable
+             ;; in the constructed subgraph of G_prog:
+             (fn [ol [value belief]]
+               ;; Update the state and the trace ...
+               (let [past-reward (get-log-weight state)
+                     state (-> state
+                               (add-log-weight (observe (:dist smp) value))
+                               (update-in [::trace]
+                                          conj [id value past-reward]))
+                     ;; ... and compute cost estimate till
+                     ;; the termination.
+                     f (+ (- past-reward)
+                          (distance-heuristic belief))]
+                 ;; If the distance estimate is 
+                 ;; a meaningful number, insert the node
+                 ;; into the open list.
+                 (if-not (Double/isNaN f)
+                   (ol-insert ol
+                              (->node
+                                #(exec ::search (:cont smp) value state)
+                                f))
+                   ol)))
+             ol (seq (:arms bandit)))]
+    ;; Finally, remove and expand the next node 
+    ;; from the open list.
     (next-node ol)))
 
 (defmethod expand embang.trap.result [res ol]
@@ -279,15 +326,16 @@
    (expand (exec ::search prog nil begin-state)
            empty-open-list)))
 
-(defmethod infer :map [_ prog & {:keys [number-of-passes
-                                        number-of-samples
-                                        number-of-maps
-                                        number-of-h-draws
-                                        output-format
-                                        results]
-                                 :or {number-of-passes 1
-                                      number-of-maps 1
-                                      results #{:predicts :trace}}}]
+(defmethod infer :map
+  [_ prog & {:keys [number-of-passes  ; times to branch G_prog
+                    number-of-samples ; samples before branching
+                    number-of-maps    ; MAP estimates per branch
+                    number-of-h-draws ; random draws to compute h
+                    output-format    
+                    results]          ; a set of :predicts, :trace
+             :or {number-of-passes 1
+                  number-of-maps 1
+                  results #{:predicts :trace}}}]
 
   ;; allows to change number-of-h-draws from the command line;
   ;; useful for experimenting
@@ -317,6 +365,7 @@
                   (when (contains? results :predicts)
                     (print-predicts end-state output-format))
                   (when (contains? (set results) :trace)
+                    ;; Prints the trace as a special predict.
                     (print-predict '$trace
                                    (map second (::trace end-state))
                                    (Math/exp (get-log-weight end-state))
