@@ -35,25 +35,26 @@
 ;;;; Mean reward belief
 
 (defn mean-reward-belief
-  [sum sum2 count]
+  [sum sum2 cnt]
   ;; Bayesian belief about the mean reward (log-weight)
   (let [dist (delay 
-              (let [mean (/ sum count)
-                    sd (Math/sqrt (/ (- (/ sum2 count) (* mean mean))
-                                     count))] ; Var(E(X)) = Var(X)/n
+              (let [mean (/ sum cnt)
+                    sd (Math/sqrt (/ (- (/ sum2 cnt) (* mean mean))
+                                     cnt))] ; Var(E(X)) = Var(X)/n
                 (dist/normal-distribution mean sd)))]
     (reify bayesian-belief
       (bb-update [mr reward]
         (mean-reward-belief
-         (+ sum reward) (+ sum2 (* reward reward)) (+ count 1)))
-      (bb-sample [mr] {:pre [(pos? count)]}
+         (+ sum reward) (+ sum2 (* reward reward)) (+ cnt 1.)))
+      (bb-sample [mr] {:pre [(pos? cnt)]}
         (dist/draw @dist))
       (bb-as-prior [mr]
-        (mean-reward-belief sum sum2 1)))))
+        (if (<= cnt 1) mr
+            (mean-reward-belief (/ sum cnt) (/ sum2 cnt) 1.))))))
 
 (def initial-mean-reward-belief
   "uninformative mean reward belief"
-  (mean-reward-belief 0 0 0))
+  (mean-reward-belief 0. 0. 0.))
 
 ;;;; Bandit
 
@@ -69,15 +70,16 @@
   "selects an arm with the best core,
   returns the arm value"
   [bandit]
-  (loop [arms (:arms bandit)
-         best-score (bb-sample (:new-arm-belief bandit))
+  (when (< (rand) 1.0) ;; TODO: rethink new arm's belief
+    (loop [arms (:arms bandit)
+         best-score (bb-sample (bb-as-prior (:new-arm-belief bandit)))
          best-value nil]
     (if-let [[[value belief] & arms] (seq arms)]
       (let [score (bb-sample belief)]
         (if (>= score best-score)
           (recur arms score value)
           (recur arms best-score best-value)))
-      best-value)))
+      best-value))))
 
 (defn update-bandit
   "updates bandit's belief"
@@ -163,33 +165,29 @@
 ;; forced, and then dispatched according to its type,
 ;; sample or result.
 
-(defrecord node [comp f g])
+(defrecord node [comp f])
 
-(def node-key 
-  "node ordering key"
-  (juxt :f :g))
+(def node-key "node ordering key" :f)
 
-(defn node-less
-  "node order"
-  [[fa ga] [fb gb]]
-  (or (< fa fb) (and (= fa fb) (> ga gb))))
+(def node-less "node order" <)
 
 ;; The open list is a priority queue; all nodes are
 ;; unique because edge costs are functions of path
 ;; prefix.
 
-(defrecord open-list [key queue])
+(defrecord open-list [min-key next-key queue])
 
 (def empty-open-list
   "empty open list"
-  (->open-list 0 (priority-map-keyfn-by node-key node-less)))
+  (->open-list 0 0 (priority-map-keyfn-by node-key node-less)))
 
 (defn ol-insert
   "inserts node to the open list"
   [ol node]
+  (prn (:min-key ol) (:next-key ol))
   (-> ol
-      (update-in [:queue] #(conj % [(:key ol) node]))
-      (update-in [:key] inc)))
+      (update-in [:queue] #(conj % [(:next-key ol) node]))
+      (update-in [:next-key] inc)))
 
 (defn ol-pop
   "removes first node from the open list,
@@ -197,7 +195,20 @@
   or nil if the open list is empty"
   [ol]
   (when (seq (:queue ol))
-    [(second (peek (:queue ol))) (update-in ol [:queue] #(pop %))]))
+    (let [[key node] (peek (:queue ol))
+          ol (-> ol
+                 (update-in [:queue] #(pop %))
+                 (update-in [:min-key]
+                            (if (= key (:min-key ol))
+                              (fn [min-key]
+                                (loop [key (inc min-key)]
+                                  (if (or
+                                       (contains? (:queue ol) key)
+                                       (= key (:next-key ol)))
+                                    key
+                                    (recur (inc key)))))
+                              identity)))]
+      [node ol])))
 
 ;; On sample, the search continues.
 ;; On result, a sequence starting with the state
@@ -229,30 +240,30 @@
 (defn distance-heuristic
   "returns distance heuristic given belief"
   [belief]
-  (let [h (- (reduce max (repeatedly @number-of-h-draws
-                                     #(bb-sample belief))))]
-    (if (Double/isNaN h) 0 h)))
+  (if (pos? @number-of-h-draws)
+    (let [h (- (reduce max (repeatedly @number-of-h-draws
+                                       #(bb-sample belief))))
+          h (if (Double/isNaN h) 0 (max h 0.))]
+      h)
+    0.))
         
-
 (defmethod expand embang.trap.sample [smp ol]
   (let [state (:state smp)
         id (bandit-id smp (state ::trace))
         bandit ((state ::bandits) id)
-        ol (reduce (fn [ol [value belief]]
-                     (let [edge-log-weight (observe (:dist smp) value)
-                           c (- edge-log-weight)
-                           h (- (distance-heuristic belief) c)
-                           g (+ (- (get-log-weight state)) c)
-                           f (+ g h)]
-                       (ol-insert ol (->node
-                                      #(exec ::search
-                                             (:cont smp)
-                                             value
-                                             (-> state
-                                                 (add-log-weight
-                                                  edge-log-weight)))
-                                      f g))))
-                   ol (seq (:arms bandit)))]
+        ol (reduce
+            (fn [ol [value belief]]
+              (let [state (add-log-weight state
+                                          (observe (:dist smp) value))
+                    f (+ (- (get-log-weight state))
+                         (distance-heuristic belief))]
+                (if-not (Double/isNaN f)
+                  (ol-insert ol
+                             (->node
+                              #(exec ::search (:cont smp) value state)
+                              f))
+                  ol)))
+            ol (seq (:arms bandit)))]
     (next-node ol)))
 
 (defmethod expand embang.trap.result [res ol]
@@ -298,9 +309,8 @@
           ;; estimates and print the predicts.
           (loop [imaps 0
                  end-states (maximum-a-posteriori prog begin-state)]
-            (prn end-states)
             (when-not (= imaps number-of-maps)
-              (let [[end-state end-states] end-states]
+              (let [[end-state & end-states] end-states]
                 (when end-state  ; Otherwise, all paths were visited.
                   (print-predicts end-state output-format)
                   (recur (inc imaps) end-states))))))))))
