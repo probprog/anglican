@@ -30,7 +30,9 @@
   (bb-sample [belief]
     "returns a random sample from the belief distribution")
   (bb-as-prior [belief]
-    "returns a belief for use as a prior belief"))
+    "returns a belief for use as a prior belief")
+  (bb-mode [belief]
+    "returns the mode of belief"))
 
 ;;;; Mean reward belief
 
@@ -50,7 +52,8 @@
         (dist/draw @dist))
       (bb-as-prior [mr]
         (if (<= cnt 1) mr
-            (mean-reward-belief (/ sum cnt) (/ sum2 cnt) 1.))))))
+            (mean-reward-belief (/ sum cnt) (/ sum2 cnt) 1.)))
+      (bb-mode [mr] (/ sum cnt)))))
 
 (def initial-mean-reward-belief
   "uninformative mean reward belief"
@@ -140,19 +143,12 @@
   (let [state (:state smp)
         id (bandit-id smp (state ::trace))
         bandit ((state ::bandits) id)
-        ;; Past reward is the reward collected by the particle
-        ;; until the checkpoint. To make rewards collected by
-        ;; arms commensurate, past-reward is subtracted from
-        ;; the final reward.
-        past-reward (get-log-weight state)
         ;; select a value
         value (or (and bandit (select-arm bandit))
                   (sample (:dist smp)))
-        ;; update the state
+        past-reward (get-log-weight state)
         state (-> state
-                  ;; add the log-weight of the sample
                   (add-log-weight (observe (:dist smp) value))
-                  ;; store the sampled value in the trace
                   (update-in [::trace] conj [id value past-reward]))]
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
@@ -184,7 +180,6 @@
 (defn ol-insert
   "inserts node to the open list"
   [ol node]
-  (prn (:min-key ol) (:next-key ol))
   (-> ol
       (update-in [:queue] #(conj % [(:next-key ol) node]))
       (update-in [:next-key] inc)))
@@ -239,13 +234,15 @@
 
 (defn distance-heuristic
   "returns distance heuristic given belief"
-  [belief]
-  (if (pos? @number-of-h-draws)
-    (let [h (- (reduce max (repeatedly @number-of-h-draws
-                                       #(bb-sample belief))))
-          h (if (Double/isNaN h) 0 (max h 0.))]
-      h)
-    0.))
+  [belief] {:post [(not (Double/isNaN %))]}
+  (cond
+   (pos? @number-of-h-draws)
+   (let [h (- (reduce max (repeatedly @number-of-h-draws
+                                      #(bb-sample belief))))
+         h (if (Double/isNaN h) 0 (max h 0.))]
+     h)
+   (zero? @number-of-h-draws) 0.
+   (neg? @number-of-h-draws) (bb-mode belief)))
         
 (defmethod expand embang.trap.sample [smp ol]
   (let [state (:state smp)
@@ -253,9 +250,12 @@
         bandit ((state ::bandits) id)
         ol (reduce
             (fn [ol [value belief]]
-              (let [state (add-log-weight state
-                                          (observe (:dist smp) value))
-                    f (+ (- (get-log-weight state))
+              (let [past-reward (get-log-weight state)
+                    state (-> state
+                              (add-log-weight (observe (:dist smp) value))
+                              (update-in [::trace]
+                                         conj [id value past-reward]))
+                    f (+ (- past-reward)
                          (distance-heuristic belief))]
                 (if-not (Double/isNaN f)
                   (ol-insert ol
@@ -283,9 +283,11 @@
                                         number-of-samples
                                         number-of-maps
                                         number-of-h-draws
-                                        output-format]
+                                        output-format
+                                        results]
                                  :or {number-of-passes 1
-                                      number-of-maps 1}}]
+                                      number-of-maps 1
+                                      results #{:predicts :trace}}}]
 
   ;; allows to change number-of-h-draws from the command line;
   ;; useful for experimenting
@@ -312,5 +314,11 @@
             (when-not (= imaps number-of-maps)
               (let [[end-state & end-states] end-states]
                 (when end-state  ; Otherwise, all paths were visited.
-                  (print-predicts end-state output-format)
+                  (when (contains? results :predicts)
+                    (print-predicts end-state output-format))
+                  (when (contains? (set results) :trace)
+                    (print-predict '$trace
+                                   (map second (::trace end-state))
+                                   (Math/exp (get-log-weight end-state))
+                                   output-format))
                   (recur (inc imaps) end-states))))))))))
