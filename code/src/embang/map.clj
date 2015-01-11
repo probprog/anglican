@@ -379,7 +379,7 @@
     (swap! embang.map/number-of-h-draws (fn [_] number-of-h-draws)))
     
   (dotimes [_ number-of-passes]
-    ;; Every pass extends G_prog by a running a fixed number of samples.
+    ;; Every pass extends G_prog by running a fixed number of samples.
     (loop [isamples 0
            begin-state initial-state]
 
@@ -409,7 +409,7 @@
                         (when (contains? results :predicts)
                           (print-predicts end-state output-format))
                         (when (contains? (set results) :trace)
-                          ;; Prints the trace as a special predict.
+                          ;; Print the trace as a special predict.
                           (print-predict '$trace
                                          (map second (::trace end-state))
                                          map-weight
