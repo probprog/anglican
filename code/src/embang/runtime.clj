@@ -85,10 +85,25 @@
 (from-colt beta [alpha beta])
 (from-colt binomial [n p] (binomial p n))
 
+(declare discrete)
+(defn categorical
+  "categorical distribution,
+  convenience wrapper around discrete distribution;
+  accepts a list of categories --- pairs [value weight]"
+  [categories]
+  (let [values (mapv first categories)
+        weights (mapv second categories)
+        indices (into {} (map-indexed (fn [i v] [v i]) values))
+        dist (discrete weights)]
+    (reify distribution
+      (sample [this] (values (sample dist)))
+      (observe [this value] (observe dist (indices value -1))))))
+
 (defn discrete
   "discrete distribution, accepts unnormalized weights"
   [weights]
-  (let [total-weight (reduce + weights)]
+  (let [total-weight (reduce + weights)
+        weights (vec weights)]
     (reify distribution
       (sample [this] 
         (let [x (rand total-weight)]
