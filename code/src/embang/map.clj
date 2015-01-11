@@ -409,7 +409,7 @@
                         (when (contains? results :predicts)
                           (print-predicts end-state output-format))
                         (when (contains? (set results) :trace)
-                          ;; Prints the trace as a special predict.
+                          ;; Print the trace as a special predict.
                           (print-predict '$trace
                                          (map second (::trace end-state))
                                          map-weight
