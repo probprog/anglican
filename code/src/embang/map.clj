@@ -8,8 +8,8 @@
 
 ;;;;; Maximum a Posteriori Estimation through Sampling
 
-;; Uses MCTS and best-first search to find maximum a
-;; posteriori estimate of program trace.
+;; Uses MCTS and best-first search to find
+;; maximum a posteriori estimate of program trace.
 
 (derive ::algorithm :embang.inference/algorithm)
 
@@ -74,11 +74,17 @@
 
 ;;;; Bandit
 
-(defrecord multiarmed-bandit [arms new-arm-belief])
+(defrecord multiarmed-bandit [arms
+                              new-arm-belief
+                              new-arm-count
+                              new-arm-drawn])
 
 (def fresh-bandit
   "bandit with no arm pulls"
-  (->multiarmed-bandit {} initial-mean-reward-belief))
+  (map->multiarmed-bandit
+   {:arms {}
+    :new-arm-belief initial-mean-reward-belief
+    :new-arm-count 0}))
 
 ;; Selects arms using open randomized probability matching.
 
@@ -90,35 +96,103 @@
   ;; return nil. checkpoint [::algorithm sample]
   ;; accounts for this and samples a new value
   ;; from the prior.
-  (loop [arms (:arms bandit)
-         best-score (bb-sample (:new-arm-belief bandit))
-         best-value nil]
-    (if-let [[[value belief] & arms] (seq arms)]
-      (let [score (bb-sample belief)]
-        (if (>= score best-score)
-          (recur arms score value)
-          (recur arms best-score best-value)))
-      best-value)))
+
+  ;; Draw a new arm with the rate inverse proportional
+  ;; to the number of new arm draws.
+  (when (> (rand (:new-arm-count bandit)) 1.)
+    ;; Otherwise, select a new arm with the probability
+    ;; that a randomly drawn new arm has the highest
+    ;; mean reward.
+    (loop [arms (:arms bandit)
+           best-score (bb-sample (:new-arm-belief bandit))
+           best-value nil]
+      (if-let [[[value belief] & arms] (seq arms)]
+        (let [score (bb-sample belief)]
+          (if (>= score best-score)
+            (recur arms score value)
+            (recur arms best-score best-value)))
+        best-value))))
 
 (defn update-bandit
   "updates bandit's belief"
   [bandit value reward]
-  (let [bandit (if (contains? (:arms bandit) value) bandit
-                 ;; otherwise, the arm is new:
+  (let [bandit (if (:new-arm-drawn bandit)
+                 ;; A new arm was drawn, which may or may not
+                 ;; coincide with an existing arm.
                  (-> bandit
-                     ;; initialize it with the prior belief,
-                     (assoc-in [:arms value]
-                               (bb-as-prior
-                                 (:new-arm-belief bandit)))
-                     ;; and update the new arm belief.
-                     (update-in [:new-arm-belief]
-                                bb-update reward)))]
+                     (update-in [:new-arm-belief] bb-update reward)
+                     (update-in [:new-arm-count] inc))
+                 bandit)]
     ;; Update the belief about the mean reward of the sampled arm.
-    (update-in bandit [:arms value] bb-update reward)))
+    (update-in bandit [:arms value]
+               (fnil bb-update
+                     ;; If the arm is new, derive the belief
+                     ;; from the belief about a randomly
+                     ;; drawn arm.
+                     (bb-as-prior (:new-arm-belief bandit)))
+               reward)))
+
+;;; Trace
+
+;; The trace is a vector of tuples
+;;   [bandit-id value past-reward]
+;; where past reward is the reward accumulated 
+;; before reaching this random choice.
+
+(defn preceding-occurences
+  "number of preceding occurences of the same
+  random choice in the trace"
+  [smp trace]
+  (count 
+   (filter (fn [[[smp-id]]] (= smp-id (:id smp)))
+           trace)))
+
+;; Bandit id: different random choices should get different
+;; ids, ideally structurally similar random choices should
+;; get the same id, just like addresses in Random DB
+
+(defn bandit-id [smp trace]
+  "returns bandit id for the checkpoint"
+  [(:id smp) (preceding-occurences smp trace)])
 
 ;;;; MAP inference
 
-;;; State transformations
+;;; Building G_prog subgraph 
+
+;; Generating rollouts
+
+(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
+  (let [state (:state smp)
+        id (bandit-id smp (state ::trace))
+        bandit ((state ::bandits) id fresh-bandit)
+
+        ;; Select a value as a bandit arm.
+        arm (select-arm bandit)
+        ;; Remember whether a new arm was drawn;
+        ;; new arm belief is updated during back-propagation.
+        bandit (assoc bandit :new-arm-drawn (nil? arm))
+        ;; Sample a new value if a new arm was drawn.
+        value (or arm (sample (:dist smp)))
+
+        ;; Past reward is the reward collected upto
+        ;; the current sampling point.
+        past-reward (get-log-weight state)
+        ;; Update the state:
+        state (-> state
+                  ;; Increment the log weight by the probability
+                  ;; of the sampled value, this is different from
+                  ;; the distribution inference and required for
+                  ;; MAP estimation.
+                  (add-log-weight (observe (:dist smp) value))
+                  ;; Re-insert the bandit, the bandit may be fresh,
+                  ;; and the new-arm-drawn flag may have been updated.
+                  (assoc-in [::bandits id] bandit)
+                  ;; Insert an entry for the random choice into the trace.
+                  (update-in [::trace] conj [id value past-reward]))]
+    ;; Finally, continue the execution.
+    #((:cont smp) value state)))
+
+;; Backpropagating rewards
 
 (defn backpropagate
   "back propagate reward to bandits"
@@ -131,55 +205,8 @@
           (recur trace
                  (update-in bandits [id]
                             ;; Bandit arms grow incrementally.
-                            ;; Fresh bandit has no arms, every time
-                            ;; an arm's value is sampled for the first
-                            ;; time, a new arm is added.
-                            (fnil update-bandit fresh-bandit)
-                            value (- reward past-reward))))
+                            update-bandit value (- reward past-reward))))
         (assoc initial-state ::bandits bandits)))))
-
-;;; Trace
-
-;; The trace is a vector of tuples
-;;   [bandit-id value past-reward]
-;; where past reward is the reward accumulated 
-;; before reaching this random choice.
-
-;; Bandit id: different random choices should get different
-;; ids, ideally structurally similar random choices should
-;; get the same id, just like addresses in Random DB
-
-(defn preceding-occurences
-  "number of preceding occurences of the same
-  andom choice in the trace"
-  [smp trace]
-  (count 
-   (filter (fn [[[smp-id]]] (= smp-id (:id smp)))
-           trace)))
-
-(defn bandit-id [smp trace]
-  "returns bandit id for the checkpoint"
-  [(:id smp) (preceding-occurences smp trace)])
-
-;;; Building G_prog subgraph 
-
-(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
-  (let [state (:state smp)
-        id (bandit-id smp (state ::trace))
-        bandit ((state ::bandits) id)
-        ;; Select a value ...
-        value (or (and bandit (select-arm bandit))
-                  ;; ... or sample a new one.
-                  (sample (:dist smp)))
-        ;; Past reward is the reward collected upto
-        ;; the current sampling point.
-        past-reward (get-log-weight state)
-        ;; Update the weight and the trace.
-        state (-> state
-                  (add-log-weight (observe (:dist smp) value))
-                  (update-in [::trace] conj [id value past-reward]))]
-    ;; Finally, continue the execution.
-    #((:cont smp) value state)))
 
 ;;; Best-first search
 
@@ -328,23 +355,31 @@
    (expand (exec ::search prog nil begin-state)
            empty-open-list)))
 
+;;; Inference method 
+
+;; Putting everything together: building G_prog gradually and
+;; searching for MAP estimates on subgraphs.
+
 (defmethod infer :map
   [_ prog & {:keys [number-of-passes  ; times to branch G_prog
                     number-of-samples ; samples before branching
                     number-of-maps    ; MAP estimates per branch
                     number-of-h-draws ; random draws to compute h
                     output-format    
-                    results]          ; a set of :predicts, :trace
+                    results           ; a set of :predicts, :trace
+                    increasing-maps]  ; consider MAP only if better
              :or {number-of-passes 1
                   number-of-maps 1
-                  results #{:predicts :trace}}}]
+                  results #{:predicts :trace}
+                  increasing-maps false}}]
 
-  ;; allows to change number-of-h-draws from the command line;
-  ;; useful for experimenting
   (when number-of-h-draws
+    ;; allows to change number-of-h-draws from the command line;
+    ;; useful for experimenting
     (swap! embang.map/number-of-h-draws (fn [_] number-of-h-draws)))
     
   (dotimes [_ number-of-passes]
+    ;; Every pass extends G_prog by a running a fixed number of samples.
     (loop [isamples 0
            begin-state initial-state]
 
@@ -362,16 +397,22 @@
           ;; Consume the sequence of end-states of MAP
           ;; estimates and print the predicts.
           (loop [imaps 0
-                 end-states (maximum-a-posteriori prog begin-state)]
+                 end-states (maximum-a-posteriori prog begin-state)
+                 max-map-weight Double/NEGATIVE_INFINITY]
             (when-not (= imaps number-of-maps)
               (let [[end-state & end-states] end-states]
                 (when end-state  ; Otherwise, all paths were visited.
-                  (when (contains? results :predicts)
-                    (print-predicts end-state output-format))
-                  (when (contains? (set results) :trace)
-                    ;; Prints the trace as a special predict.
-                    (print-predict '$trace
-                                   (map second (::trace end-state))
-                                   (Math/exp (get-log-weight end-state))
-                                   output-format))
-                  (recur (inc imaps) end-states))))))))))
+                  (let [map-weight (Math/exp (get-log-weight end-state))]
+                    (if (or (> map-weight max-map-weight)
+                            (not increasing-maps))
+                      (do
+                        (when (contains? results :predicts)
+                          (print-predicts end-state output-format))
+                        (when (contains? (set results) :trace)
+                          ;; Prints the trace as a special predict.
+                          (print-predict '$trace
+                                         (map second (::trace end-state))
+                                         map-weight
+                                         output-format))
+                        (recur (inc imaps) end-states map-weight))
+                      (recur imaps end-states max-map-weight))))))))))))
