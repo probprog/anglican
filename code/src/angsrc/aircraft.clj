@@ -28,19 +28,22 @@
   [assume num_blips_total (reduce + 0 (map num_blips (range 0 num_aircraft)))]
   
   ; List of all blips (needed to express the observations).
-  [assume all_blips (map first
-                      (reduce conj () (filter
-                                        (lambda (lst) (if (nil? lst) false true))
-                                        (map blip_ids (range 0 num_aircraft)))))]
- 
+  [assume all_blips 
+    (concat
+      (map first
+           (reduce conj () (filter
+                             (lambda (lst) (if (nil? lst) false true))
+                             (map blip_ids (range 0 num_aircraft)))))
+      (repeat 3 '(blip 0 ofaircraft 0)))]
+
   ; Observe three blips on the radar screen:
   [observe (normal num_blips_total 0.001) 3]
-  
+
   ; Observe the location of the three blips:
   [observe (normal (blip_position (nth all_blips 0)) 0.001) 100.0]
   [observe (normal (blip_position (nth all_blips 1)) 0.001) 200.0]
   [observe (normal (blip_position (nth all_blips 2)) 0.001) 300.0]
-  
+
   ; Want to know the number of aircraft and their positions:
   [predict num_aircraft]
   [predict (map aircraft_position (range 0 num_aircraft))])
