@@ -7,22 +7,28 @@
 
 ;;; Inference multimethod
 
-(defmulti infer (fn [algorithm & _] algorithm))
+(defmulti infer 
+  "main inference procedure, accepts algorithm, program, and
+  options; should print predicts using print-predicts"
+  (fn [algorithm & _] algorithm))
 
 ;;; Checkpoints
 
-(defmulti checkpoint (fn [alg cpt] [alg (type cpt)]))
+(defmulti checkpoint
+ "execution checkpoints, processed differently
+ depending on the inference algorithm"
+ (fn [alg cpt] [alg (type cpt)]))
 
 ;; default method implementations
 
-(defmethod checkpoint [::algorithm embang.trap.observe] [algorithm obs]
+(defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   #((:cont obs) nil (add-log-weight (:state obs)
                                     (observe (:dist obs) (:value obs)))))
 
-(defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
+(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
   #((:cont smp) (sample (:dist smp)) (:state smp)))
 
-(defmethod checkpoint [::algorithm embang.trap.result] [algorithm res]
+(defmethod checkpoint [::algorithm embang.trap.result] [_ res]
   res)
 
 ;;; Running a single particle until checkpoint
@@ -38,7 +44,10 @@
 
 ;; Output
 
-(defmulti print-predict (fn [_ _ _ format] format))
+(defmulti print-predict
+  "prints a predict, accepts label, value, weight, and
+  output format"
+  (fn [_ _ _ format] format))
 
 (defmethod print-predict :anglican [label value weight format]
   (println (str/join "," (map pr-str [label value weight]))))

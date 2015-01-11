@@ -5,6 +5,58 @@
 
 (defanglican hmm
   "HMM with predicts for all states"
+
+  [assume initial-state-distribution
+   (normalize (list 1.0 1.0 1.0))]
+
+  [assume get-state-transition-vector
+   (lambda (s)
+           (cond ((= s 0) (list 0.1 0.5 0.4))
+                 ((= s 1) (list 0.2 0.2 0.6))
+                 ((= s 2) (list 0.15 0.15 0.7))))]
+
+  [assume transition
+   (lambda (prev-state)
+     (sample (discrete (get-state-transition-vector prev-state))))]
+
+  [assume get-state
+   (mem (lambda (index)
+                (if (<= index 0)
+                  (sample (discrete initial-state-distribution))
+                  (transition (get-state (- index 1))))))]
+
+  [assume get-state-observation-mean
+   (lambda (s)
+           (cond ((= s 0) -1)
+                 ((= s 1) 1)
+                 ((= s 2) 0)))]
+
+  (let ((observes (lambda (obs)
+                    (if (not (empty? obs))
+                      (begin
+                       (let ((ob (first obs))
+                             (obs (rest obs))
+                             (state (first ob))
+                             (mean (second ob)))
+                         (observe
+                          (normal
+                           (get-state-observation-mean (get-state state)) 1)
+                           mean))
+                       (observes obs))))))
+    (observes '((1 0.9) (2 0.8) (3 0.7) (4 0)
+                (5 -0.025) (6 -5) (7 -2) (8 -0.1)
+                (9 0) (10 0.13) (11 0.45) (12 6)
+                (13 0.2) (14 0.3) (15 -1) (16 -1))))
+
+  (let ((predicts (lambda (i n)
+                    (if (<= i n)
+                      (begin
+                       (predict (get-state i))
+                       (predicts (inc i) n))))))
+    (predicts 0 25)))
+
+(defanglican original
+  "HMM with predicts for all states"
   [assume initial-state-distribution
    (normalize (list 1.0 1.0 1.0))]
   [assume get-state-transition-vector

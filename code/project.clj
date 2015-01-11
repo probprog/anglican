@@ -5,6 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.cli "0.3.1"]
+                 [org.clojure/data.priority-map "0.0.5"]
                  [org.clojure/data.json "0.2.5"]
                  [colt "1.2.0"]
                  [org.clojure/math.combinatorics "0.0.8"]
