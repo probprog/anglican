@@ -299,7 +299,7 @@
     ;; and will always return the optimal solution first
     ;; if the edge costs are non-negative (that is, if
     ;; nodes are discrete, or continuous but the distributions
-    ;; are not too steep. 
+    ;; are not too steep). 
     (zero? @number-of-h-draws) 0.
 
     ;; A negative number of draws triggers
