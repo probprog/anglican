@@ -91,7 +91,7 @@
   ;; accounts for this and samples a new value
   ;; from the prior.
   (loop [arms (:arms bandit)
-         best-score (bb-sample (bb-as-prior (:new-arm-belief bandit)))
+         best-score (bb-sample (:new-arm-belief bandit))
          best-value nil]
     (if-let [[[value belief] & arms] (seq arms)]
       (let [score (bb-sample belief)]
@@ -103,14 +103,18 @@
 (defn update-bandit
   "updates bandit's belief"
   [bandit value reward]
-  (-> bandit
-      (update-in [:arms value]
-                 (fnil bb-update
-                       ;; The prior belief is derived from the belief
-                       ;; about the reward distribution of a random arm.
-                       (bb-as-prior (:new-arm-belief bandit)))
-                 reward)
-      (update-in [:new-arm-belief] bb-update reward)))
+  (let [bandit (if (contains? (:arms bandit) value) bandit
+                 ;; otherwise, the arm is new:
+                 (-> bandit
+                     ;; initialize it with the prior belief,
+                     (assoc-in [:arms value]
+                               (bb-as-prior
+                                 (:new-arm-belief bandit)))
+                     ;; and update the new arm belief.
+                     (update-in [:new-arm-belief]
+                                bb-update reward)))]
+    ;; Update the belief about the mean reward of the sampled arm.
+    (update-in bandit [:arms value] bb-update reward)))
 
 ;;;; MAP inference
 
@@ -147,7 +151,7 @@
 
 (defn preceding-occurences
   "number of preceding occurences of the same
-  random choice in the trace"
+  andom choice in the trace"
   [smp trace]
   (count 
    (filter (fn [[[smp-id]]] (= smp-id (:id smp)))
@@ -165,7 +169,7 @@
         bandit ((state ::bandits) id)
         ;; Select a value ...
         value (or (and bandit (select-arm bandit))
-                  ;; ... os sample a new one.
+                  ;; ... or sample a new one.
                   (sample (:dist smp)))
         ;; Past reward is the reward collected upto
         ;; the current sampling point.
@@ -249,11 +253,10 @@
 
 (defn distance-heuristic
   "returns distance heuristic given belief"
-  [belief] {:post [(not (Double/isNaN %))]}
+  [belief]
   ;; Number of draws controls the properties of the
   ;; heuristic.
   (cond
-
     ;;  When the number of draws is positive,
     ;; increasing the number makes heuristic more
     ;; conservative, that is the heuristic approaches
@@ -349,7 +352,9 @@
       ;; back-propagated to the bandits representing subsets
       ;; of random choices.
       (let [end-state (:state (exec ::algorithm prog nil begin-state))
-            begin-state (backpropagate end-state)]
+            begin-state (if-not (Double/isNaN (get-log-weight end-state))
+                          (backpropagate end-state)
+                          begin-state)]
         (if-not (= isamples number-of-samples)
           (recur (inc isamples) begin-state)
 
