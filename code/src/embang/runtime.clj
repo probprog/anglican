@@ -96,9 +96,13 @@
                  acc 0. value 0]
             (let [acc (+ acc weight)]
               (if (< x acc) value
-                  (recur weights acc (inc value)))))))
+                (recur weights acc (inc value)))))))
       (observe [this value] 
-        (Math/log (/ (nth weights value) total-weight))))))
+        (Math/log
+          (try 
+            (/ (nth weights value) total-weight)
+            ;; any value not in the support has zero probability.
+            (catch IndexOutOfBoundsException _ 0.)))))))
 
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
