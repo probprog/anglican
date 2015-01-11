@@ -379,7 +379,7 @@
     (swap! embang.map/number-of-h-draws (fn [_] number-of-h-draws)))
     
   (dotimes [_ number-of-passes]
-    ;; Every pass extends G_prog by a running a fixed number of samples.
+    ;; Every pass extends G_prog by running a fixed number of samples.
     (loop [isamples 0
            begin-state initial-state]
 
