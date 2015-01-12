@@ -1,6 +1,5 @@
 (ns embang.runtime
-  (:require [embang.colt.distributions
-             :as dist]
+  (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]))
 
@@ -65,40 +64,64 @@
 
 ;; distributions, in alphabetical order
 
+(def ^:private RNG
+  "random number generator"
+  ;; delayed to avoid creation at load time
+  (delay (cern.jet.random.engine.MersenneTwister.
+           (java.util.Date.))))
+
 (defmacro from-colt
   "wraps incanter distribution"
-  ([name args]
-     ;; the name and the argument order is the same
-     `(from-colt ~name ~args (~name ~@args)))
+  ([name args vtype]
+   `(from-colt ~name ~args ~vtype (~(str/capitalize name) ~@args)))
+  ([name args vtype [colt-name & colt-args]]
+   `(defn ~(with-meta  name {:doc (str name " distribution")})
+      ~args
+      (let [~'dist (~(symbol (format "cern.jet.random.%s." colt-name))
+                             ~@colt-args @RNG)]
+        (~'reify ~'distribution
+          (~'sample [~'this] (~(symbol (format ".next%s"
+                                               (str/capitalize vtype)))
+                                       ~'dist))
+          ~'(observe [this value] (log (.pdf dist value))))))))
 
-  ([name args [incanter-name & incanter-args]]
-     `(defn ~(with-meta  name {:doc (str name " distribution")})
-        ~args
-        (let [~'dist (~(symbol (format 
-                                "dist/%s-distribution"
-                                incanter-name))
-                      ~@incanter-args)]
-          ~'(reify distribution
-              (sample [this] (dist/draw dist))
-              (observe [this value] (log (dist/pdf dist value))))))))
+(from-colt beta [alpha beta] double)
+(from-colt binomial [n p] int)
 
-(from-colt beta [alpha beta])
-(from-colt binomial [n p] (binomial p n))
+(declare discrete)
+(defn categorical
+  "categorical distribution,
+  convenience wrapper around discrete distribution;
+  accepts a list of categories --- pairs [value weight]"
+  [categories]
+  (let [values (mapv first categories)
+        weights (mapv second categories)
+        indices (into {} (map-indexed (fn [i v] [v i]) values))
+        dist (discrete weights)]
+    (reify distribution
+      (sample [this] (values (sample dist)))
+      (observe [this value] (observe dist (indices value -1))))))
 
 (defn discrete
   "discrete distribution, accepts unnormalized weights"
   [weights]
-  (let [total-weight (reduce + weights)]
+  (let [total-weight (reduce + weights)
+        weights (vec weights)
+        dist (cern.jet.random.Uniform. 0. total-weight @RNG)]
     (reify distribution
       (sample [this] 
-        (let [x (rand total-weight)]
+        (let [x (.nextDouble dist)]
           (loop [[weight & weights] weights
                  acc 0. value 0]
             (let [acc (+ acc weight)]
               (if (< x acc) value
-                  (recur weights acc (inc value)))))))
+                (recur weights acc (inc value)))))))
       (observe [this value] 
-        (Math/log (/ (nth weights value) total-weight))))))
+        (Math/log
+          (try 
+            (/ (nth weights value) total-weight)
+            ;; any value not in the support has zero probability.
+            (catch IndexOutOfBoundsException _ 0.)))))))
 
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
@@ -125,20 +148,20 @@
                           alpha))
            @Z)))))
 
-(from-colt exponential [rate])
+(from-colt exponential [rate] double)
 
 (defn flip
   "flip (bernoulli) distribution"
   [p]
-  (reify distribution
-    (sample [this] (< (rand) p))
-    (observe [this value] (Math/log (if value p (- 1. p))))))
+  (let [dist (cern.jet.random.Uniform. @RNG)]
+    (reify distribution
+      (sample [this] (< (.nextDouble dist) p))
+      (observe [this value] (Math/log (if value p (- 1. p)))))))
 
-(from-colt gamma [shape rate])
-(from-colt normal [mean sd])
-(from-colt poisson [lambda])
-(from-colt uniform-continuous [min max] (uniform min max))
-(from-colt uniform-discrete [min max] (integer min max))
+(from-colt gamma [shape rate] double)
+(from-colt normal [mean sd] double)
+(from-colt poisson [lambda] int)
+(from-colt uniform-continuous [min max] double (Uniform min max))
 
 (defn mvn
   "multivariate normal"
@@ -232,8 +255,11 @@
        random-process
        (produce [this] (discrete (conj counts alpha)))
        (absorb [this sample] 
-         (CRP alpha
-              (update-in counts [sample] (fnil inc 0)))))))
+         (try
+           (CRP alpha
+                (update-in counts [sample] (fnil inc 0)))
+           (catch IndexOutOfBoundsException _ 
+             this))))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"

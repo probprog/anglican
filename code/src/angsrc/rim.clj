@@ -145,3 +145,30 @@
    true]
                         
   [predict random_order])
+
+(defanglican cat
+  ;; define the alphabet over objects
+  [assume alphabet (list (list "a" "b")  (list "b" "c")  (list "a" "c"))]
+
+  ;; get a random set of probabilities
+  [assume probs (sample (dirichlet (repeat (count alphabet) 1)))]
+
+  ;; pair alphabet with probabilities
+  [assume get_categorical_pairs 
+      (lambda (alphabet probs)
+          (if (empty? probs)
+              (list)
+              (conj
+                  (get_categorical_pairs (rest alphabet) (rest probs))
+                  (list (first alphabet) (first probs))
+              )
+          )
+      )
+  ]
+  [assume my_dist (get_categorical_pairs alphabet probs)]
+
+  ;; observe an object from the alphabet
+  [observe (categorical my_dist) (list "a" "b")]
+
+  ;; output the distribution over items
+  [predict my_dist])

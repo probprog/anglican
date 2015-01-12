@@ -53,7 +53,7 @@
   [assume c (sample belief)]
   [assume d (sample positive-belief)]
   [assume e (sample positive-belief)]
-  [assume f (* 0.01 (sample positive-belief))]
+  [assume f (sample positive-belief)]
   
   [assume m (lambda (x)
               (+ c (* x (+ b (* x a)))))]

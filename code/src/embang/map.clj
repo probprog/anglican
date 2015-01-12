@@ -1,9 +1,8 @@
 (ns embang.map
-  (:require [embang.colt.distributions :as dist])
   (:require [clojure.data.priority-map
              :refer [priority-map-keyfn-by]])
   (:use [embang.state :exclude [initial-state]]
-        [embang.runtime :only [sample observe]]
+        [embang.runtime :only [sample observe normal]]
         embang.inference))
 
 ;;;;; Maximum a Posteriori Estimation through Sampling
@@ -51,13 +50,13 @@
                (let [mean (/ sum cnt)
                      sd (Math/sqrt (/ (- (/ sum2 cnt) (* mean mean))
                                       cnt))] ; Var(E(X)) = Var(X)/n
-                 (dist/normal-distribution mean sd)))]
+                 (normal mean sd)))]
     (reify bayesian-belief
       (bb-update [mr reward]
         (mean-reward-belief
           (+ sum reward) (+ sum2 (* reward reward)) (+ cnt 1.)))
       (bb-sample [mr] {:pre [(pos? cnt)]}
-        (dist/draw @dist))
+        (sample @dist))
       (bb-as-prior [mr]
         ;; The current belief is converted to a prior belief
         ;; by setting the sample count to 1 (another small value
@@ -283,29 +282,30 @@
   [belief]
   ;; Number of draws controls the properties of the
   ;; heuristic.
-  (cond
-    ;;  When the number of draws is positive,
-    ;; increasing the number makes heuristic more
-    ;; conservative, that is the heuristic approaches
-    ;; admissibility.
-    (pos? @number-of-h-draws)
-    (let [h (- (reduce max (repeatedly @number-of-h-draws
-                                       #(bb-sample belief))))
-          h (if (Double/isNaN h) 0 (max h 0.))]
-      h)
+  (max 0. ;; The returned heuristic is never negative.
+       (cond
+         ;;  When the number of draws is positive,
+         ;; increasing the number makes heuristic more
+         ;; conservative, that is the heuristic approaches
+         ;; admissibility.
+         (pos? @number-of-h-draws)
+         (let [h (- (reduce max (repeatedly @number-of-h-draws
+                                            #(bb-sample belief))))
+               h (if (Double/isNaN h) 0. h)]
+           h)
 
-    ;;  When the number is 0, 0. is always
-    ;; returned, so that best-first becomes Dijkstra search
-    ;; and will always return the optimal solution first
-    ;; if the edge costs are non-negative (that is, if
-    ;; nodes are discrete, or continuous but the distributions
-    ;; are not too steep). 
-    (zero? @number-of-h-draws) 0.
+         ;;  When the number is 0, 0. is always
+         ;; returned, so that best-first becomes Dijkstra search
+         ;; and will always return the optimal solution first
+         ;; if the edge costs are non-negative (that is, if
+         ;; nodes are discrete, or continuous but the distributions
+         ;; are not too steep). 
+         (zero? @number-of-h-draws) 0.
 
-    ;; A negative number of draws triggers
-    ;; computing the heuristic as the mode of the belief
-    ;; rather than by sampling.
-    (neg? @number-of-h-draws) (bb-mode belief)))
+         ;; A negative number of draws triggers
+         ;; computing the heuristic as the mode of the belief
+         ;; rather than by sampling.
+         (neg? @number-of-h-draws) (bb-mode belief))))
 
 (defmethod expand embang.trap.sample [smp ol]
   ;; A sample node is expanded by inserting all of the
@@ -321,13 +321,15 @@
                ;; Update the state and the trace ...
                (let [past-reward (get-log-weight state)
                      state (-> state
-                               (add-log-weight (observe (:dist smp) value))
+                               (add-log-weight
+                                 ;; The log-weight is truncated at 0
+                                 ;; to avoid divergence.
+                                 (min 0. (observe (:dist smp) value)))
                                (update-in [::trace]
                                           conj [id value past-reward]))
                      ;; ... and compute cost estimate till
                      ;; the termination.
-                     f (+ (- past-reward)
-                          (distance-heuristic belief))]
+                     f (+ (- past-reward) (distance-heuristic belief))]
                  ;; If the distance estimate is 
                  ;; a meaningful number, insert the node
                  ;; into the open list.
