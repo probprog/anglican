@@ -320,14 +320,16 @@
              (fn [ol [value belief]]
                ;; Update the state and the trace ...
                (let [past-reward (get-log-weight state)
+                     ;; Truncate pdfs of continuous distributions
+                     ;; so that the log-weight never decreases.
+                     edge-log-weight (min 0. (observe (:dist smp) value))
                      state (-> state
-                               (add-log-weight (observe (:dist smp) value))
+                               (add-log-weight edge-log-weight)
                                (update-in [::trace]
                                           conj [id value past-reward]))
                      ;; ... and compute cost estimate till
                      ;; the termination.
-                     f (+ (- past-reward)
-                          (distance-heuristic belief))]
+                     f (+ (- past-reward) (distance-heuristic belief))]
                  ;; If the distance estimate is 
                  ;; a meaningful number, insert the node
                  ;; into the open list.
