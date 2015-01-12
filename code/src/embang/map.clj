@@ -291,7 +291,7 @@
     (pos? @number-of-h-draws)
     (let [h (- (reduce max (repeatedly @number-of-h-draws
                                        #(bb-sample belief))))
-          h (if (Double/isNaN h) 0 (max h 0.))]
+          h (if (Double/isNaN h) 0. h)]
       h)
 
     ;;  When the number is 0, 0. is always
@@ -320,11 +320,9 @@
              (fn [ol [value belief]]
                ;; Update the state and the trace ...
                (let [past-reward (get-log-weight state)
-                     ;; Truncate pdfs of continuous distributions
-                     ;; so that the log-weight never decreases.
-                     edge-log-weight (min 0. (observe (:dist smp) value))
                      state (-> state
-                               (add-log-weight edge-log-weight)
+                               (add-log-weight
+                                 (observe (:dist smp) value))
                                (update-in [::trace]
                                           conj [id value past-reward]))
                      ;; ... and compute cost estimate till
