@@ -1,7 +1,5 @@
 (ns embang.runtime
-  (:require [embang.colt.distributions
-             :as dist]
-            [clojure.core.matrix :as m]
+  (:require [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]))
 
 ;; matrix library uses vectorz for protocol implementations
@@ -65,25 +63,25 @@
 
 ;; distributions, in alphabetical order
 
+(def ^:private RNG
+  "random number generator"
+  ;; delayed to avoid creation at load time
+  (delay (cern.jet.random.engine.MersenneTwister.
+           (java.util.Date.))))
+
 (defmacro from-colt
   "wraps incanter distribution"
-  ([name args]
-     ;; the name and the argument order is the same
-     `(from-colt ~name ~args (~name ~@args)))
+  [name args [colt-name & colt-args]]
+  `(defn ~(with-meta  name {:doc (str name " distribution")})
+     ~args
+     (let [~'dist (~(symbol (format "cern.jet.random.%s." colt-name))
+                            ~@colt-args @RNG)]
+       ~'(reify distribution
+           (sample [this] (.nextDouble dist))
+           (observe [this value] (log (.pdf dist value)))))))
 
-  ([name args [incanter-name & incanter-args]]
-     `(defn ~(with-meta  name {:doc (str name " distribution")})
-        ~args
-        (let [~'dist (~(symbol (format 
-                                "dist/%s-distribution"
-                                incanter-name))
-                      ~@incanter-args)]
-          ~'(reify distribution
-              (sample [this] (dist/draw dist))
-              (observe [this value] (log (dist/pdf dist value))))))))
-
-(from-colt beta [alpha beta])
-(from-colt binomial [n p] (binomial p n))
+(from-colt beta [alpha beta] (Beta alpha beta))
+(from-colt binomial [n p] (Binomial p n))
 
 (declare discrete)
 (defn categorical
@@ -103,10 +101,11 @@
   "discrete distribution, accepts unnormalized weights"
   [weights]
   (let [total-weight (reduce + weights)
-        weights (vec weights)]
+        weights (vec weights)
+        dist (cern.jet.random.Uniform. 0. total-weight @RNG)]
     (reify distribution
       (sample [this] 
-        (let [x (rand total-weight)]
+        (let [x (.nextDouble dist)]
           (loop [[weight & weights] weights
                  acc 0. value 0]
             (let [acc (+ acc weight)]
@@ -144,20 +143,20 @@
                           alpha))
            @Z)))))
 
-(from-colt exponential [rate])
+(from-colt exponential [rate] (Exponential rate))
 
 (defn flip
   "flip (bernoulli) distribution"
   [p]
-  (reify distribution
-    (sample [this] (< (rand) p))
-    (observe [this value] (Math/log (if value p (- 1. p))))))
+  (let [dist (cern.jet.random.Uniform. @RNG)]
+    (reify distribution
+      (sample [this] (< (.nextDouble dist) p))
+      (observe [this value] (Math/log (if value p (- 1. p)))))))
 
-(from-colt gamma [shape rate])
-(from-colt normal [mean sd])
-(from-colt poisson [lambda])
-(from-colt uniform-continuous [min max] (uniform min max))
-(from-colt uniform-discrete [min max] (integer min max))
+(from-colt gamma [shape rate] (Gamma shape rate))
+(from-colt normal [mean sd] (Normal mean sd))
+(from-colt poisson [lambda] (Poisson lambda))
+(from-colt uniform-continuous [min max] (Uniform min max))
 
 (defn mvn
   "multivariate normal"
@@ -251,8 +250,11 @@
        random-process
        (produce [this] (discrete (conj counts alpha)))
        (absorb [this sample] 
-         (CRP alpha
-              (update-in counts [sample] (fnil inc 0)))))))
+         (try
+           (CRP alpha
+                (update-in counts [sample] (fnil inc 0)))
+           (catch IndexOutOfBoundsException _ 
+             this))))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"
