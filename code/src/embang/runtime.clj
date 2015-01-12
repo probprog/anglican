@@ -1,5 +1,6 @@
 (ns embang.runtime
-  (:require [clojure.core.matrix :as m]
+  (:require [clojure.string :as str]
+            [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]))
 
 ;; matrix library uses vectorz for protocol implementations
@@ -71,17 +72,21 @@
 
 (defmacro from-colt
   "wraps incanter distribution"
-  [name args [colt-name & colt-args]]
-  `(defn ~(with-meta  name {:doc (str name " distribution")})
-     ~args
-     (let [~'dist (~(symbol (format "cern.jet.random.%s." colt-name))
-                            ~@colt-args @RNG)]
-       ~'(reify distribution
-           (sample [this] (.nextDouble dist))
-           (observe [this value] (log (.pdf dist value)))))))
+  ([name args vtype]
+   `(from-colt ~name ~args ~vtype (~(str/capitalize name) ~@args)))
+  ([name args vtype [colt-name & colt-args]]
+   `(defn ~(with-meta  name {:doc (str name " distribution")})
+      ~args
+      (let [~'dist (~(symbol (format "cern.jet.random.%s." colt-name))
+                             ~@colt-args @RNG)]
+        (~'reify ~'distribution
+          (~'sample [~'this] (~(symbol (format ".next%s"
+                                               (str/capitalize vtype)))
+                                       ~'dist))
+          ~'(observe [this value] (log (.pdf dist value))))))))
 
-(from-colt beta [alpha beta] (Beta alpha beta))
-(from-colt binomial [n p] (Binomial p n))
+(from-colt beta [alpha beta] double)
+(from-colt binomial [n p] int)
 
 (declare discrete)
 (defn categorical
@@ -143,7 +148,7 @@
                           alpha))
            @Z)))))
 
-(from-colt exponential [rate] (Exponential rate))
+(from-colt exponential [rate] double)
 
 (defn flip
   "flip (bernoulli) distribution"
@@ -153,10 +158,10 @@
       (sample [this] (< (.nextDouble dist) p))
       (observe [this value] (Math/log (if value p (- 1. p)))))))
 
-(from-colt gamma [shape rate] (Gamma shape rate))
-(from-colt normal [mean sd] (Normal mean sd))
-(from-colt poisson [lambda] (Poisson lambda))
-(from-colt uniform-continuous [min max] (Uniform min max))
+(from-colt gamma [shape rate] double)
+(from-colt normal [mean sd] double)
+(from-colt poisson [lambda] int)
+(from-colt uniform-continuous [min max] double (Uniform min max))
 
 (defn mvn
   "multivariate normal"
