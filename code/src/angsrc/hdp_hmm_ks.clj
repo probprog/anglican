@@ -4,18 +4,14 @@
                      add sub mul mmul inverse]
              :rename {identity-matrix eye}])
   (:use [embang emit runtime]
-        [angsrc dp-mem
+        [angsrc crp dp-mem
                 hdp-hmm-ks-data]))
 
 (with-primitive-procedures [eye join reshape
                             add sub mul mmul inverse]
   (defanglican hdp-hmm-ks
     ;; next 4 directives are an HDP-HMM backbone in CRF representation
-    [assume G-0 (lambda ()
-                  (let ((g (or (retrieve :G-0) (CRP 10.0)))
-                        (s (sample (produce g))))
-                    (store :G-0 (absorb g s))
-                    s))]
+    [assume G-0 (crp 10.0)]
     [assume sticky 0.2]
     [assume trans-dist (mem (lambda (state)
                                     (DPmem 1.0 G-0)))]
