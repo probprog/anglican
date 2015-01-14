@@ -222,8 +222,7 @@
         transform-sample
         (fn [samples]
           (let [X (m/mmul L (m/reshape samples [p n]))]
-            (m/mmul (m/transpose X) X)))]
-                    
+            (m/mmul X (m/transpose X))))]
     (reify distribution
       (sample [this] (transform-sample
                        (repeatedly (* n p) #(sample unit-normal))))
