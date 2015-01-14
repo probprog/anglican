@@ -29,7 +29,7 @@
 
   [assume state-1 1]
   [observe (categorical (map list vocabulary (state->observation-model state-1))) 'A]
-  [assume state-2 (state-symbol->next-state 1 'A)]
+  [assume state-2 (state-symbol->next-state state-1 'A)]
   [observe (categorical (map list vocabulary (state->observation-model state-2))) 'B]
   [assume state-3 (state-symbol->next-state state-2 'B)]
   [observe (categorical (map list vocabulary (state->observation-model state-3))) 'B]

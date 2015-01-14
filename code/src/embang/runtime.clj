@@ -169,6 +169,12 @@
            ;; arguments, clojure refuses to extend numeric types.
            (Uniform (double min) (double max)))
 
+(defprotocol multivariate-distribution
+  "additional methods for multivariate distributions"
+  (transform-sample [this samples]
+    "accepts a vector of random values and generates
+    a sample from the multivariate distribution"))
+
 (defn mvn
   "multivariate normal"
   [mean cov]
@@ -179,15 +185,18 @@
         Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
                    (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
                              (Math/log |Lcov|)))))
-        iLcov (delay (m/inverse Lcov))]
+        iLcov (delay (m/inverse Lcov))
+        transform-sample (fn [samples]
+                           (m/add mean (m/mmul Lcov samples)))]
     (reify distribution
-      (sample [this]
-        (m/add mean
-               (m/mmul Lcov
-                       (repeatedly k #(sample unit-normal)))))
+      (sample [this] (transform-sample
+                       (repeatedly k #(sample unit-normal))))
       (observe [this value]
         (let [dx (m/mmul @iLcov (m/sub value mean))]
-          (- (* -0.5 (m/dot dx dx)) @Z))))))
+          (- (* -0.5 (m/dot dx dx)) @Z)))
+
+      multivariate-distribution
+      (transform-sample [this samples] (transform-sample samples)))))
 
 (defn log-mv-gamma-fn
   "multivariate gamma function"
@@ -201,7 +210,7 @@
   "Wishart distribution"
   ;; http://en.wikipedia.org/wiki/Wishart_distribution
   [n V] 
-  {:pre [(let [[n m] (m/shape V)] (= n m))
+  {:pre [(let [[p q] (m/shape V)] (= p q))
          (integer? n)
          (>= n (first (m/shape V)))]}
   (let [p (first (m/shape V))
@@ -209,19 +218,22 @@
         unit-normal (normal 0 1)
         Z (delay (+ (* 0.5 n p (Math/log 2))
                     (* 0.5 n (Math/log (m/det V)))
-                    (log-mv-gamma-fn p (* 0.5 n))))]
+                    (log-mv-gamma-fn p (* 0.5 n))))
+        transform-sample
+        (fn [samples]
+          (let [X (m/mmul L (m/reshape samples [p n]))]
+            (m/mmul (m/transpose X) X)))]
                     
     (reify distribution
-      (sample [this]
-        (let [X (m/matrix
-                 (repeatedly
-                  n (fn [] (m/mmul L (repeatedly
-                                      p #(sample unit-normal))))))]
-          (m/mmul (m/transpose X) X)))
+      (sample [this] (transform-sample
+                       (repeatedly (* n p) #(sample unit-normal))))
       (observe [this value]
         (- (* 0.5 (- n p 1) (Math/log (m/det value)))
            (* 0.5 (m/trace (m/mul (m/inverse (m/matrix V)) value)))
-           @Z)))))
+           @Z))
+      
+      multivariate-distribution
+      (transform-sample [this samples] (transform-sample samples)))))
 
 ;;; Random processes
 
