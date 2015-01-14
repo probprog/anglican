@@ -29,7 +29,7 @@
     [assume observable-dimension 62]
 
     ;; random source for MVN and Wishart
-    [assume unit-normal (normal 0 1)]
+    [assume sample-unit-normal (let ((dist (normal 0 1))) (lambda () (sample dist)))]
 
     ;; Motion parameters for each activity Kalman Filter
     ;;---------------------------------------------------
@@ -42,8 +42,8 @@
               (lambda ()
                 (inverse 
                  (transform-sample dist
-                                   (map (lambda (_) (sample unit-normal))
-                                        (range (* (+ 1 latent-dimension) latent-dimension)))))))]
+                                   (repeatedly (* (+ 1 latent-dimension) latent-dimension)
+                                               sample-unit-normal)))))]
 
     ;; prior on H, the measurement matrix relating state to
     ;; measurement. This needs to be 62x3 with reasonable
@@ -54,9 +54,9 @@
          (reshape
            ;;; 1 x 186
            (join 
-             (transform-sample dist (map (lambda (_) (sample unit-normal)) (range observable-dimension)))
-             (transform-sample dist (map (lambda (_) (sample unit-normal)) (range observable-dimension)))
-             (transform-sample dist (map (lambda (_) (sample unit-normal)) (range observable-dimension))))
+             (transform-sample dist (repeatedly observable-dimension sample-unit-normal))
+             (transform-sample dist (repeatedly observable-dimension sample-unit-normal))
+             (transform-sample dist (repeatedly observable-dimension sample-unit-normal)))
            '(3 62))))]
 
     ;; prior on Q, the true value of the measurement noise,
@@ -68,7 +68,7 @@
     [assume initial-pose 
             (transform-sample (mvn (repeat latent-dimension 0)
                                    (eye latent-dimension))
-                              (map (lambda (_) (sample unit-normal)) (range latent-dimension)))]
+                              (repeatedly latent-dimension sample-unit-normal))]
   
     ;; lazy per-activity activity model parameter generator
     [assume activity-motion-model-params 
@@ -90,8 +90,7 @@
     [assume sample-pose-noise
             (mem (lambda (a)
                    (transform-sample (mvn (repeat latent-dimension 0.) (H a))
-                                     (map (lambda (_) (sample unit-normal))
-                                          (range latent-dimension)))))]
+                                     (repeatedly latent-dimension sample-unit-normal))))]
 
     ;; generator of true latent pose (single activity for
     ;; whole time sequence)

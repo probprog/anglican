@@ -409,6 +409,7 @@
   (let [;; higher-order procedures cannot be primitive
         exclude '#{map reduce
                    filter keep keep-indexed remove
+                   repeatedly
                    every? not-any? some
                    every-pred some-fn
                    comp juxt partial}

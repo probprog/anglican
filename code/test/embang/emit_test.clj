@@ -36,6 +36,11 @@
            '(1 3))
         "filter"))
 
+  (testing "repeatedly in CPS"
+    (is (= (trampoline
+             ($repeatedly value-cont nil 3 (cps-fn [] 1)))
+           '(1 1 1))))
+
   (testing "comp in CPS"
     (is (= (($comp value-cont nil) value-cont nil 1) 1)
         "argumentless comp")
