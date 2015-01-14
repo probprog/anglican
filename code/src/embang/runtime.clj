@@ -105,8 +105,9 @@
 (defn discrete
   "discrete distribution, accepts unnormalized weights"
   [weights]
-  (let [total-weight (reduce + weights)
-        weights (vec weights)
+        
+  (let [weights (mapv double weights)
+        total-weight (reduce + weights)
         dist (cern.jet.random.Uniform. 0. total-weight @RNG)]
     (reify distribution
       (sample [this] 
@@ -161,7 +162,18 @@
 (from-colt gamma [shape rate] double)
 (from-colt normal [mean sd] double)
 (from-colt poisson [lambda] int)
-(from-colt uniform-continuous [min max] double (Uniform min max))
+(from-colt uniform-continuous [min max] double
+           ;; The explicit type cast below is a fix to clojure
+           ;; constructor matching (clojure.lang.Reflector.isCongruent).
+           ;; If the constructor is overloaded with the same number of
+           ;; arguments, clojure refuses to extend numeric types.
+           (Uniform (double min) (double max)))
+
+(defprotocol multivariate-distribution
+  "additional methods for multivariate distributions"
+  (transform-sample [this samples]
+    "accepts a vector of random values and generates
+    a sample from the multivariate distribution"))
 
 (defn mvn
   "multivariate normal"
@@ -173,15 +185,18 @@
         Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
                    (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
                              (Math/log |Lcov|)))))
-        iLcov (delay (m/inverse Lcov))]
+        iLcov (delay (m/inverse Lcov))
+        transform-sample (fn [samples]
+                           (m/add mean (m/mmul Lcov samples)))]
     (reify distribution
-      (sample [this]
-        (m/add mean
-               (m/mmul Lcov
-                       (repeatedly k #(sample unit-normal)))))
+      (sample [this] (transform-sample
+                       (repeatedly k #(sample unit-normal))))
       (observe [this value]
         (let [dx (m/mmul @iLcov (m/sub value mean))]
-          (- (* -0.5 (m/dot dx dx)) @Z))))))
+          (- (* -0.5 (m/dot dx dx)) @Z)))
+
+      multivariate-distribution
+      (transform-sample [this samples] (transform-sample samples)))))
 
 (defn log-mv-gamma-fn
   "multivariate gamma function"
@@ -195,7 +210,7 @@
   "Wishart distribution"
   ;; http://en.wikipedia.org/wiki/Wishart_distribution
   [n V] 
-  {:pre [(let [[n m] (m/shape V)] (= n m))
+  {:pre [(let [[p q] (m/shape V)] (= p q))
          (integer? n)
          (>= n (first (m/shape V)))]}
   (let [p (first (m/shape V))
@@ -203,19 +218,21 @@
         unit-normal (normal 0 1)
         Z (delay (+ (* 0.5 n p (Math/log 2))
                     (* 0.5 n (Math/log (m/det V)))
-                    (log-mv-gamma-fn p (* 0.5 n))))]
-                    
+                    (log-mv-gamma-fn p (* 0.5 n))))
+        transform-sample
+        (fn [samples]
+          (let [X (m/mmul L (m/reshape samples [p n]))]
+            (m/mmul X (m/transpose X))))]
     (reify distribution
-      (sample [this]
-        (let [X (m/matrix
-                 (repeatedly
-                  n (fn [] (m/mmul L (repeatedly
-                                      p #(sample unit-normal))))))]
-          (m/mmul (m/transpose X) X)))
+      (sample [this] (transform-sample
+                       (repeatedly (* n p) #(sample unit-normal))))
       (observe [this value]
         (- (* 0.5 (- n p 1) (Math/log (m/det value)))
            (* 0.5 (m/trace (m/mul (m/inverse (m/matrix V)) value)))
-           @Z)))))
+           @Z))
+      
+      multivariate-distribution
+      (transform-sample [this samples] (transform-sample samples)))))
 
 ;;; Random processes
 
@@ -244,7 +261,6 @@
   (fn [cont $state & args]
     (cont (apply f args) $state)))
 
-
 ;; random processes, in alphabetical order
 
 (defn CRP
@@ -253,13 +269,19 @@
   ([alpha counts] {:pre [(vector? counts)]}
      (reify
        random-process
-       (produce [this] (discrete (conj counts alpha)))
+       (produce [this]
+         (let [dist (discrete (conj counts alpha))]
+           (reify distribution
+             (sample [this] (sample dist))
+             (observe [this sample]
+               ;; Observing any new sample has the same probability.
+               (observe dist (min (count counts) sample))))))
        (absorb [this sample] 
-         (try
            (CRP alpha
-                (update-in counts [sample] (fnil inc 0)))
-           (catch IndexOutOfBoundsException _ 
-             this))))))
+                (-> counts
+                    ;; Fill the counts with zeroes until the new sample.
+                    (into (repeat (+ (- sample (count counts)) 1) 0))
+                    (update-in [sample] inc)))))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"
