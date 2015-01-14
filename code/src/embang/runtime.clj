@@ -172,9 +172,8 @@
 (defn uniform-discrete
   "uniform discrete distribution"
   [min max] {:pre [(integer? min) (integer? max)]}
-  (let [min (double min) max (double max)
-        dist (uniform-continuous min max)
-        p (/ (- max min))]
+  (let [dist (uniform-continuous min max)
+        p (/ 1. (- max min))]
     (reify distribution
       (sample [this] (int (sample dist)))
       (observe [this _] p))))
