@@ -105,8 +105,9 @@
 (defn discrete
   "discrete distribution, accepts unnormalized weights"
   [weights]
-  (let [total-weight (reduce + weights)
-        weights (vec weights)
+        
+  (let [weights (mapv double weights)
+        total-weight (reduce + weights)
         dist (cern.jet.random.Uniform. 0. total-weight @RNG)]
     (reify distribution
       (sample [this] 
@@ -161,7 +162,12 @@
 (from-colt gamma [shape rate] double)
 (from-colt normal [mean sd] double)
 (from-colt poisson [lambda] int)
-(from-colt uniform-continuous [min max] double (Uniform min max))
+(from-colt uniform-continuous [min max] double
+           ;; The explicit type cast below is a fix to clojure
+           ;; constructor matching (clojure.lang.Reflector.isCongruent).
+           ;; If the constructor is overloaded with the same number of
+           ;; arguments, clojure refuses to extend numeric types.
+           (Uniform (double min) (double max)))
 
 (defn mvn
   "multivariate normal"
@@ -244,7 +250,6 @@
   (fn [cont $state & args]
     (cont (apply f args) $state)))
 
-
 ;; random processes, in alphabetical order
 
 (defn CRP
@@ -253,13 +258,19 @@
   ([alpha counts] {:pre [(vector? counts)]}
      (reify
        random-process
-       (produce [this] (discrete (conj counts alpha)))
+       (produce [this]
+         (let [dist (discrete (conj counts alpha))]
+           (reify distribution
+             (sample [this] (sample dist))
+             (observe [this sample]
+               ;; Observing any new sample has the same probability.
+               (observe dist (min (count counts) sample))))))
        (absorb [this sample] 
-         (try
            (CRP alpha
-                (update-in counts [sample] (fnil inc 0)))
-           (catch IndexOutOfBoundsException _ 
-             this))))))
+                (-> counts
+                    ;; Fill the counts with zeroes until the new sample.
+                    (into (repeat (+ (- sample (count counts)) 1) 0))
+                    (update-in [sample] inc)))))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"
