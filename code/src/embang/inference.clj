@@ -19,7 +19,11 @@
  depending on the inference algorithm"
  (fn [alg cpt] [alg (type cpt)]))
 
-;; default method implementations
+;; default checkpoint handling --- return the checkpoint
+
+(defmethod checkpoint :default [_ cpt] cpt)
+
+;; fallback method implementations
 
 (defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   #((:cont obs) nil (add-log-weight (:state obs)
@@ -35,14 +39,26 @@
 
 (defn exec
   "executes the program until a checkpoint"
-  [algorithm prog & args]
-  (loop [step (apply trampoline prog args)]
+  [algorithm prog value state]
+  (loop [step (trampoline prog value state)]
     (let [next (checkpoint algorithm step)]
       (if (fn? next)
         (recur (trampoline next))
         next))))
 
-;; Output
+;;; Warmup --- runnning until the first checkpoint
+;;
+;; All particles will run the same way.
+
+(defn warmup 
+  "runs until the first checkpoint and returns
+  a continuation that starts with that checkpoint"
+  [prog]
+  (let [cpt (exec ::warmup prog nil initial-state)]
+    (fn [value initial-state]
+      (update-in cpt [:state] merge initial-state))))
+
+;;; Output
 
 (defmulti print-predict
   "prints a predict, accepts label, value, weight, and
