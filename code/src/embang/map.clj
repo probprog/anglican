@@ -257,12 +257,17 @@
 
 (derive ::search :embang.inference/algorithm)
 
+(def search
+  "atom holding the keyword to dispatch search methods on;
+  for comparing different search algorithms"
+  (atom ::search))
+
 (defmethod checkpoint [::search embang.trap.sample] [_ smp]
   smp)
 
 (defmulti expand 
   "expands checkpoint nodes"
-  (fn [cpt ol] (type cpt)))
+  (fn [cpt ol] [@search (type cpt)]))
 
 (defn next-node
   "pops and advances the next node in the open list"
@@ -273,10 +278,10 @@
      ;; dispatches on the node type.
      (expand ((:comp node)) ol)))
 
-(def number-of-h-draws
-  "atom containing the number of draws from
-  the belief to compute distance heuristic"
-  (atom 1))
+(def ^:dynamic *number-of-h-draws*
+  "the number of draws from the belief
+  to compute distance heuristic"
+  1)
 
 (defn distance-heuristic
   "returns distance heuristic given belief"
@@ -289,8 +294,8 @@
          ;; increasing the number makes heuristic more
          ;; conservative, that is the heuristic approaches
          ;; admissibility.
-         (pos? @number-of-h-draws)
-         (let [h (- (reduce max (repeatedly @number-of-h-draws
+         (pos? *number-of-h-draws*)
+         (let [h (- (reduce max (repeatedly *number-of-h-draws*
                                             #(bb-sample belief))))
                h (if (Double/isNaN h) 0. h)]
            h)
@@ -301,14 +306,14 @@
          ;; if the edge costs are non-negative (that is, if
          ;; nodes are discrete, or continuous but the distributions
          ;; are not too steep). 
-         (zero? @number-of-h-draws) 0.
+         (zero? *number-of-h-draws*) 0.
 
          ;; A negative number of draws triggers
          ;; computing the heuristic as the mode of the belief
          ;; rather than by sampling.
-         (neg? @number-of-h-draws) (bb-mode belief))))
+         (neg? *number-of-h-draws*) (bb-mode belief))))
 
-(defmethod expand embang.trap.sample [smp ol]
+(defmethod expand [::search embang.trap.sample] [smp ol]
   ;; A sample node is expanded by inserting all of the
   ;; child nodes into the open list. The code partially
   ;; repeats the code of checkpoint [::algorithm sample].
@@ -344,7 +349,7 @@
     ;; from the open list.
     (next-node ol)))
 
-(defmethod expand embang.trap.result [res ol]
+(defmethod expand [::search embang.trap.result] [res ol]
   (cons (:state res)                    ; return the first estimate
         (lazy-seq                       ; and a lazy sequence of 
          (trampoline (next-node ol))))) ; future estimates
@@ -352,10 +357,12 @@
 (defn maximum-a-posteriori
   "returns a sequence of end states
   of maximum a posteriori estimates"
-  [prog begin-state]
-  (trampoline
-   (expand (exec ::search prog nil begin-state)
-           empty-open-list)))
+  [prog begin-state number-of-h-draws]
+  (binding [*number-of-h-draws* (or number-of-h-draws
+                                    *number-of-h-draws*)]
+    (trampoline
+     (expand (exec @search prog nil begin-state)
+             empty-open-list))))
 
 ;;; Inference method 
 
@@ -375,11 +382,6 @@
                   results #{:predicts :trace}
                   increasing-maps false}}]
 
-  (when number-of-h-draws
-    ;; allows to change number-of-h-draws from the command line;
-    ;; useful for experimenting
-    (swap! embang.map/number-of-h-draws (fn [_] number-of-h-draws)))
-    
   (dotimes [_ number-of-passes]
     ;; Every pass extends G_prog by running a fixed number of samples.
     (loop [isamples 0
@@ -399,7 +401,8 @@
           ;; Consume the sequence of end-states of MAP
           ;; estimates and print the predicts.
           (loop [imaps 0
-                 end-states (maximum-a-posteriori prog begin-state)
+                 end-states (maximum-a-posteriori
+                              prog begin-state number-of-h-draws)
                  max-map-weight Double/NEGATIVE_INFINITY]
             (when-not (= imaps number-of-maps)
               (let [[end-state & end-states] end-states]
