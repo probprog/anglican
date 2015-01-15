@@ -48,12 +48,7 @@
                 (9 0) (10 0.13) (11 0.45) (12 6)
                 (13 0.2) (14 0.3) (15 -1) (16 -1))))
 
-  (let ((predicts (lambda (i n)
-                    (if (<= i n)
-                      (begin
-                       (predict (get-state i))
-                       (predicts (inc i) n))))))
-    (predicts 0 25)))
+  (predict (map get-state (range 25))))
 
 (defanglican original
   "HMM with predicts for all states"

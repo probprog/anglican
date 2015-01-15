@@ -2,7 +2,7 @@
   (:gen-class)
   (:require [clojure.string :as str]
             [clojure.tools.cli :as cli])
-  (:use [embang.inference :only [infer]])
+  (:use [embang.inference :only [warmup infer]])
   (:use embang.results))
 
 (defn load-program
@@ -101,7 +101,7 @@ Options:
              ;; if loaded, run the inference.
              (try
                (apply infer (keyword (:inference-algorithm options))
-                      program (:algorithm-options options))
+                      (warmup program) (:algorithm-options options))
                (catch Exception e
                  (binding [*out* *err*]
                    (printf "Error during inference: %s\n" e))

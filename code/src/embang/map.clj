@@ -1,9 +1,8 @@
 (ns embang.map
-  (:require [embang.colt.distributions :as dist])
   (:require [clojure.data.priority-map
              :refer [priority-map-keyfn-by]])
   (:use [embang.state :exclude [initial-state]]
-        [embang.runtime :only [sample observe]]
+        [embang.runtime :only [sample observe normal]]
         embang.inference))
 
 ;;;;; Maximum a Posteriori Estimation through Sampling
@@ -18,8 +17,9 @@
 (def initial-state
   "initial state for MAP estimation"
   (into embang.state/initial-state
-        {::bandits {}
-         ::trace []}))
+        {::bandits {}   ; multi-armed bandits
+         ::trace []     ; random choices
+         ::counts {}})) ; counts of occurences of `sample' checkpoints
 
 ;;;; Bayesian updating, for randomized probability matching
 
@@ -51,13 +51,13 @@
                (let [mean (/ sum cnt)
                      sd (Math/sqrt (/ (- (/ sum2 cnt) (* mean mean))
                                       cnt))] ; Var(E(X)) = Var(X)/n
-                 (dist/normal-distribution mean sd)))]
+                 (normal mean sd)))]
     (reify bayesian-belief
       (bb-update [mr reward]
         (mean-reward-belief
           (+ sum reward) (+ sum2 (* reward reward)) (+ cnt 1.)))
       (bb-sample [mr] {:pre [(pos? cnt)]}
-        (dist/draw @dist))
+        (sample @dist))
       (bb-as-prior [mr]
         ;; The current belief is converted to a prior belief
         ;; by setting the sample count to 1 (another small value
@@ -97,8 +97,7 @@
   ;; accounts for this and samples a new value
   ;; from the prior.
 
-  ;; Draw a new arm with the rate inverse proportional
-  ;; to the number of new arm draws.
+  ;; Draw a new arm with a decreasing rate.
   (when (> (rand (:new-arm-count bandit)) 1.)
     ;; Otherwise, select a new arm with the probability
     ;; that a randomly drawn new arm has the highest
@@ -136,24 +135,25 @@
 
 ;; The trace is a vector of tuples
 ;;   [bandit-id value past-reward]
-;; where past reward is the reward accumulated 
-;; before reaching this random choice.
+;; where past reward is the reward accumulated before
+;; reaching this random choice. 
 
-(defn preceding-occurences
-  "number of preceding occurences of the same
-  random choice in the trace"
-  [smp trace]
-  (count 
-   (filter (fn [[[smp-id]]] (= smp-id (:id smp)))
-           trace)))
+(defn record-random-choice
+  "records random choice in the state"
+  [state id value past-reward]
+  (-> state
+      (update-in [::trace] conj [id value past-reward])
+      (update-in [::counts (first id)] (fnil inc 0)))) 
 
-;; Bandit id: different random choices should get different
-;; ids, ideally structurally similar random choices should
-;; get the same id, just like addresses in Random DB
+;; Different random choices
+;; should get different ids, ideally structurally similar
+;; random choices should get the same id, just like
+;; addresses in Random DB. A bandit id a tuple:
+;;   [sample-id number-fo-previous-occurences]
 
-(defn bandit-id [smp trace]
+(defn bandit-id [smp state]
   "returns bandit id for the checkpoint"
-  [(:id smp) (preceding-occurences smp trace)])
+  [(:id smp) ((state ::counts) (:id smp) 0)])
 
 ;;;; MAP inference
 
@@ -163,7 +163,7 @@
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
   (let [state (:state smp)
-        id (bandit-id smp (state ::trace))
+        id (bandit-id smp state)
         bandit ((state ::bandits) id fresh-bandit)
 
         ;; Select a value as a bandit arm.
@@ -188,7 +188,7 @@
                   ;; and the new-arm-drawn flag may have been updated.
                   (assoc-in [::bandits id] bandit)
                   ;; Insert an entry for the random choice into the trace.
-                  (update-in [::trace] conj [id value past-reward]))]
+                  (record-random-choice id value past-reward))]
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
 
@@ -283,36 +283,37 @@
   [belief]
   ;; Number of draws controls the properties of the
   ;; heuristic.
-  (cond
-    ;;  When the number of draws is positive,
-    ;; increasing the number makes heuristic more
-    ;; conservative, that is the heuristic approaches
-    ;; admissibility.
-    (pos? @number-of-h-draws)
-    (let [h (- (reduce max (repeatedly @number-of-h-draws
-                                       #(bb-sample belief))))
-          h (if (Double/isNaN h) 0 (max h 0.))]
-      h)
+  (max 0. ;; The returned heuristic is never negative.
+       (cond
+         ;;  When the number of draws is positive,
+         ;; increasing the number makes heuristic more
+         ;; conservative, that is the heuristic approaches
+         ;; admissibility.
+         (pos? @number-of-h-draws)
+         (let [h (- (reduce max (repeatedly @number-of-h-draws
+                                            #(bb-sample belief))))
+               h (if (Double/isNaN h) 0. h)]
+           h)
 
-    ;;  When the number is 0, 0. is always
-    ;; returned, so that best-first becomes Dijkstra search
-    ;; and will always return the optimal solution first
-    ;; if the edge costs are non-negative (that is, if
-    ;; nodes are discrete, or continuous but the distributions
-    ;; are not too steep). 
-    (zero? @number-of-h-draws) 0.
+         ;;  When the number is 0, 0. is always
+         ;; returned, so that best-first becomes Dijkstra search
+         ;; and will always return the optimal solution first
+         ;; if the edge costs are non-negative (that is, if
+         ;; nodes are discrete, or continuous but the distributions
+         ;; are not too steep). 
+         (zero? @number-of-h-draws) 0.
 
-    ;; A negative number of draws triggers
-    ;; computing the heuristic as the mode of the belief
-    ;; rather than by sampling.
-    (neg? @number-of-h-draws) (bb-mode belief)))
+         ;; A negative number of draws triggers
+         ;; computing the heuristic as the mode of the belief
+         ;; rather than by sampling.
+         (neg? @number-of-h-draws) (bb-mode belief))))
 
 (defmethod expand embang.trap.sample [smp ol]
   ;; A sample node is expanded by inserting all of the
   ;; child nodes into the open list. The code partially
   ;; repeats the code of checkpoint [::algorithm sample].
   (let [state (:state smp)
-        id (bandit-id smp (state ::trace))
+        id (bandit-id smp state)
         bandit ((state ::bandits) id)
         ol (reduce
              ;; For every child of the latent variable
@@ -321,13 +322,14 @@
                ;; Update the state and the trace ...
                (let [past-reward (get-log-weight state)
                      state (-> state
-                               (add-log-weight (observe (:dist smp) value))
-                               (update-in [::trace]
-                                          conj [id value past-reward]))
+                               (add-log-weight
+                                 ;; The log-weight is truncated at 0
+                                 ;; to avoid divergence.
+                                 (min 0. (observe (:dist smp) value)))
+                               (record-random-choice id value past-reward))
                      ;; ... and compute cost estimate till
                      ;; the termination.
-                     f (+ (- past-reward)
-                          (distance-heuristic belief))]
+                     f (+ (- past-reward) (distance-heuristic belief))]
                  ;; If the distance estimate is 
                  ;; a meaningful number, insert the node
                  ;; into the open list.

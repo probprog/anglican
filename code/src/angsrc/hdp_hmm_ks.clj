@@ -4,18 +4,14 @@
                      add sub mul mmul inverse]
              :rename {identity-matrix eye}])
   (:use [embang emit runtime]
-        [angsrc dp-mem
+        [angsrc crp dp-mem
                 hdp-hmm-ks-data]))
 
 (with-primitive-procedures [eye join reshape
                             add sub mul mmul inverse]
   (defanglican hdp-hmm-ks
     ;; next 4 directives are an HDP-HMM backbone in CRF representation
-    [assume G-0 (lambda ()
-                  (let ((g (or (retrieve :G-0) (CRP 10.0)))
-                        (s (sample (produce g))))
-                    (store :G-0 (absorb g s))
-                    s))]
+    [assume G-0 (crp 10.0)]
     [assume sticky 0.2]
     [assume trans-dist (mem (lambda (state)
                                     (DPmem 1.0 G-0)))]
@@ -31,7 +27,10 @@
     [assume latent-dimension 3]
     ;; Dimensionality of MOCAP data
     [assume observable-dimension 62]
-  
+
+    ;; random source for MVN and Wishart
+    [assume sample-unit-normal (let ((dist (normal 0 1))) (lambda () (sample dist)))]
+
     ;; Motion parameters for each activity Kalman Filter
     ;;---------------------------------------------------
     ;; prior on A - state transition matrix 
@@ -39,29 +38,37 @@
             (lambda () (mul 0.9 (eye latent-dimension)))] 
     ;; prior on W where the process noise is drawn from Normal(w|0,W)
     [assume pose-transition-covariance-prior
-            (lambda ()
-              (inverse 
-               (sample (wishart (+ 1 latent-dimension)
-                                (mul 0.1 (eye latent-dimension))))))]
+            (let ((dist (wishart (+ 1 latent-dimension) (mul 0.1 (eye latent-dimension)))))
+              (lambda ()
+                (inverse 
+                 (transform-sample dist
+                                   (repeatedly (* (+ 1 latent-dimension) latent-dimension)
+                                               sample-unit-normal)))))]
+
     ;; prior on H, the measurement matrix relating state to
     ;; measurement. This needs to be 62x3 with reasonable
     ;; prior params.
     [assume measurement-multiple-prior 
-     (lambda ()
-       (reshape
-         ;;; 1 x 186
-         (join 
-           (sample (mvn (repeat observable-dimension 0) (eye observable-dimension))) ; 1x62
-           (sample (mvn (repeat observable-dimension 0) (eye observable-dimension))) ; 1x62
-           (sample (mvn (repeat observable-dimension 0) (eye observable-dimension)))) ; 1x62
-         '(3 62)))]
+     (let ((dist (mvn (repeat observable-dimension 0) (eye observable-dimension))))
+       (lambda ()
+         (reshape
+           ;;; 1 x 186
+           (join 
+             (transform-sample dist (repeatedly observable-dimension sample-unit-normal))
+             (transform-sample dist (repeatedly observable-dimension sample-unit-normal))
+             (transform-sample dist (repeatedly observable-dimension sample-unit-normal)))
+           '(3 62))))]
+
     ;; prior on Q, the true value of the measurement noise,
     ;; drawn from Normal(v|0,Q)
     [assume measurement-covariance-prior 
             (lambda () (mul 0.1 (eye observable-dimension)))]
+
+    ;; prior on initial pose
     [assume initial-pose 
-            (sample (mvn (repeat latent-dimension 0)
-                         (eye latent-dimension)))] ; prior on initial pose
+            (transform-sample (mvn (repeat latent-dimension 0)
+                                   (eye latent-dimension))
+                              (repeatedly latent-dimension sample-unit-normal))]
   
     ;; lazy per-activity activity model parameter generator
     [assume activity-motion-model-params 
@@ -80,9 +87,10 @@
     [assume Q (lambda (a) (nth (activity-motion-model-params a) 3))]
   
     ;; Pose noise is memoized to speed-up computation
-    [assume pose-noise
+    [assume sample-pose-noise
             (mem (lambda (a)
-                   (mvn (repeat latent-dimension 0.) (H a))))]
+                   (transform-sample (mvn (repeat latent-dimension 0.) (H a))
+                                     (repeatedly latent-dimension sample-unit-normal))))]
 
     ;; generator of true latent pose (single activity for
     ;; whole time sequence)
@@ -91,7 +99,7 @@
                    (if (<= t 0)
                      initial-pose
                      (add (mmul (latent-pose-single-activity a (- t 1)) (A a))
-                          (sample (pose-noise a))))))]
+                          (sample-pose-noise a)))))]
 
     ;; generator of true latent pose (varying activity)
     [assume latent-pose
@@ -99,7 +107,7 @@
                    (if (<= t 0)
                      initial-pose
                      (add (mmul (latent-pose (- t 1)) (A (activity (- t 1))))
-                          (sample (pose-noise (activity (- t 1))))))))]
+                          (sample-pose-noise (activity (- t 1)))))))]
 
     ;; Activity model parameters learned in parallel,
     ;; allowing the top-tier model to draw samples from

@@ -23,6 +23,7 @@
   `(~'let [~@(mapcat (fn [fun] [fun (symbol (str "$" fun))]) 
                      '[map reduce
                        filter
+                       repeatedly
                        comp partial])]
      ~@body))
 
@@ -164,6 +165,14 @@
    (empty? lst) lst
    (fun (first lst)) (cons (first lst) ($filter fun (rest lst)))
    :else ($filter fun (rest lst))))
+
+;; `repeatedly' is useful for sampling from multivariates
+;; using `transform-sample'
+(def-cps-fn $repeatedly
+  "repeatedly in CPS"
+  [n thunk]
+  (if (zero? n) nil
+    (cons (thunk) ($repeatedly (- n 1) thunk))))
 
 (def-cps-fn $comp
   "comp in CPS"
