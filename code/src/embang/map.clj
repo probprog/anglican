@@ -227,15 +227,29 @@
 
 (defrecord open-list [next-key queue])
 
+(def beam-width
+  "best-first search beam width"
+  (atom nil))
+
 (def empty-open-list
   "empty open list"
   (->open-list 0 (priority-map-keyfn-by node-key node-less)))
+
+(defn refocus-beam
+  "if the open list queue length exceeds twice beam-width,
+  cut the queue down to @beam-width"
+  [queue]
+  (if (and @beam-width
+           (> (count (:queue queue)) (* 2 @beam-width)))
+    (into empty-open-list (take @beam-width queue))
+    queue))
 
 (defn ol-insert
   "inserts node to the open list"
   [ol node]
   (-> ol
-      (update-in [:queue] #(conj % [(:next-key ol) node]))
+      (update-in [:queue] conj  [(:next-key ol) node])
+      (update-in [:queue] refocus-beam)
       (update-in [:next-key] inc)))
 
 (defn ol-pop
@@ -278,10 +292,10 @@
      ;; dispatches on the node type.
      (expand ((:comp node)) ol)))
 
-(def ^:dynamic *number-of-h-draws*
+(def number-of-h-draws
   "the number of draws from the belief
   to compute distance heuristic"
-  1)
+  (atom 1))
 
 (defn distance-heuristic
   "returns distance heuristic given belief"
@@ -294,8 +308,8 @@
          ;; increasing the number makes heuristic more
          ;; conservative, that is the heuristic approaches
          ;; admissibility.
-         (pos? *number-of-h-draws*)
-         (let [h (- (reduce max (repeatedly *number-of-h-draws*
+         (pos? @number-of-h-draws)
+         (let [h (- (reduce max (repeatedly @number-of-h-draws
                                             #(bb-sample belief))))
                h (if (Double/isNaN h) 0. h)]
            h)
@@ -306,12 +320,12 @@
          ;; if the edge costs are non-negative (that is, if
          ;; nodes are discrete, or continuous but the distributions
          ;; are not too steep). 
-         (zero? *number-of-h-draws*) 0.
+         (zero? @number-of-h-draws) 0.
 
          ;; A negative number of draws triggers
          ;; computing the heuristic as the mode of the belief
          ;; rather than by sampling.
-         (neg? *number-of-h-draws*) (bb-mode belief))))
+         (neg? @number-of-h-draws) (bb-mode belief))))
 
 (defmethod expand [::search embang.trap.sample] [smp ol]
   ;; A sample node is expanded by inserting all of the
@@ -357,12 +371,10 @@
 (defn maximum-a-posteriori
   "returns a sequence of end states
   of maximum a posteriori estimates"
-  [prog begin-state number-of-h-draws]
-  (binding [*number-of-h-draws* (or number-of-h-draws
-                                    *number-of-h-draws*)]
-    (trampoline
-     (expand (exec @search prog nil begin-state)
-             empty-open-list))))
+  [prog begin-state]
+  (trampoline
+   (expand (exec @search prog nil begin-state)
+           empty-open-list)))
 
 ;;; Inference method 
 
@@ -374,6 +386,7 @@
                     number-of-samples ; samples before branching
                     number-of-maps    ; MAP estimates per branch
                     number-of-h-draws ; random draws to compute h
+                    beam-width        ; search beam width
                     output-format    
                     results           ; a set of :predicts, :trace
                     increasing-maps]  ; consider MAP only if better
@@ -381,6 +394,11 @@
                   number-of-maps 1
                   results #{:predicts :trace}
                   increasing-maps false}}]
+
+  (when number-of-h-draws
+    (swap! embang.map/number-of-h-draws (fn [_] number-of-h-draws)))
+  (when beam-width
+    (swap! embang.map/beam-width (fn [_] beam-width)))
 
   (dotimes [_ number-of-passes]
     ;; Every pass extends G_prog by running a fixed number of samples.
@@ -401,8 +419,7 @@
           ;; Consume the sequence of end-states of MAP
           ;; estimates and print the predicts.
           (loop [imaps 0
-                 end-states (maximum-a-posteriori
-                              prog begin-state number-of-h-draws)
+                 end-states (maximum-a-posteriori prog begin-state)
                  max-map-weight Double/NEGATIVE_INFINITY]
             (when-not (= imaps number-of-maps)
               (let [[end-state & end-states] end-states]
