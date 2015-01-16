@@ -2,7 +2,7 @@
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [observe]]
-        [embang.map :exclude [distance-heuristic]]))
+        embang.map))
 
 ;;; Dynamic Weighing A* MAP search
 

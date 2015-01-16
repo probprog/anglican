@@ -177,13 +177,14 @@
         ;; Past reward is the reward collected upto
         ;; the current sampling point.
         past-reward (get-log-weight state)
+        ;; Edge reward is the probability of the sample
+        ;; conditioned on the prefix
+        edge-reward (observe (:dist smp) value)
         ;; Update the state:
         state (-> state
                   ;; Increment the log weight by the probability
-                  ;; of the sampled value, this is different from
-                  ;; the distribution inference and required for
-                  ;; MAP estimation.
-                  (add-log-weight (observe (:dist smp) value))
+                  ;; of the sampled value.
+                  (add-log-weight edge-reward)
                   ;; Re-insert the bandit, the bandit may be fresh,
                   ;; and the new-arm-drawn flag may have been updated.
                   (assoc-in [::bandits id] bandit)
@@ -305,30 +306,29 @@
   [_ _ belief]
   ;; Number of draws controls the properties of the
   ;; heuristic.
-  (max 0. ;; The returned heuristic is never negative.
-       (cond
-         ;;  When the number of draws is positive,
-         ;; increasing the number makes heuristic more
-         ;; conservative, that is the heuristic approaches
-         ;; admissibility.
-         (pos? *number-of-h-draws*)
-         (let [h (- (reduce max (repeatedly *number-of-h-draws*
-                                            #(bb-sample belief))))
-               h (if (Double/isNaN h) 0. h)]
-           h)
+  (cond
+    ;;  When the number of draws is positive,
+    ;; increasing the number makes heuristic more
+    ;; conservative, that is the heuristic approaches
+    ;; admissibility.
+    (pos? *number-of-h-draws*)
+    (let [h (- (reduce max (repeatedly *number-of-h-draws*
+                                       #(bb-sample belief))))
+          h (if (Double/isNaN h) 0. h)]
+      h)
 
-         ;;  When the number is 0, 0. is always
-         ;; returned, so that best-first becomes Dijkstra search
-         ;; and will always return the optimal solution first
-         ;; if the edge costs are non-negative (that is, if
-         ;; nodes are discrete, or continuous but the distributions
-         ;; are not too steep). 
-         (zero? *number-of-h-draws*) 0.
+    ;;  When the number is 0, 0. is always
+    ;; returned, so that best-first becomes Dijkstra search
+    ;; and will always return the optimal solution first
+    ;; if the edge costs are non-negative (that is, if
+    ;; nodes are discrete, or continuous but the distributions
+    ;; are not too steep). 
+    (zero? *number-of-h-draws*) 0.
 
-         ;; A negative number of draws triggers
-         ;; computing the heuristic as the mode of the belief
-         ;; rather than by sampling.
-         (neg? *number-of-h-draws*) (bb-mode belief))))
+    ;; A negative number of draws triggers
+    ;; computing the heuristic as the mode of the belief
+    ;; rather than by sampling.
+    (neg? *number-of-h-draws*) (bb-mode belief)))
 
 (defmethod expand embang.trap.sample [smp ol]
   ;; A sample node is expanded by inserting all of the
@@ -341,18 +341,18 @@
              ;; For every child of the latent variable
              ;; in the constructed subgraph of G_prog:
              (fn [ol [value belief]]
-               ;; Update the state and the trace ...
+               ;; Update the state and the trace.
                (let [past-reward (get-log-weight state)
+                     ;; The edge-reward is truncated at 0
+                     ;; to avoid divergence.
+                     edge-reward (min 0. (observe (:dist smp) value))
                      state (-> state
-                               (add-log-weight
-                                 ;; The log-weight is truncated at 0
-                                 ;; to avoid divergence.
-                                 (min 0. (observe (:dist smp) value)))
+                               (add-log-weight edge-reward)
                                (record-random-choice id value past-reward))
-                     ;; ... and compute cost estimate till
-                     ;; the termination.
+                     ;; Compute cost estimate till the termination.
                      f (+ (- past-reward)
-                          (distance-heuristic smp value belief))]
+                          (max (- edge-reward)
+                               (distance-heuristic smp value belief)))]
                  ;; If the distance estimate is 
                  ;; a meaningful number, insert the node
                  ;; into the open list.
