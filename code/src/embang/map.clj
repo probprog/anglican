@@ -396,9 +396,9 @@
                   increasing-maps false}}]
 
   (when number-of-h-draws
-    (swap! embang.map/number-of-h-draws (fn [_] number-of-h-draws)))
+    (reset! embang.map/number-of-h-draws number-of-h-draws))
   (when beam-width
-    (swap! embang.map/beam-width (fn [_] beam-width)))
+    (reset! embang.map/beam-width beam-width))
 
   (dotimes [_ number-of-passes]
     ;; Every pass extends G_prog by running a fixed number of samples.
