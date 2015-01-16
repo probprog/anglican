@@ -281,7 +281,7 @@
 
 (defmulti expand 
   "expands checkpoint nodes"
-  (fn [cpt ol] [*search* (type cpt)]))
+  (fn [cpt ol] (type cpt)))
 
 (defn next-node
   "pops and advances the next node in the open list"
@@ -297,9 +297,12 @@
   to compute distance heuristic"
   1)
 
-(defn distance-heuristic
-  "returns distance heuristic given belief"
-  [belief]
+(defmulti distance-heuristic
+  "heuristic used by search"
+  (fn [smp value belief] *search*))
+
+(defmethod distance-heuristic ::search
+  [_ _ belief]
   ;; Number of draws controls the properties of the
   ;; heuristic.
   (max 0. ;; The returned heuristic is never negative.
@@ -327,7 +330,7 @@
          ;; rather than by sampling.
          (neg? *number-of-h-draws*) (bb-mode belief))))
 
-(defmethod expand [::search embang.trap.sample] [smp ol]
+(defmethod expand embang.trap.sample [smp ol]
   ;; A sample node is expanded by inserting all of the
   ;; child nodes into the open list. The code partially
   ;; repeats the code of checkpoint [::algorithm sample].
@@ -348,7 +351,8 @@
                                (record-random-choice id value past-reward))
                      ;; ... and compute cost estimate till
                      ;; the termination.
-                     f (+ (- past-reward) (distance-heuristic belief))]
+                     f (+ (- past-reward)
+                          (distance-heuristic smp value belief))]
                  ;; If the distance estimate is 
                  ;; a meaningful number, insert the node
                  ;; into the open list.
@@ -363,7 +367,7 @@
     ;; from the open list.
     (next-node ol)))
 
-(defmethod expand [::search embang.trap.result] [res ol]
+(defmethod expand embang.trap.result [res ol]
   (cons (:state res)                    ; return the first estimate
         (lazy-seq                       ; and a lazy sequence of 
          (trampoline (next-node ol))))) ; future estimates
