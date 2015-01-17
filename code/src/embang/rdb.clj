@@ -3,4 +3,4 @@
 
 ;;;; Alias for Single-site Metropolis-Hastings
 
-(defn infer :rdb [& args] (apply infer :smh args))
+(defmethod infer :rdb [algorithm & args] (apply infer :smh args))

@@ -46,6 +46,11 @@
 ;;  [sample-id number-of-previous-occurences]
 ;; so that different random choices get different ids.
 
+(defn choice-id
+  "returns choice id for the sample checkpoint"
+  [smp state]
+  [(:id smp) ((state ::counts) (:id smp) 0)])
+
 ;;; Random database (RDB)
 
 ;; RDB is a mapping from choice-ids to the choosen values.
@@ -55,10 +60,7 @@
   [trace]
   (into {} (map (comp vec (juxt :choice-id :value)) trace)))
 
-(defn choice-id
-  "returns choice id for the sample checkpoint"
-  [smp state]
-  [(:id smp) ((state ::counts) (:id smp) 0)])
+;;; Inference
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
   (let [state (:state smp)
@@ -101,5 +103,5 @@
                          (Math/log (rand)))
                     next-state
                     state)]
-        (print-predicts state output-format)
+        (print-predicts (set-log-weight state 0.) output-format)
         (recur (inc i) state)))))
