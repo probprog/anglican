@@ -50,12 +50,14 @@
 
 ;; RDB is a mapping from choice-ids to the choosen values.
 
-(def mk-rdb [trace]
+(defn mk-rdb
   "creates random database from trace"
+  [trace]
   (into {} (map (comp vec (juxt :choice-id :value)) trace)))
 
-(defn choice-id [smp state]
+(defn choice-id
   "returns choice id for the sample checkpoint"
+  [smp state]
   [(:id smp) ((state ::counts) (:id smp) 0)])
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
@@ -71,9 +73,10 @@
         state (record-random-choice state id value log-p mk-cont)]
     #((:cont smp) value state)))
 
-(defn utility [state]
+(defn utility
   "computes state utility, used to determine
   the acceptance log-probability as (next-utility - prev-utility)"
+  [state]
   (+ (get-log-weight state)
      (reduce + (keep (fn [{:keys [choice-id log-p]}]
                        (when (contains? (state ::rdb) choice-id)
@@ -87,13 +90,16 @@
          state (:state (exec ::algorithm prog nil initial-state))]
     (when-not (= i number-of-samples)
       (let [entry (rand-nth (state ::trace))
-            rdb (dissoc (mk-rdb (state ::trace)) (:choice-id entry))
-            cont ((:mk-cont  entry) rdb)
-            next-state (:state (exec ::algorithm cont nil initial-state))
-            prev-state (assoc state (next-state ::rdb))
+
+            next-rdb (dissoc (mk-rdb (state ::trace)) (:choice-id entry))
+            next-state (:state (exec ::algorithm ((:mk-cont entry) next-rdb)
+                                     nil initial-state))
+            prev-rdb (dissoc (mk-rdb (next-state ::trace)) (:choice-id entry))
+            prev-state (assoc state ::rdb prev-rdb)
+
             state (if (> (- (utility next-state) (utility prev-state))
                          (Math/log (rand)))
                     next-state
                     state)]
-        (print-predicts state)
+        (print-predicts state output-format)
         (recur (inc i) state)))))
