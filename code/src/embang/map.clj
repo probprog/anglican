@@ -17,9 +17,10 @@
 (def initial-state
   "initial state for MAP estimation"
   (into embang.state/initial-state
-        {::bandits {}   ; multi-armed bandits
-         ::trace []     ; random choices
-         ::counts {}})) ; counts of occurences of `sample' checkpoints
+        {::bandits {}     ; multi-armed bandits
+         ::trace []       ; random choices
+         ::counts {}      ; counts of occurences of `sample' checkpoints
+         ::last-id nil})) ; last sample id
 
 ;;;; Bayesian updating, for randomized probability matching
 
@@ -141,9 +142,20 @@
 (defn record-random-choice
   "records random choice in the state"
   [state bandit-id value past-reward]
-  (-> state
-      (update-in [::trace] conj [bandit-id value past-reward])
-      (update-in [::counts (first bandit-id)] (fnil inc 0)))) 
+  (let [sample-id (first bandit-id)]
+    (-> state
+        (update-in [::trace] conj [bandit-id value past-reward])
+        (update-in [::counts sample-id]
+                   ;; If the count is positive but the last sample-id
+                   ;; is different, pad the count to decrease
+                   ;; the probability of address derailing.
+                   (fn [count]
+                     (inc (cond
+                            (nil? count) 0
+                            (not= sample-id
+                                  (state ::last-id)) (bit-or count 15)
+                            :else count))))
+        (assoc-in [::last-id] sample-id))))
 
 ;; Different random choices
 ;; should get different ids, ideally structurally similar
