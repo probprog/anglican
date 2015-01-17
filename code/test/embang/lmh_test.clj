@@ -1,6 +1,6 @@
-(ns embang.smh-test
+(ns embang.lmh-test
   (:require [clojure.test :refer [deftest testing is]])
-  (:use embang.smh))
+  (:use embang.lmh))
 
 (deftest test-mk-rdb
   (testing "mk-rdb"

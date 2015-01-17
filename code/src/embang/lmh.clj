@@ -1,9 +1,9 @@
-(ns embang.smh
+(ns embang.lmh
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [observe sample]]))
 
-;;;; Single-site Metropolis-Hastings
+;;;; Lightweight (single-site) Metropolis-Hastings
 
 (derive ::algorithm :embang.inference/algorithm)
 
@@ -99,7 +99,7 @@
                      (state ::trace)))
      (- (Math/log (count (state ::trace))))))
 
-(defmethod infer :smh [_ prog & {:keys [number-of-samples
+(defmethod infer :lmh [_ prog & {:keys [number-of-samples
                                         output-format]}]
   (loop [i 0
          state (:state (exec ::algorithm prog nil initial-state))]
