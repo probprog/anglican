@@ -15,9 +15,10 @@
         ;; the state is extended by two sequences,
         ;;   ::future-samples used by retained particle
         ;;   ::past-samples updated by allparticles
-        {::trace []      ; current random choices
-         ::rdb {}        ; stored random choices
-         ::counts {}}))  ; counts of occurences of `sample'
+        {::trace []       ; current random choices
+         ::rdb {}         ; stored random choices
+         ::counts {}      ; counts of occurences of each `sample'
+         ::last-id nil})) ; last sample id
 
 ;;; Trace
 
@@ -38,9 +39,21 @@
 (defn record-random-choice
   "records random choice in the state"
   [state choice-id value log-p mk-cont]
-  (-> state
-      (update-in [::trace] conj (->entry choice-id value log-p mk-cont))
-      (update-in [::counts (first choice-id)] (fnil inc 0))))
+  (let [sample-id (first choice-id)]
+    (-> state
+        (update-in [::trace]
+                   conj (->entry choice-id value log-p mk-cont))
+        (update-in [::counts sample-id]
+                   ;; If the count is positive but the last sample-id
+                   ;; is different, pad the count to decrease
+                   ;; the probability of address derailing.
+                   (fn [count]
+                     (inc (cond
+                            (nil? count) 0
+                            (not= sample-id
+                                  (state ::last-id)) (bit-or count 15)
+                            :else count))))
+        (assoc-in [::last-id] sample-id))))
 
 ;; choice-id is a tuple
 ;;  [sample-id number-of-previous-occurences]
