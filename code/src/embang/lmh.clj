@@ -66,7 +66,7 @@
 
 ;;; Random database (RDB)
 
-;; RDB is a mapping from choice-ids to the choosen values.
+;; RDB is a mapping from choice-ids to the chosen values.
 
 (defn mk-rdb
   "creates random database from trace"
