@@ -140,16 +140,16 @@
 
 (defn record-random-choice
   "records random choice in the state"
-  [state id value past-reward]
+  [state bandit-id value past-reward]
   (-> state
-      (update-in [::trace] conj [id value past-reward])
-      (update-in [::counts (first id)] (fnil inc 0)))) 
+      (update-in [::trace] conj [bandit-id value past-reward])
+      (update-in [::counts (first bandit-id)] (fnil inc 0)))) 
 
 ;; Different random choices
 ;; should get different ids, ideally structurally similar
 ;; random choices should get the same id, just like
 ;; addresses in Random DB. A bandit id a tuple:
-;;   [sample-id number-fo-previous-occurences]
+;;   [sample-id number-of-previous-occurences]
 
 (defn bandit-id [smp state]
   "returns bandit id for the checkpoint"

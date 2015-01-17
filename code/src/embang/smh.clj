@@ -1,0 +1,99 @@
+(ns embang.smh
+  (:use [embang.state :exclude [initial-state]]
+        embang.inference
+        [embang.runtime :only [observe sample]]))
+
+;;;; Single-site Metropolis-Hastings
+
+(derive ::algorithm :embang.inference/algorithm)
+
+;;; Initial state
+
+(def initial-state
+  "initial state for PGibbs protocol"
+  (into embang.state/initial-state
+        ;; the state is extended by two sequences,
+        ;;   ::future-samples used by retained particle
+        ;;   ::past-samples updated by allparticles
+        {::trace []      ; current random choices
+         ::rdb {}        ; stored random choices
+         ::counts {}}))  ; counts of occurences of `sample'
+
+;;; Trace
+
+;; The trace is a vector of entries
+;;   {choice-id value log-p mk-cont}
+;; where
+;;   - `choice-id' is the identifier of the random choice
+;;   - `value' is the value of random choice in the current
+;;     run,
+;;   - `log-p' is the log probability (mass or density) of
+;;     the value given the distribution,
+;;   - `mk-cont' is the continuation constructor that
+;;     accepts a new database and returns the continuation
+;;     that starts at the checkpoint.
+
+(defrecord entry [choice-id value log-p mk-cont])
+
+(defn record-random-choice
+  "records random choice in the state"
+  [state choice-id value log-p mk-cont]
+  (-> state
+      (update-in [::trace] conj (->entry choice-id value log-p mk-cont))
+      (update-in [::counts (first choice-id)] (fnil inc 0))))
+
+;; choice-id is a tuple
+;;  [sample-id number-of-previous-occurences]
+;; so that different random choices get different ids.
+
+;;; Random database (RDB)
+
+;; RDB is a mapping from choice-ids to the choosen values.
+
+(def mk-rdb [trace]
+  "creates random database from trace"
+  (into {} (map (comp vec (juxt :choice-id :value)) trace)))
+
+(defn choice-id [smp state]
+  "returns choice id for the sample checkpoint"
+  [(:id smp) ((state ::counts) (:id smp) 0)])
+
+(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
+  (let [state (:state smp)
+        id (choice-id smp state)
+        value (if (contains? (state ::rdb) id)
+                ((state ::rdb) id)
+                (sample (:dist smp)))
+        log-p (observe (:dist smp) value)
+        mk-cont (fn [rdb]
+                  (fn [_ state]
+                    (assoc-in smp [:state ::rdb] rdb)))
+        state (record-random-choice state id value log-p mk-cont)]
+    #((:cont smp) value state)))
+
+(defn utility [state]
+  "computes state utility, used to determine
+  the acceptance log-probability as (next-utility - prev-utility)"
+  (+ (get-log-weight state)
+     (reduce + (keep (fn [{:keys [choice-id log-p]}]
+                       (when (contains? (state ::rdb) choice-id)
+                         log-p))
+                     (state ::trace)))
+     (- (Math/log (count (state ::trace))))))
+
+(defmethod infer :smh [_ prog & {:keys [number-of-samples
+                                        output-format]}]
+  (loop [i 0
+         state (:state (exec ::algorithm prog nil initial-state))]
+    (when-not (= i number-of-samples)
+      (let [entry (rand-nth (state ::trace))
+            rdb (dissoc (mk-rdb (state ::trace)) (:choice-id entry))
+            cont ((:mk-cont  entry) rdb)
+            next-state (:state (exec ::algorithm cont nil initial-state))
+            prev-state (assoc state (next-state ::rdb))
+            state (if (> (- (utility next-state) (utility prev-state))
+                         (Math/log (rand)))
+                    next-state
+                    state)]
+        (print-predicts state)
+        (recur (inc i) state)))))
