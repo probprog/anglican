@@ -32,17 +32,15 @@
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
-(defmethod infer :smc [_ prog & {:keys [number-of-sweeps
-                                        number-of-particles
-                                        output-format]
+(defmethod infer :smc [_ prog & {:keys [number-of-particles]
                                  :or {number-of-particles 1}}]
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
-  (loop [i 0]
-    (when-not (= i number-of-sweeps)
-      (doseq [res (smc-sweep prog number-of-particles)]
-        (print-predicts (:state res) output-format))
-      (recur (inc i)))))
+  (letfn [(sample-seq []
+            (concat
+              (map :state (smc-sweep prog number-of-particles))
+              (lazy-seq (sample-seq))))]
+    (sample-seq)))
 
 ;;; Resampling particles
 

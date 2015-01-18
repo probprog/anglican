@@ -10,10 +10,8 @@
 
 (derive ::algorithm :embang.inference/algorithm)
 
-(defmethod infer :importance [_ prog & {:keys [number-of-samples
-                                               output-format]}]
-  (loop [i 0]
-    (when-not (= i number-of-samples)
-      (print-predicts (:state (exec ::algorithm prog nil initial-state))
-                      output-format)
-      (recur (inc i)))))
+(defmethod infer :importance [_ prog & {}]
+  (letfn [(sample-seq []
+            (cons (:state (exec ::algorithm prog nil initial-state))
+                  (lazy-seq (sample-seq))))]
+    (sample-seq)))

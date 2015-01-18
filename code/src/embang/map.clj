@@ -309,7 +309,7 @@
   "the number of draws from the belief
   to compute distance heuristic"
   1)
-
+:e
 (defmulti distance-heuristic
   "heuristic used by search"
   (fn [smp value belief] *search*))
@@ -324,10 +324,8 @@
     ;; conservative, that is the heuristic approaches
     ;; admissibility.
     (pos? *number-of-h-draws*)
-    (let [h (- (reduce max (repeatedly *number-of-h-draws*
-                                       #(bb-sample belief))))
-          h (if (Double/isNaN h) 0. h)]
-      h)
+    (- (reduce max (repeatedly *number-of-h-draws*
+                               #(bb-sample belief))))
 
     ;;  When the number is 0, 0. is always
     ;; returned, so that best-first becomes Dijkstra search
@@ -368,11 +366,11 @@
                  ;; If the distance estimate is 
                  ;; a meaningful number, insert the node
                  ;; into the open list.
-                 (if-not (Double/isNaN f)
-                   (ol-insert ol
-                              (->node
-                                #(exec ::search (:cont smp) value state)
-                                f))
+                 (if (Double/isFinite f)
+                   (ol-insert
+                     ol (->node
+                          #(exec ::search (:cont smp) value state)
+                          f))
                    ol)))
              ol (seq (:arms bandit)))]
     ;; Finally, remove and expand the next node 
@@ -424,9 +422,7 @@
         ;; back-propagated to the bandits representing subsets
         ;; of random choices.
         (let [end-state (:state (exec ::algorithm prog nil begin-state))
-              begin-state (if-not (Double/isNaN (get-log-weight end-state))
-                            (backpropagate end-state)
-                            begin-state)]
+              begin-state (backpropagate end-state)]
           (if-not (= isamples number-of-samples)
             (recur (inc isamples) begin-state)
 
