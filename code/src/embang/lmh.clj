@@ -77,15 +77,21 @@
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
   (let [state (:state smp)
-        id (choice-id smp state)
-        value (if (contains? (state ::rdb) id)
-                ((state ::rdb) id)
+        choice-id (choice-id smp state)
+        value (if (contains? (state ::rdb) choice-id)
+                ((state ::rdb) choice-id)
                 (sample (:dist smp)))
         log-p (observe (:dist smp) value)
+        value (if-not (Double/isFinite log-p) 
+                ;; The retained value is not in support,
+                ;; resample the value from the prior.
+                (sample (:dist smp))
+                value)
         mk-cont (fn [rdb]
                   (fn [_ state]
                     (assoc-in smp [:state ::rdb] rdb)))
-        state (record-random-choice state id value log-p mk-cont)]
+        state (record-random-choice state
+                                    choice-id value log-p mk-cont)]
     #((:cont smp) value state)))
 
 (defn utility
@@ -93,28 +99,37 @@
   the acceptance log-probability as (next-utility - prev-utility)"
   [state]
   (+ (get-log-weight state)
-     (reduce + (keep (fn [{:keys [choice-id log-p]}]
-                       (when (contains? (state ::rdb) choice-id)
-                         log-p))
-                     (state ::trace)))
+     (reduce + (keep
+                 (fn [{:keys [choice-id value log-p]}]
+                   (when (and (contains?  (state ::rdb) choice-id)
+                              ;; The value was present in the
+                              ;; database, but still resampled.
+                              (= value ((state ::rdb) choice-id)))
+                     log-p))
+                 (state ::trace)))
      (- (Math/log (count (state ::trace))))))
 
-(defmethod infer :lmh [_ prog & {:keys [number-of-samples
-                                        output-format]}]
-  (loop [i 0
-         state (:state (exec ::algorithm prog nil initial-state))]
-    (when-not (= i number-of-samples)
-      (let [entry (rand-nth (state ::trace))
+(defmethod infer :lmh [_ prog & {}]
+  (letfn
+    [(sample-seq [state]
+       (let [entry (rand-nth (state ::trace))
+             entry-id (:choice-id entry)
 
-            next-rdb (dissoc (mk-rdb (state ::trace)) (:choice-id entry))
-            next-state (:state (exec ::algorithm ((:mk-cont entry) next-rdb)
-                                     nil initial-state))
-            prev-rdb (dissoc (mk-rdb (next-state ::trace)) (:choice-id entry))
-            prev-state (assoc state ::rdb prev-rdb)
+             next-rdb (dissoc (mk-rdb (state ::trace)) entry-id)
+             next-prog ((:mk-cont entry) next-rdb)
+             next-state (:state (exec ::algorithm
+                                      next-prog nil initial-state))
 
-            state (if (> (- (utility next-state) (utility prev-state))
-                         (Math/log (rand)))
-                    next-state
-                    state)]
-        (print-predicts (set-log-weight state 0.) output-format)
-        (recur (inc i) state)))))
+             ;; Previous state is the state that would be obtained
+             ;; by transitioning from the new state to the current
+             ;; state.
+             prev-rdb (dissoc (mk-rdb (next-state ::trace)) entry-id)
+             prev-state (assoc state ::rdb prev-rdb)
+
+             state (if (> (- (utility next-state) (utility prev-state))
+                          (Math/log (rand)))
+                     next-state
+                     state)]
+         (lazy-seq
+           (cons (set-log-weight state 0.) (sample-seq state)))))]
+    (sample-seq (:state (exec ::algorithm prog nil initial-state)))))
