@@ -130,6 +130,6 @@
                           (Math/log (rand)))
                      next-state
                      state)]
-         (cons (set-log-weight state 0.)
-               (lazy-seq (sample-seq state)))))]
+         (lazy-seq
+           (cons (set-log-weight state 0.) (sample-seq state)))))]
     (sample-seq (:state (exec ::algorithm prog nil initial-state)))))

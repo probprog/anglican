@@ -221,6 +221,21 @@
                             update-bandit value (- reward past-reward))))
         (assoc initial-state ::bandits bandits)))))
 
+(defn G-prog
+  "builds G-prog gradually; returns a lazy sequence of states"
+  [prog number-of-samples]
+  (letfn [(state-seq [state]
+            (lazy-seq
+              (loop [isamples 0
+                     state state]
+                (prn isamples number-of-samples)
+                (if (= isamples number-of-samples)
+                  (cons state (state-seq state))
+                  (recur (inc isamples)
+                         (backpropagate 
+                           (:state (exec ::algorithm prog nil state))))))))]
+    (state-seq initial-state)))
+
 ;;; Best-first search
 
 ;; A node is a thunk.  Nodes are inserted into the open list
@@ -241,8 +256,7 @@
 (defrecord open-list [next-key queue])
 
 (def ^:dynamic *beam-width*
-  "best-first search beam width"
-  nil)
+  "best-first search beam width")
 
 (def empty-open-list
   "empty open list"
@@ -285,9 +299,8 @@
 (derive ::search :embang.inference/algorithm)
 
 (def ^:dynamic *search*
-  "atom holding the keyword to dispatch search methods on;
-  for comparing different search algorithms"
-  ::search)
+  "the keyword to dispatch search methods on;
+  for comparing different search algorithms")
 
 (defmethod checkpoint [::search embang.trap.sample] [_ smp]
   smp)
@@ -305,11 +318,10 @@
      ;; dispatches on the node type.
      (expand ((:comp node)) ol)))
 
-(def ^:dynamic *number-of-h-draws*
+(def ^:dynamic *number-of-draws*
   "the number of draws from the belief
-  to compute distance heuristic"
-  1)
-:e
+  to compute distance heuristic")
+
 (defmulti distance-heuristic
   "heuristic used by search"
   (fn [smp value belief] *search*))
@@ -323,8 +335,8 @@
     ;; increasing the number makes heuristic more
     ;; conservative, that is the heuristic approaches
     ;; admissibility.
-    (pos? *number-of-h-draws*)
-    (- (reduce max (repeatedly *number-of-h-draws*
+    (pos? *number-of-draws*)
+    (- (reduce max (repeatedly *number-of-draws*
                                #(bb-sample belief))))
 
     ;;  When the number is 0, 0. is always
@@ -333,12 +345,12 @@
     ;; if the edge costs are non-negative (that is, if
     ;; nodes are discrete, or continuous but the distributions
     ;; are not too steep). 
-    (zero? *number-of-h-draws*) 0.
+    (zero? *number-of-draws*) 0.
 
     ;; A negative number of draws triggers
     ;; computing the heuristic as the mode of the belief
     ;; rather than by sampling.
-    (neg? *number-of-h-draws*) (bb-mode belief)))
+    (neg? *number-of-draws*) (bb-mode belief)))
 
 (defmethod expand embang.trap.sample [smp ol]
   ;; A sample node is expanded by inserting all of the
@@ -378,17 +390,20 @@
     (next-node ol)))
 
 (defmethod expand embang.trap.result [res ol]
-  (cons (:state res)                    ; return the first estimate
-        (lazy-seq                       ; and a lazy sequence of 
-         (trampoline (next-node ol))))) ; future estimates
+  ;; returns a lazy sequence of MAP estimates
+  (lazy-seq                             
+    (cons (:state res) (trampoline (next-node ol)))))
 
-(defn maximum-a-posteriori
+(defn max-a-posteriori
   "returns a sequence of end states
   of maximum a posteriori estimates"
-  [prog begin-state]
-  (trampoline
-   (expand (exec *search* prog nil begin-state)
-           empty-open-list)))
+  [prog begin-state number-of-draws beam-width search]
+  (binding [*number-of-draws* number-of-draws
+            *beam-width* beam-width
+            *search* search]
+    (trampoline
+      (expand (exec *search* prog nil begin-state)
+            empty-open-list))))
 
 ;;; Inference method 
 
@@ -396,56 +411,41 @@
 ;; searching for MAP estimates on subgraphs.
 
 (defmethod infer :map
-  [_ prog & {:keys [number-of-passes  ; times to branch G_prog
-                    number-of-samples ; samples before branching
+  [_ prog & {:keys [number-of-samples ; samples before branching
                     number-of-maps    ; MAP estimates per branch
-                    number-of-h-draws ; random draws to compute h
+                    number-of-draws   ; random draws to compute h
                     beam-width        ; search beam width
-                    output-format    
-                    results           ; a set of :predicts, :trace
-                    increasing-maps]  ; consider MAP only if better
-             :or {number-of-passes 1
+                    increasing-maps   ; consider MAP only if better
+                    search]           ; search dispatch 
+             :or {number-of-samples 1
                   number-of-maps 1
-                  results #{:predicts :trace}
-                  increasing-maps false}}]
+                  number-of-draws 1
+                  beam-width nil
+                  increasing-maps false
+                  search ::search}}]
 
-  (binding [*number-of-h-draws* (or number-of-h-draws
-                                    *number-of-h-draws*)
-            *beam-width* (or beam-width
-                             *beam-width*)]
-    (dotimes [_ number-of-passes]
-      ;; Every pass extends G_prog by running a fixed number of samples.
-      (loop [isamples 0
-             begin-state initial-state]
-
-        ;; After each sample, the final rewards are
-        ;; back-propagated to the bandits representing subsets
-        ;; of random choices.
-        (let [end-state (:state (exec ::algorithm prog nil begin-state))
-              begin-state (backpropagate end-state)]
-          (if-not (= isamples number-of-samples)
-            (recur (inc isamples) begin-state)
-
-            ;; The program graph is ready for MAP search.
-            ;; Consume the sequence of end-states of MAP
-            ;; estimates and print the predicts.
-            (loop [imaps 0
-                   end-states (maximum-a-posteriori prog begin-state)
-                   max-map-weight Double/NEGATIVE_INFINITY]
-              (when-not (= imaps number-of-maps)
-                (let [[end-state & end-states] end-states]
-                  (when end-state  ; Otherwise, all paths were visited.
-                    (let [map-weight (Math/exp (get-log-weight end-state))]
-                      (if (or (> map-weight max-map-weight)
-                              (not increasing-maps))
-                        (do
-                          (when (contains? results :predicts)
-                            (print-predicts end-state output-format))
-                          (when (contains? (set results) :trace)
-                            ;; Print the trace as a special predict.
-                            (print-predict '$trace
-                                           (map second (::trace end-state))
-                                           map-weight
-                                           output-format))
-                          (recur (inc imaps) end-states map-weight))
-                        (recur imaps end-states max-map-weight)))))))))))))
+  (let [prog (warmup prog)
+        G-states (G-prog prog number-of-samples)]
+    (letfn 
+      [(state-seq [G-states map-states max-log-weight]
+         (lazy-seq
+           (if-let [[map-state & map-states] (seq map-states)]
+             (let [log-weight (get-log-weight map-state)]
+               (if (or (not increasing-maps)
+                       (> log-weight max-log-weight))
+                 ;; The map-state contains a usable MAP estimate.
+                 ;; Add the trace as a predict and include the
+                 ;; state in the returned lazy sequence.
+                 (let [map-state
+                       (add-predict map-state '$trace
+                                    (map second (::trace map-state)))]
+                   (cons map-state
+                         (state-seq G-states map-states log-weight)))
+                 (state-seq G-states map-states max-log-weight)))
+             (let [[state & G-states] G-states]
+               (state-seq G-states (max-a-posteriori
+                                     prog state
+                                     number-of-draws beam-width
+                                     search)
+                          max-log-weight)))))]
+      (state-seq G-states nil (Math/log 0.)))))

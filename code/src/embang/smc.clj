@@ -37,12 +37,12 @@
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
   (letfn [(sample-seq []
-            (concat
-              (map :state (smc-sweep prog number-of-particles))
-              (lazy-seq (sample-seq))))]
+            (lazy-seq
+              (let [particles (smc-sweep prog number-of-particles)]
+                (concat (map :state particles) (sample-seq)))))]
     (sample-seq)))
 
-;;; Resampling particles
+  ;;; Resampling particles
 
 ;; Systematic resampling is used. The particles are assigned
 ;; unit weight after resampling.

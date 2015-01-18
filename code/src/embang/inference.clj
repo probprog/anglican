@@ -9,7 +9,7 @@
 
 (defmulti infer 
   "main inference procedure, accepts algorithm, program, and
-  options; should print predicts using print-predicts"
+  options; returns a lazy sequence of states"
   (fn [algorithm & _] algorithm))
 
 ;;; Checkpoints

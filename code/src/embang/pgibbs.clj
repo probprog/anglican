@@ -106,10 +106,11 @@
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
   (letfn [(sample-seq [retained-state]
-            (let [particles (pgibbs-sweep
-                              prog retained-state number-of-particles)]
-              (concat (map :state particles)
-                      (lazy-seq
-                        (sample-seq (retained-initial-state
-                                      (rand-nth particles)))))))]
+            (lazy-seq
+              (let [particles (pgibbs-sweep
+                                prog retained-state number-of-particles)
+                    retained-state (retained-initial-state
+                                     (rand-nth particles))]
+                (concat (map :state particles)
+                        (sample-seq retained-state)))))]
     (sample-seq initial-state)))
