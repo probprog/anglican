@@ -2,13 +2,13 @@
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [observe]]
-        embang.map))
+        [embang.map :exlcude [distance-heuristic]]))
 
 ;;; Dynamic Weighing A* MAP search
 
 (derive ::search :embang.map/search)
 
-(defmethod distance-heuristic ::search
+(defn distance-heuristic 
   [smp value belief]
   ;; TODO
   0)
@@ -17,5 +17,6 @@
 
 (defmethod infer :map-dwa
   [_ prog & args]
-  (binding [*search* ::search]
-    (apply infer :map prog args)))
+  (apply infer :map prog 
+         :distance-heuristic distance-heuristic
+         args))
