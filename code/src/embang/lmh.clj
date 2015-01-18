@@ -77,19 +77,21 @@
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
   (let [state (:state smp)
-        id (choice-id smp state)
-        value (if (contains? (state ::rdb) id)
-                ((state ::rdb) id)
+        choice-id (choice-id smp state)
+        value (if (contains? (state ::rdb) choice-id)
+                ((state ::rdb) choice-id)
                 (sample (:dist smp)))
         log-p (observe (:dist smp) value)
         value (if-not (Double/isFinite log-p) 
-                ;; the retained value is not in support
+                ;; The retained value is not in support,
+                ;; resample the value from the prior.
                 (sample (:dist smp))
                 value)
         mk-cont (fn [rdb]
                   (fn [_ state]
                     (assoc-in smp [:state ::rdb] rdb)))
-        state (record-random-choice state id value log-p mk-cont)]
+        state (record-random-choice state
+                                    choice-id value log-p mk-cont)]
     #((:cont smp) value state)))
 
 (defn utility
@@ -100,6 +102,8 @@
      (reduce + (keep
                  (fn [{:keys [choice-id value log-p]}]
                    (when (and (contains?  (state ::rdb) choice-id)
+                              ;; The value was present in the
+                              ;; database, but still resampled.
                               (= value ((state ::rdb) choice-id)))
                      log-p))
                  (state ::trace)))
@@ -115,6 +119,10 @@
              next-prog ((:mk-cont entry) next-rdb)
              next-state (:state (exec ::algorithm
                                       next-prog nil initial-state))
+
+             ;; Previous state is the state that would be obtained
+             ;; by transitioning from the new state to the current
+             ;; state.
              prev-rdb (dissoc (mk-rdb (next-state ::trace)) entry-id)
              prev-state (assoc state ::rdb prev-rdb)
 

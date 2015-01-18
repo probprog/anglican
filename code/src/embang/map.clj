@@ -175,8 +175,8 @@
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
   (let [state (:state smp)
-        id (bandit-id smp state)
-        bandit ((state ::bandits) id fresh-bandit)
+        bandit-id (bandit-id smp state)
+        bandit ((state ::bandits) bandit-id fresh-bandit)
 
         ;; Select a value as a bandit arm.
         arm (select-arm bandit)
@@ -199,9 +199,9 @@
                   (add-log-weight edge-reward)
                   ;; Re-insert the bandit, the bandit may be fresh,
                   ;; and the new-arm-drawn flag may have been updated.
-                  (assoc-in [::bandits id] bandit)
+                  (assoc-in [::bandits bandit-id] bandit)
                   ;; Insert an entry for the random choice into the trace.
-                  (record-random-choice id value past-reward))]
+                  (record-random-choice bandit-id value past-reward))]
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
 
