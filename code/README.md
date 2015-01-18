@@ -87,19 +87,19 @@ or in the REPL. The simplest way to run the programs in the
 REPL is to use the `-main` function and pass it the command-line
 arguments:
 
-     lein run namespace [program] [option ...]
+    lein run namespace [program] [option ...]
 
 from the command line, or:
 
-     (m! namespace [program] [option ...])
+    (m! namespace [program] [option ...])
 
 in the REPL, where 'namespace' is the namespace containing the
 embedded Anglican program to run, for example:
 
-      bash$ lein run angsrc.branching -a pgibbs -n 100 \
+    bash$ lein run angsrc.branching -a pgibbs -n 100 \
                 -o ":number-of-particles 50"
 
-      embang.core=> (m! angsrc.branching -a pgibbs -n 100
+    embang.core=> (m! angsrc.branching -a pgibbs -n 100
                -o ":number-of-particles 50")
                
 'program' is the first argument of 'defanglican'. The namespace
