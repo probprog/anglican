@@ -58,7 +58,7 @@ point of view.
   return distribution objects. To obtain a sample from the
   object, `sample` must be called explicitly on the object.
 
-  3. Random processes are implemented functionally. `produce'
+  3. Random processes are implemented functionally. `produce`
   produces a static random source from the random process.
   Depending on the process, the returned value can be a 
   distribution, or a function returning a distribution. 
@@ -97,10 +97,10 @@ in the REPL, where 'namespace' is the namespace containing the
 embedded Anglican program to run, for example:
 
 	  bash$ lein run angsrc.branching -a pgibbs \
-				-o ":number-of-sweeps 10 :number-of-particles 50"
+				-o ":number-of-particles 50"
 
 	  embang.core=> (-main "angsrc.branching" "-a" "pgibbs"
-			   "-o" ":number-of-sweeps 10 :number-of-particles 50")
+			   "-o" ":number-of-particles 50")
 			   
 'program' is the first argument of 'defanglican'. The namespace
 may contain multiple programs. If 'program' is omitted, it defaults

@@ -129,9 +129,10 @@ Options:
                                    (warmup program)
                                    (:algorithm-options options))]
                 (when-not (= i (:number-of-samples options))
-                  (when-let [[state & states] (seq states)]
-                    (print-predicts state (:output-format options))
-                    (recur (inc i) (rest states)))))
+                  (when (seq states)
+                    (let [state (first states)]
+                      (print-predicts state (:output-format options))
+                      (recur (inc i) (rest states))))))
               (catch Exception e
                 (binding [*out* *err*]
                   (printf "Error during inference: %s\n" e))

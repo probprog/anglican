@@ -342,7 +342,7 @@
     ;; heuristic as the mode of the belief rather than by
     ;; sampling.
     (neg? number-of-draws) 
-    (fn [_ _ belief] (bb-mode belief))))
+    (fn [_ _ belief] (- (bb-mode belief)))))
 
 (defmethod expand embang.trap.sample [smp search]
   ;; A sample node is expanded by inserting all of the
@@ -440,10 +440,13 @@
                    (cons map-state
                          (state-seq G-states map-states log-weight)))
                  (state-seq G-states map-states max-log-weight)))
-             (let [[state & G-states] G-states]
-               (state-seq G-states (max-a-posteriori
-                                     prog state
-                                     number-of-draws beam-width
-                                     search)
-                          max-log-weight)))))]
+             (let [[state & G-states] G-states
+                   map-states (max-a-posteriori 
+                                prog state
+                                distance-heuristic
+                                number-of-draws beam-width)
+                   map-states (if (nil? number-of-maps)
+                                map-states
+                                (take number-of-maps map-states))]
+               (state-seq G-states map-states max-log-weight)))))]
       (state-seq G-states nil (Math/log 0.)))))
