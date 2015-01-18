@@ -102,8 +102,6 @@
      (reduce + (keep
                  (fn [{:keys [choice-id value log-p]}]
                    (when (and (contains?  (state ::rdb) choice-id)
-                              ;; The value was present in the
-                              ;; database, but still resampled.
                               (= value ((state ::rdb) choice-id)))
                      log-p))
                  (state ::trace)))
