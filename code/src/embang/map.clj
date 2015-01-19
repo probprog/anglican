@@ -213,7 +213,7 @@
   "back propagate reward to bandits"
   [state]
   (let [reward (get-log-weight state)]
-    (if (Double/isFinite reward)
+    (if (< (/ -1. 0.) reward (/ 1. 0.))
 
       ;; Detach the trace and the bandits from the existing
       ;; states, update the bandits and reattach them to 
@@ -387,7 +387,7 @@
                      ;; If the distance estimate is 
                      ;; a meaningful number, insert the node
                      ;; into the open list.
-                     (if (Double/isFinite f)
+                     (if (< (/ -1. 0.) f (/ 1. 0.))
                        (ol-insert
                          search (->node
                                   #(exec ::search

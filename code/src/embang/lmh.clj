@@ -82,7 +82,7 @@
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
         log-p (observe (:dist smp) value)
-        value (if-not (Double/isFinite log-p) 
+        value (if-not (< (/ -1. 0.) log-p (/ 1. 0.))
                 ;; The retained value is not in support,
                 ;; resample the value from the prior.
                 (sample (:dist smp))
