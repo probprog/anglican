@@ -213,15 +213,26 @@
   "back propagate reward to bandits"
   [state]
   (let [reward (get-log-weight state)]
-    (loop [trace (state ::trace)
-           bandits (state ::bandits)]
-      (if (seq trace)
-        (let [[{:keys [bandit-id value past-reward]} & trace] trace]
-          (recur trace
-                 (update-in bandits [bandit-id]
-                            ;; Bandit arms grow incrementally.
-                            update-bandit value (- reward past-reward))))
-        (assoc initial-state ::bandits bandits)))))
+    (if (Double/isFinite reward)
+
+      ;; Detach the trace and the bandits from the existing
+      ;; states, update the bandits and reattach them to 
+      ;; the initial state.
+      (loop [trace (state ::trace)
+             bandits (state ::bandits)]
+        (if (seq trace)
+          (let [[{:keys [bandit-id value past-reward]} & trace] trace]
+            (recur
+              trace
+              (update-in bandits [bandit-id]
+                         ;; Bandit arms grow incrementally.
+                         update-bandit value (- reward past-reward))))
+          (assoc initial-state ::bandits bandits)))
+
+      ;; If the reward is not meaningful, drop it and 
+      ;; carry over the bandits.
+      (assoc initial-state 
+             ::bandits (state ::bandits)))))
 
 (defn G-prog
   "builds G-prog gradually; returns a lazy sequence of states"
@@ -367,6 +378,7 @@
                                    (add-log-weight edge-reward)
                                    (record-random-choice
                                      bandit-id value past-reward))
+                         h ((:heuristic search) smp value belief)
                          ;; Compute cost estimate till termination.
                          f (+ (- past-reward)
                               (max (- edge-reward)
