@@ -139,12 +139,14 @@
 ;; where past reward is the reward accumulated before
 ;; reaching this random choice. 
 
+(defrecord entry [bandit-id value past-reward])
+
 (defn record-random-choice
   "records random choice in the state"
   [state bandit-id value past-reward]
   (let [sample-id (first bandit-id)]
     (-> state
-        (update-in [::trace] conj [bandit-id value past-reward])
+        (update-in [::trace] conj (->entry bandit-id value past-reward))
         (update-in [::counts sample-id]
                    ;; If the count is positive but the last sample-id
                    ;; is different, pad the count to decrease
@@ -211,15 +213,26 @@
   "back propagate reward to bandits"
   [state]
   (let [reward (get-log-weight state)]
-    (loop [trace (state ::trace)
-           bandits (state ::bandits)]
-      (if (seq trace)
-        (let [[[id value past-reward] & trace] trace]
-          (recur trace
-                 (update-in bandits [id]
-                            ;; Bandit arms grow incrementally.
-                            update-bandit value (- reward past-reward))))
-        (assoc initial-state ::bandits bandits)))))
+    (if (< (/ -1. 0.) reward (/ 1. 0.))
+
+      ;; Detach the trace and the bandits from the existing
+      ;; states, update the bandits and reattach them to 
+      ;; the initial state.
+      (loop [trace (state ::trace)
+             bandits (state ::bandits)]
+        (if (seq trace)
+          (let [[{:keys [bandit-id value past-reward]} & trace] trace]
+            (recur
+              trace
+              (update-in bandits [bandit-id]
+                         ;; Bandit arms grow incrementally.
+                         update-bandit value (- reward past-reward))))
+          (assoc initial-state ::bandits bandits)))
+
+      ;; If the reward is not meaningful, drop it and 
+      ;; carry over the bandits.
+      (assoc initial-state 
+             ::bandits (state ::bandits)))))
 
 (defn G-prog
   "builds G-prog gradually; returns a lazy sequence of states"
@@ -365,6 +378,7 @@
                                    (add-log-weight edge-reward)
                                    (record-random-choice
                                      bandit-id value past-reward))
+                         h ((:heuristic search) smp value belief)
                          ;; Compute cost estimate till termination.
                          f (+ (- past-reward)
                               (max (- edge-reward)
@@ -373,7 +387,7 @@
                      ;; If the distance estimate is 
                      ;; a meaningful number, insert the node
                      ;; into the open list.
-                     (if (Double/isFinite f)
+                     (if (< (/ -1. 0.) f (/ 1. 0.))
                        (ol-insert
                          search (->node
                                   #(exec ::search
@@ -444,7 +458,7 @@
                  ;; state in the returned lazy sequence.
                  (let [map-state
                        (add-predict map-state '$trace
-                                    (map second (::trace map-state)))]
+                                    (map :value (map-state ::trace)))]
                    (cons map-state
                          (state-seq G-states map-states log-weight)))
                  (state-seq G-states map-states max-log-weight)))
