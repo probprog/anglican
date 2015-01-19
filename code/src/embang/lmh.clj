@@ -98,14 +98,18 @@
   "computes state utility, used to determine
   the acceptance log-probability as (next-utility - prev-utility)"
   [state]
-  (+ (get-log-weight state)
-     (reduce + (keep
-                 (fn [{:keys [choice-id value log-p]}]
-                   (when (and (contains?  (state ::rdb) choice-id)
-                              (= value ((state ::rdb) choice-id)))
-                     log-p))
-                 (state ::trace)))
-     (- (Math/log (count (state ::trace))))))
+  (reduce +
+          ;; log-probability of observed values
+          (- (get-log-weight state)
+             (Math/log (count (state ::trace))))
+
+          ;; log-probability of rescored samples
+          (keep
+            (fn [{:keys [choice-id value log-p]}]
+              (when (and (contains?  (state ::rdb) choice-id)
+                         (= value ((state ::rdb) choice-id)))
+                log-p))
+            (state ::trace))))
 
 (defmethod infer :lmh [_ prog & {}]
   (letfn
