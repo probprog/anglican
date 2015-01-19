@@ -98,40 +98,39 @@
   "computes state utility, used to determine
   the acceptance log-probability as (next-utility - prev-utility)"
   [state]
-  (reduce +
-          ;; log-probability of observed values
-          (- (get-log-weight state)
-             (Math/log (count (state ::trace))))
+  (+ ;; log-probability of observed values
+     (- (get-log-weight state)
+        (Math/log (count (state ::trace))))
 
-          ;; log-probability of rescored samples
-          (keep
-            (fn [{:keys [choice-id value log-p]}]
-              (when (and (contains?  (state ::rdb) choice-id)
-                         (= value ((state ::rdb) choice-id)))
-                log-p))
-            (state ::trace))))
+     ;; log-probability of rescored samples
+     (reduce + (keep
+                 (fn [{:keys [choice-id value log-p]}]
+                   (when (and (contains?  (state ::rdb) choice-id)
+                              (= value ((state ::rdb) choice-id)))
+                     log-p))
+                 (state ::trace)))))
 
 (defmethod infer :lmh [_ prog & {}]
   (letfn
     [(sample-seq [state]
-       (let [entry (rand-nth (state ::trace))
-             entry-id (:choice-id entry)
+       (lazy-seq
+         (let [entry (rand-nth (state ::trace))
+               entry-id (:choice-id entry)
 
-             next-rdb (dissoc (mk-rdb (state ::trace)) entry-id)
-             next-prog ((:mk-cont entry) next-rdb)
-             next-state (:state (exec ::algorithm
-                                      next-prog nil initial-state))
+               next-rdb (dissoc (mk-rdb (state ::trace)) entry-id)
+               next-prog ((:mk-cont entry) next-rdb)
+               next-state (:state (exec ::algorithm
+                                        next-prog nil initial-state))
 
-             ;; Previous state is the state that would be obtained
-             ;; by transitioning from the new state to the current
-             ;; state.
-             prev-rdb (dissoc (mk-rdb (next-state ::trace)) entry-id)
-             prev-state (assoc state ::rdb prev-rdb)
+               ;; Previous state is the state that would be obtained
+               ;; by transitioning from the new state to the current
+               ;; state.
+               prev-rdb (dissoc (mk-rdb (next-state ::trace)) entry-id)
+               prev-state (assoc state ::rdb prev-rdb)
 
-             state (if (> (- (utility next-state) (utility prev-state))
-                          (Math/log (rand)))
-                     next-state
-                     state)]
-         (lazy-seq
+               state (if (> (- (utility next-state) (utility prev-state))
+                            (Math/log (rand)))
+                       next-state
+                       state)]
            (cons (set-log-weight state 0.) (sample-seq state)))))]
     (sample-seq (:state (exec ::algorithm prog nil initial-state)))))

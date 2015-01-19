@@ -139,12 +139,14 @@
 ;; where past reward is the reward accumulated before
 ;; reaching this random choice. 
 
+(defrecord entry [bandit-id value past-reward])
+
 (defn record-random-choice
   "records random choice in the state"
   [state bandit-id value past-reward]
   (let [sample-id (first bandit-id)]
     (-> state
-        (update-in [::trace] conj [bandit-id value past-reward])
+        (update-in [::trace] conj (->entry bandit-id value past-reward))
         (update-in [::counts sample-id]
                    ;; If the count is positive but the last sample-id
                    ;; is different, pad the count to decrease
@@ -214,9 +216,9 @@
     (loop [trace (state ::trace)
            bandits (state ::bandits)]
       (if (seq trace)
-        (let [[[id value past-reward] & trace] trace]
+        (let [[{:keys [bandit-id value past-reward]} & trace] trace]
           (recur trace
-                 (update-in bandits [id]
+                 (update-in bandits [bandit-id]
                             ;; Bandit arms grow incrementally.
                             update-bandit value (- reward past-reward))))
         (assoc initial-state ::bandits bandits)))))
@@ -444,7 +446,7 @@
                  ;; state in the returned lazy sequence.
                  (let [map-state
                        (add-predict map-state '$trace
-                                    (map second (::trace map-state)))]
+                                    (map :value (map-state ::trace)))]
                    (cons map-state
                          (state-seq G-states map-states log-weight)))
                  (state-seq G-states map-states max-log-weight)))
