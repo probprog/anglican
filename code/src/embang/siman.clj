@@ -132,4 +132,3 @@
                     (take number-of-maps map-seq)
                     map-seq)]
       (sample-seq map-seq (Math/log 0.)))))
-
