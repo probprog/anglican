@@ -1,9 +1,9 @@
-(ns embang.lmh
+(ns embang.siman
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [observe sample]]))
 
-;;;; Lightweight (single-site) Metropolis-Hastings
+;;;; Finding MAP of the trace using simulated annealing
 
 (derive ::algorithm :embang.inference/algorithm)
 
@@ -23,26 +23,24 @@
 ;;; Trace
 
 ;; The trace is a vector of entries
-;;   {choice-id value log-p mk-cont}
+;;   {choice-id value mk-cont}
 ;; where
 ;;   - `choice-id' is the identifier of the random choice
 ;;   - `value' is the value of random choice in the current
 ;;     run,
-;;   - `log-p' is the log probability (mass or density) of
-;;     the value given the distribution,
 ;;   - `mk-cont' is the continuation constructor that
 ;;     accepts a new database and returns the continuation
 ;;     that starts at the checkpoint.
 
-(defrecord entry [choice-id value log-p mk-cont])
+(defrecord entry [choice-id value mk-cont])
 
 (defn record-random-choice
   "records random choice in the state"
-  [state choice-id value log-p mk-cont]
+  [state choice-id value mk-cont]
   (let [sample-id (first choice-id)]
     (-> state
         (update-in [::trace]
-                   conj (->entry choice-id value log-p mk-cont))
+                   conj (->entry choice-id value mk-cont))
         (update-in [::counts sample-id]
                    ;; If the count is positive but the last sample-id
                    ;; is different, pad the count to decrease
@@ -90,29 +88,16 @@
         mk-cont (fn [rdb]
                   (fn [_ state]
                     (assoc-in smp [:state ::rdb] rdb)))
-        state (record-random-choice state
-                                    choice-id value log-p mk-cont)]
+        state (-> state
+                  (add-log-weight log-p)
+                  (record-random-choice choice-id value mk-cont))]
     #((:cont smp) value state)))
 
-(defn utility
-  "computes state utility, used to determine
-  the acceptance log-probability as (next-utility - prev-utility)"
-  [state]
-  (+ ;; log-probability of observed values
-     (- (get-log-weight state)
-        (Math/log (count (state ::trace))))
-
-     ;; log-probability of rescored samples
-     (reduce + (keep
-                 (fn [{:keys [choice-id value log-p]}]
-                   (when (and (contains?  (state ::rdb) choice-id)
-                              (= value ((state ::rdb) choice-id)))
-                     log-p))
-                 (state ::trace)))))
-
-(defmethod infer :lmh [_ prog & {}]
+(defmethod infer :siman [_ prog & {:keys [cooling-rate
+                                          number-of-maps]
+                                   :or {cooling-rate 0.001}}]
   (letfn
-    [(sample-seq [state]
+    [(map-seq [state T]
        (lazy-seq
          (let [entry (rand-nth (state ::trace))
                entry-id (:choice-id entry)
@@ -122,15 +107,29 @@
                next-state (:state (exec ::algorithm
                                         next-prog nil initial-state))
 
-               ;; Previous state is the state that would be obtained
-               ;; by transitioning from the new state to the current
-               ;; state.
-               prev-rdb (dissoc (mk-rdb (next-state ::trace)) entry-id)
-               prev-state (assoc state ::rdb prev-rdb)
-
-               state (if (> (- (utility next-state) (utility prev-state))
+               state (if (> (/ (- (get-log-weight next-state)
+                                  (get-log-weight state))
+                               (+ 1. (* cooling-rate T)))
                             (Math/log (rand)))
                        next-state
                        state)]
-           (cons (set-log-weight state 0.) (sample-seq state)))))]
-    (sample-seq (:state (exec ::algorithm prog nil initial-state)))))
+           
+             (cons (add-predict state
+                                '$trace (map :value (::trace state)))
+                   (map-seq state (inc T))))))
+
+     (sample-seq [map-seq max-log-weight]
+       (lazy-seq
+         (when-let [[map & map-seq] map-seq]
+           (if (> (get-log-weight map) max-log-weight)
+             (cons map (sample-seq map-seq (get-log-weight map)))
+             (sample-seq map-seq max-log-weight)))))]
+
+    (let [map-seq (map-seq
+                     (:state (exec ::algorithm
+                                   prog nil initial-state)) 0)
+          map-seq (if number-of-maps
+                    (take number-of-maps map-seq)
+                    map-seq)]
+      (sample-seq map-seq (Math/log 0.)))))
+
