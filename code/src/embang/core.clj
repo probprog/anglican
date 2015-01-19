@@ -2,8 +2,20 @@
   (:gen-class)
   (:require [clojure.string :as str]
             [clojure.tools.cli :as cli])
-  (:use [embang.inference :only [warmup infer]])
+  (:use [embang.inference :only [warmup infer print-predicts]])
   (:use embang.results))
+
+(defn validate-algorithm
+  "validate algorithm by requiring the namespace"
+  [algorithm]
+  (let [algorithm-namespace (symbol
+                              (format "embang.%s" (name algorithm)))]
+    (try (require algorithm-namespace) true
+      (catch Exception e
+        (binding [*out* *err*]
+          (printf "ERROR loading namespace '%s':\n\t%s\n"
+                  algorithm-namespace e))
+        false))))
 
 (defn load-program
   "loads program from clojure module"
@@ -16,11 +28,23 @@
 (def cli-options
   [;; problems
    ["-a" "--inference-algorithm NAME" "Inference algorithm"
-    :default "pgibbs"]
+    :default "lmh"
+    :parse-fn keyword
+    :validate [validate-algorithm "unrecognized algorithm name."]]
 
    ["-d" "--debug" "Print debugging information"
     :default false
     :flag true]
+
+   ["-f" "--output-format FORMAT" "output format"
+    :default :anglican
+    :parse-fn keyword
+    :validate [#{:anglican :clojure :json}
+               "must be one of anglican, clojure, json."]]
+
+   ["-n" "--number-of-samples N" "total number of samples to output"
+    :default nil
+    :parse-fn #(Integer/parseInt %)]
 
    ["-o" "--algorithm-options OPTIONS" "Algorithm options"
     :default []
@@ -32,15 +56,16 @@
   (str "Usage:
      lein run namespace [program] [option ...]
 from the command line, or:
-     (-main \"namespace\" [\"program\"] [\"option\" ...])
+     (m! namespace [program] [\"option\" ...])
 in the REPL, where `namespace' is the namespace containing the
 embedded Anglican program to run, for example:
 
-  bash$ lein run angsrc.branching -a pgibbs \\
-            -o \":number-of-sweeps 10 :number-of-particles 50\"
+  bash$ lein run angsrc.branching -a pgibbs -n 500 \\
+            -o \":number-of-particles 50\"
 
-  embang.core=> (-main \"angsrc.branching\" \"-a\" \"pgibbs\"
-           \"-o\" \":number-of-sweeps 10 :number-of-particles 50\")
+  embang.core=> (m! -a pgibbs -n 500 -o \":number-of-particles 50\"
+                    angsrc.branching)
+
 `program' is the first argument of `defanglican'. The namespace
 may contain multiple programs. If `program' is omitted, it defaults
 to the last component of the namespace (hmm for anglican.hmm,
@@ -50,8 +75,7 @@ Options:
 " summary))
 
 (defn error-msg [errors]
-  (str "Error:\n\n"
-       (str/join \newline errors)))
+  (str/join "\n\t" (cons "ERROR parsing the command line:" errors)))
 
 (defn -main
   "transforms anglican program to clojure code;
@@ -62,66 +86,67 @@ Options:
 
     ;; Handle help and error conditions.
     (cond
-     (:help options) (binding [*out* *err*]
-                       (println (usage summary)))
-     
-     errors (binding [*out* *err*]
-              (println (error-msg errors)))
+      (:help options) (binding [*out* *err*]
+                        (println (usage summary)))
 
-     (empty? arguments) (binding [*out* *err*]
-                          (println (usage summary)))
+      errors (binding [*out* *err*]
+               (println (error-msg errors)))
 
-     :else
-     (let [[nsname progname] (if (next arguments) arguments
-                                 [(first arguments)
-                                  (str/replace (first arguments)
-                                               #".+\." "")])
-           inference-algorithm (:inference-algorithm options)
-           algorithm-options (:algorithm-options options)]
+      (empty? arguments) (binding [*out* *err*]
+                           (println (usage summary)))
 
-       (printf (str ";; Program: %s/%s\n"
-                    ";; Inference algorithm: %s\n"
-                    ";; Algorithm options: %s\n")
-               nsname progname
-               (:inference-algorithm options)
-               (str/join
-                (map (fn [[name value]]
-                       (format "\n;;\t%s %s" name value))
-                     (partition 2 (:algorithm-options options)))))
-       (flush)
+      :else
+      (let [[nsname progname] (if (next arguments) arguments
+                                [(first arguments)
+                                 (str/replace (first arguments)
+                                              #".+\." "")])
+            inference-algorithm (:inference-algorithm options)
+            algorithm-options (:algorithm-options options)]
 
-       ;; load the algorithm namespace dynamically
-       (try
-         (require (symbol (format "embang.%s"
-                                  (:inference-algorithm options))))
+        (printf (str ";; Program: %s/%s\n"
+                     ";; Inference algorithm: %s\n"
+                     ";; Number of samples: %s\n"
+                     ";; Output format: %s\n"
+                     ";; Algorithm options: %s\n")
+                nsname progname
+                (:inference-algorithm options)
+                (:number-of-samples options)
+                (:output-format options)
+                (str/join
+                  (map (fn [[name value]]
+                         (format "\n;;\t%s %s" name value))
+                       (partition 2 (:algorithm-options options)))))
+        (flush)
 
-         ;; load the program
-         (try
-           (let [program (load-program nsname progname)]
-             ;; if loaded, run the inference.
-             (try
-               (apply infer (keyword (:inference-algorithm options))
-                      (warmup program) (:algorithm-options options))
-               (catch Exception e
-                 (binding [*out* *err*]
-                   (printf "Error during inference: %s\n" e))
-                 (when (:debug options)
-                   (.printStackTrace e)))))
+        ;; load the program
+        (try
+          (let [program (load-program nsname progname)]
 
-           ;; otherwise, could not load the program
-           (catch Exception e
-             (binding [*out* *err*]
-               (printf "ERROR loading program '%s/%s':\n\t%s\n"
-                       nsname progname e)
-               (flush)
-               (when (:debug options)
-                 (.printStackTrace e)))))
+            ;; if loaded, run the inference.
+            (try
+              (loop [i 0
+                     states (apply infer (:inference-algorithm options)
+                                   (warmup program)
+                                   (:algorithm-options options))]
+                (when-not (= i (:number-of-samples options))
+                  (when (seq states)
+                    (let [state (first states)]
+                      (print-predicts state (:output-format options))
+                      (recur (inc i) (rest states))))))
+              (catch Exception e
+                (binding [*out* *err*]
+                  (printf "Error during inference: %s\n" e))
+                (when (:debug options)
+                  (.printStackTrace e)))))
 
-         ;; otherwise, could not load the namespace
-         (catch Exception e
-           (binding [*out* *err*]
-             (printf "ERROR loading namespace 'embang.%s':\n\t%s\n"
-                     (:inference-algorithm options) e))))))))
+          ;; otherwise, could not load the program
+          (catch Exception e
+            (binding [*out* *err*]
+              (printf "ERROR loading program '%s/%s':\n\t%s\n"
+                      nsname progname e)
+              (flush)
+              (when (:debug options)
+                (.printStackTrace e)))))))))
 
 (defmacro m!
   "invoking -main from the REPL"

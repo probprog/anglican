@@ -101,18 +101,16 @@
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
-(defmethod infer :pgibbs [_ prog & {:keys [number-of-sweeps
-                                           number-of-particles
-                                           output-format]
+(defmethod infer :pgibbs [_ prog & {:keys [number-of-particles]
                                     :or {number-of-particles 2}}]
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
-  (loop [i 0
-         retained-state initial-state]
-    (when-not (= i number-of-sweeps)
-      (let [particles (pgibbs-sweep
-                        prog retained-state number-of-particles)]
-        (doseq [res particles]
-          (print-predicts (:state res) output-format))
-        (recur (inc i) 
-               (retained-initial-state (rand-nth particles)))))))
+  (letfn [(sample-seq [retained-state]
+            (lazy-seq
+              (let [particles (pgibbs-sweep
+                                prog retained-state number-of-particles)
+                    retained-state (retained-initial-state
+                                     (rand-nth particles))]
+                (concat (map :state particles)
+                        (sample-seq retained-state)))))]
+    (sample-seq initial-state)))
