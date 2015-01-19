@@ -398,6 +398,10 @@
   (trampoline
     (expand (exec ::search prog nil begin-state)
             (new-search 
+              ;; The default heuristic use a number of draws
+              ;; from the belief to estimate the distance to 
+              ;; goal. An alternative heuristic can be passed
+              ;; for the purpose of comparative evaluation.
               (or distance-heuristic
                   (mk-distance-heuristic number-of-draws))
               beam-width))))
@@ -422,12 +426,16 @@
                   beam-width nil
                   increasing-maps false}}]
 
-  (let [prog (warmup prog)
-        G-states (G-prog prog number-of-samples)]
+  (let [G-states (G-prog prog number-of-samples)]
     (letfn 
+      ;; Alternate between building G_prog and searching
+      ;; for MAP estimates.
       [(state-seq [G-states map-states max-log-weight]
          (lazy-seq
            (if-let [[map-state & map-states] (seq map-states)]
+
+             ;; There are still some MAP estimates to consider
+             ;; given the current partial G_prog.
              (let [log-weight (get-log-weight map-state)]
                (if (or (not increasing-maps)
                        (> log-weight max-log-weight))
@@ -440,13 +448,20 @@
                    (cons map-state
                          (state-seq G-states map-states log-weight)))
                  (state-seq G-states map-states max-log-weight)))
+
+             ;; No more MAP estimates for the current graph are
+             ;; left, extend partial G_prog and search again.
              (let [[state & G-states] G-states
                    map-states (max-a-posteriori 
                                 prog state
                                 distance-heuristic
                                 number-of-draws beam-width)
+                   ;; If there is a cap on the number of MAP estimates
+                   ;; considered for a given partial G_prog, truncate
+                   ;; the sequence.
                    map-states (if (nil? number-of-maps)
                                 map-states
                                 (take number-of-maps map-states))]
                (state-seq G-states map-states max-log-weight)))))]
+
       (state-seq G-states nil (Math/log 0.)))))
