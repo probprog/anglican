@@ -95,8 +95,9 @@
         cont (fn [_ update]
                ;; Continuation which starts from this checkpoint
                ;; --- called when the random choice is selected
-               ;; for resampling. Update overrides the state.
+               ;; for resampling.
                (update-in smp [:state]
+                          ;; Update fields override state fields.
                           (fn [state]
                             (merge-with #(or %2 %1) state update))))
         state (record-random-choice state
