@@ -10,6 +10,18 @@
       (is (= (observe dist 'z) (Math/log 0.))
           "observing value not in support"))))
 
+(deftest test-uniform-discrete
+  (testing "uniform-discrete"
+    (let [dist (uniform-discrete 0 3)]
+      (is (= (observe dist 1) (Math/log (/ 1. 3.)))
+          "values in domain are uniformly distributed")
+      (is (= (observe dist 3) (Math/log 0.))
+          "upper bound is not in the domain")
+      (is (= (observe dist -1) (Math/log 0.))
+          "values not in the range have zero probability")
+      (is (= (observe dist 0.5) (Math/log 0.))
+          "values of wrong type have zero probability"))))
+
 (deftest test-CRP
   (testing  "CRP"
     (let [proc (CRP 1.0)]
