@@ -157,7 +157,11 @@
   (let [dist (cern.jet.random.Uniform. @RNG)]
     (reify distribution
       (sample [this] (< (.nextDouble dist) p))
-      (observe [this value] (Math/log (if value p (- 1. p)))))))
+      (observe [this value]
+        (Math/log (case value
+                    true p
+                    false (- 1. p)
+                    0.))))))
 
 (from-colt gamma [shape rate] double)
 (from-colt normal [mean sd] double)
@@ -171,12 +175,17 @@
 
 (defn uniform-discrete
   "uniform discrete distribution"
-  [min max] {:pre [(integer? min) (integer? max)]}
+  [min max]
+  {:pre [(integer? min) (integer? max)]}
   (let [dist (uniform-continuous min max)
         p (/ 1. (- max min))]
     (reify distribution
       (sample [this] (int (sample dist)))
-      (observe [this _] p))))
+      (observe [this value] 
+        (Math/log 
+          (if (and (integer? value)
+                   (<= min value) (< value max))
+            p 0.))))))
 
 (defprotocol multivariate-distribution
   "additional methods for multivariate distributions"
@@ -275,22 +284,23 @@
 (defn CRP
   "Chinese Restaurant process"
   ([alpha] (CRP alpha []))
-  ([alpha counts] {:pre [(vector? counts)]}
-     (reify
-       random-process
-       (produce [this]
-         (let [dist (discrete (conj counts alpha))]
-           (reify distribution
-             (sample [this] (sample dist))
-             (observe [this sample]
-               ;; Observing any new sample has the same probability.
-               (observe dist (min (count counts) sample))))))
-       (absorb [this sample] 
-           (CRP alpha
-                (-> counts
-                    ;; Fill the counts with zeroes until the new sample.
-                    (into (repeat (+ (- sample (count counts)) 1) 0))
-                    (update-in [sample] inc)))))))
+  ([alpha counts]
+   {:pre [(vector? counts)]}
+   (reify
+     random-process
+     (produce [this]
+       (let [dist (discrete (conj counts alpha))]
+         (reify distribution
+           (sample [this] (sample dist))
+           (observe [this sample]
+             ;; Observing any new sample has the same probability.
+             (observe dist (min (count counts) sample))))))
+     (absorb [this sample] 
+       (CRP alpha
+            (-> counts
+                ;; Fill the counts with zeroes until the new sample.
+                (into (repeat (+ (- sample (count counts)) 1) 0))
+                (update-in [sample] inc)))))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"
