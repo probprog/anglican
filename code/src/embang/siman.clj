@@ -95,20 +95,27 @@
                   (record-random-choice choice-id value mk-cont))]
     #((:cont smp) value state)))
 
+;;; State transition
+
+(defn mk-next-state
+  "produces next state given current state
+  and the trace entry to resample"
+  [state entry]
+  (let [rdb (dissoc (mk-rdb (state ::trace)) (:choice-id entry))
+        prog ((:mk-cont entry) rdb)]
+    (:state (exec ::algorithm prog nil initial-state))))
+
 (defmethod infer :siman [_ prog & {:keys [cooling-rate
-                                          number-of-maps]
+                                          number-of-samples]
                                    :or {cooling-rate 0.99}}]
+  ;; The MAP inference consists of two chained transformations,
+  ;; `sample-seq', followed by `map-seq'.
   (letfn
-    [(map-seq [state T]
+    [(sample-seq [state T]
+       ;; Produces samples via simulated annealing.
        (lazy-seq
          (let [entry (rand-nth (state ::trace))
-               entry-id (:choice-id entry)
-
-               next-rdb (dissoc (mk-rdb (state ::trace)) entry-id)
-               next-prog ((:mk-cont entry) next-rdb)
-               next-state (:state (exec ::algorithm
-                                        next-prog nil initial-state))
-
+               next-state (mk-next-state state entry)
                state (if (> (/ (- (get-log-weight next-state)
                                   (get-log-weight state))
                                T)
@@ -118,19 +125,20 @@
            
              (cons (add-predict state
                                 '$trace (map :value (::trace state)))
-                   (map-seq state (* T cooling-rate))))))
+                   (sample-seq state (* T cooling-rate))))))
 
-     (sample-seq [map-seq max-log-weight]
+     (map-seq [sample-seq max-log-weight]
+       ;; Filters MAP estimates by increasing weight.
        (lazy-seq
-         (when-let [[map & map-seq] map-seq]
+         (when-let [[map & sample-seq] sample-seq]
            (if (> (get-log-weight map) max-log-weight)
-             (cons map (sample-seq map-seq (get-log-weight map)))
-             (sample-seq map-seq max-log-weight)))))]
+             (cons map (map-seq sample-seq (get-log-weight map)))
+             (map-seq sample-seq max-log-weight)))))]
 
-    (let [map-seq (map-seq
+    (let [sample-seq (sample-seq
                      (:state (exec ::algorithm
                                    prog nil initial-state)) 1.)
-          map-seq (if number-of-maps
-                    (take number-of-maps map-seq)
-                    map-seq)]
-      (sample-seq map-seq (Math/log 0.)))))
+          sample-seq (if number-of-samples
+                    (take number-of-samples sample-seq)
+                    sample-seq)]
+      (map-seq sample-seq (Math/log 0.)))))
