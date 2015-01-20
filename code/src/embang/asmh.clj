@@ -12,7 +12,9 @@
 (def initial-state
   "initial state for ASMH"
   (into embang.lmh/initial-state
-        {}))
+        {::choice-rewards
+         ::choice-history
+         ::last-predicts}))
 
 (defn utility
   "computes state utility, used to determine

@@ -23,24 +23,22 @@
 ;;; Trace
 
 ;; The trace is a vector of entries
-;;   {choice-id value mk-cont}
+;;   {choice-id value cont}
 ;; where
 ;;   - `choice-id' is the identifier of the random choice
 ;;   - `value' is the value of random choice in the current
 ;;     run,
-;;   - `mk-cont' is the continuation constructor that
-;;     accepts a new database and returns the continuation
-;;     that starts at the checkpoint.
+;;   - `cont' is the continuation that starts at the checkpoint.
 
-(defrecord entry [choice-id value mk-cont])
+(defrecord entry [choice-id value cont])
 
 (defn record-random-choice
   "records random choice in the state"
-  [state choice-id value mk-cont]
+  [state choice-id value cont]
   (let [sample-id (first choice-id)]
     (-> state
         (update-in [::trace]
-                   conj (->entry choice-id value mk-cont))
+                   conj (->entry choice-id value cont))
         (update-in [::counts sample-id]
                    ;; If the count is positive but the last sample-id
                    ;; is different, pad the count to decrease
@@ -66,7 +64,7 @@
 
 ;; RDB is a mapping from choice-ids to the chosen values.
 
-(defn mk-rdb
+(defn rdb
   "creates random database from trace"
   [trace]
   (into {} (map (comp vec (juxt :choice-id :value)) trace)))
@@ -87,23 +85,28 @@
                 ;; The retained value is not in support,
                 ;; resample the value from the prior.
                 (sample (:dist smp)))
-        mk-cont (fn [rdb]
-                  (fn [_ state]
-                    (assoc-in smp [:state ::rdb] rdb)))
+        cont (fn [_ update]
+               ;; Continuation which starts from this checkpoint
+               ;; --- called when the random choice is selected
+               ;; for resampling. Update overrides the state.
+               (update-in smp [:state]
+                          (fn [state]
+                            (merge-with #(or %2 %1) state update))))
         state (-> state
                   (add-log-weight log-p)
-                  (record-random-choice choice-id value mk-cont))]
+                  (record-random-choice choice-id value cont))]
     #((:cont smp) value state)))
 
 ;;; State transition
 
-(defn mk-next-state
+(defn next-state
   "produces next state given current state
   and the trace entry to resample"
   [state entry]
-  (let [rdb (dissoc (mk-rdb (state ::trace)) (:choice-id entry))
-        prog ((:mk-cont entry) rdb)]
-    (:state (exec ::algorithm prog nil initial-state))))
+  (:state (exec ::algorithm (:cont entry) nil 
+                ;; Remove the selected entry from RDB.
+                {::rdb (dissoc (rdb (state ::trace))
+                               (:choice-id entry))})))
 
 (defmethod infer :siman [_ prog & {:keys [cooling-rate
                                           number-of-samples]
@@ -115,17 +118,17 @@
        ;; Produces samples via simulated annealing.
        (lazy-seq
          (let [entry (rand-nth (state ::trace))
-               next-state (mk-next-state state entry)
+               next-state (next-state state entry)
                state (if (> (/ (- (get-log-weight next-state)
                                   (get-log-weight state))
                                T)
                             (Math/log (rand)))
                        next-state
                        state)]
-           
-             (cons (add-predict state
-                                '$trace (map :value (::trace state)))
-                   (sample-seq state (* T cooling-rate))))))
+
+           (cons (add-predict state
+                              '$trace (map :value (::trace state)))
+                 (sample-seq state (* T cooling-rate))))))
 
      (map-seq [sample-seq max-log-weight]
        ;; Filters MAP estimates by increasing weight.
@@ -136,9 +139,9 @@
              (map-seq sample-seq max-log-weight)))))]
 
     (let [sample-seq (sample-seq
-                     (:state (exec ::algorithm
-                                   prog nil initial-state)) 1.)
+                       (:state (exec ::algorithm
+                                     prog nil initial-state)) 1.)
           sample-seq (if number-of-samples
-                    (take number-of-samples sample-seq)
-                    sample-seq)]
+                       (take number-of-samples sample-seq)
+                       sample-seq)]
       (map-seq sample-seq (Math/log 0.)))))
