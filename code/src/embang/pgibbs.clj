@@ -12,7 +12,7 @@
 ;;; Initial state
 
 (def initial-state
-  "initial state for PGibbs protocol"
+  "initial state for PGibbs"
   (into embang.state/initial-state
         ;; the state is extended by two sequences,
         ;;   ::future-samples used by retained particle
