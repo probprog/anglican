@@ -431,14 +431,12 @@
                     distance-heuristic ; plug for alternative heuristic
                     number-of-draws    ; random draws to compute h
                     beam-width         ; search beam width
-                    increasing-maps    ; consider MAP only if better
                     search]            ; search dispatch 
              :or {number-of-samples 1
                   number-of-maps 1
                   distance-heuristic nil
                   number-of-draws 1
-                  beam-width nil
-                  increasing-maps false}}]
+                  beam-width nil}}]
 
   (let [G-states (G-prog prog number-of-samples)]
     (letfn 
@@ -451,9 +449,8 @@
              ;; There are still some MAP estimates to consider
              ;; given the current partial G_prog.
              (let [log-weight (get-log-weight map-state)]
-               (if (or (not increasing-maps)
-                       (> log-weight max-log-weight))
-                 ;; The map-state contains a usable MAP estimate.
+               (if (> log-weight max-log-weight)
+                 ;; The map-state contains a better MAP estimate.
                  ;; Add the trace as a predict and include the
                  ;; state in the returned lazy sequence.
                  (let [map-state

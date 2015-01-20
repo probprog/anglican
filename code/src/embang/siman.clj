@@ -80,11 +80,10 @@
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
         log-p (observe (:dist smp) value)
-        value (if-not (< (/ -1. 0.) log-p (/ 1. 0.))
+        value (if (< (/ -1. 0.) log-p (/ 1. 0.)) value
                 ;; The retained value is not in support,
                 ;; resample the value from the prior.
-                (sample (:dist smp))
-                value)
+                (sample (:dist smp)))
         mk-cont (fn [rdb]
                   (fn [_ state]
                     (assoc-in smp [:state ::rdb] rdb)))
@@ -95,7 +94,7 @@
 
 (defmethod infer :siman [_ prog & {:keys [cooling-rate
                                           number-of-maps]
-                                   :or {cooling-rate 0.001}}]
+                                   :or {cooling-rate 0.99}}]
   (letfn
     [(map-seq [state T]
        (lazy-seq
@@ -109,14 +108,14 @@
 
                state (if (> (/ (- (get-log-weight next-state)
                                   (get-log-weight state))
-                               (+ 1. (* cooling-rate T)))
+                               T)
                             (Math/log (rand)))
                        next-state
                        state)]
            
              (cons (add-predict state
                                 '$trace (map :value (::trace state)))
-                   (map-seq state (inc T))))))
+                   (map-seq state (* T cooling-rate))))))
 
      (sample-seq [map-seq max-log-weight]
        (lazy-seq
@@ -127,7 +126,7 @@
 
     (let [map-seq (map-seq
                      (:state (exec ::algorithm
-                                   prog nil initial-state)) 0)
+                                   prog nil initial-state)) 1.)
           map-seq (if number-of-maps
                     (take number-of-maps map-seq)
                     map-seq)]

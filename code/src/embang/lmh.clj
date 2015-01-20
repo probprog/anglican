@@ -82,11 +82,10 @@
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
         log-p (observe (:dist smp) value)
-        value (if-not (< (/ -1. 0.) log-p (/ 1. 0.))
+        value (if (< (/ -1. 0.) log-p (/ 1. 0.)) value
                 ;; The retained value is not in support,
                 ;; resample the value from the prior.
-                (sample (:dist smp))
-                value)
+                (sample (:dist smp)))
         mk-cont (fn [rdb]
                   (fn [_ state]
                     (assoc-in smp [:state ::rdb] rdb)))
