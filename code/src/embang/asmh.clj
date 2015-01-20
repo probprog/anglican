@@ -20,7 +20,7 @@
   [state entry]
   (+ (get-log-weight state)
      (get-log-retained state)
-     (- (Math/log (count (state ::trace))))))
+     (- (Math/log (count (get-trace state))))))
 
 (defmethod infer :asmh [_ prog & {}]
   (letfn
