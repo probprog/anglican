@@ -81,7 +81,10 @@
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
-        log-p (observe (:dist smp) value)
+        log-p (try
+                (observe (:dist smp) value)
+                ;; NaN is returned if value is not in support.
+                (catch Exception e (/ 0. 0.)))
         value (if (< (/ -1. 0.) log-p (/ 1. 0.)) value
                 ;; The retained value is not in support,
                 ;; resample the value from the prior.
