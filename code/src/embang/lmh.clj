@@ -10,17 +10,23 @@
 ;;; Initial state
 
 (def initial-state
-  "initial state for PGibbs protocol"
+  "initial state for LMH"
   (into embang.state/initial-state
-        ;; the state is extended by two sequences,
-        ;;   ::future-samples used by retained particle
-        ;;   ::past-samples updated by allparticles
+        ;; The state is extended by the trace ---
+        ;; the vector of current random choices,
+        ;; and the random database --- random choices
+        ;; from the previous particle.
         {::trace []       ; current random choices
          ::rdb {}         ; stored random choices
          ::counts {}      ; counts of occurences of each `sample'
          ::last-id nil})) ; last sample id
 
 ;;; Trace
+
+;; Variants of LMH need access to the trace, expose it
+;; via an accessor function.
+
+(defn get-trace "returns trace" [state] (state ::trace))
 
 ;; The trace is a vector of entries
 ;;   {choice-id value log-p mk-cont}
@@ -81,58 +87,79 @@
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
-        log-p (try
-                (observe (:dist smp) value)
-                ;; NaN is returned if value is not in support.
-                (catch Exception e (/ 0. 0.)))
+        log-p (try (observe (:dist smp) value)
+                   ;; NaN is returned if value is not in support.
+                   (catch Exception e (/ 0. 0.)))
         value (if (< (/ -1. 0.) log-p (/ 1. 0.)) value
                 ;; The retained value is not in support,
                 ;; resample the value from the prior.
                 (sample (:dist smp)))
         mk-cont (fn [rdb]
+                  ;; Continuation which starts from this checkpoint
+                  ;; --- called when the random choice is selected
+                  ;; for resampling.
                   (fn [_ state]
                     (assoc-in smp [:state ::rdb] rdb)))
         state (record-random-choice state
                                     choice-id value log-p mk-cont)]
     #((:cont smp) value state)))
 
+;;; State transition
+
+(defn mk-next-state
+  "produces next state given current state
+  and the trace entry to resample"
+  [state entry]
+  (let [rdb (dissoc (mk-rdb (state ::trace)) (:choice-id entry))
+        prog ((:mk-cont entry) rdb)]
+    (:state (exec ::algorithm prog nil initial-state))))
+
+(defn mk-prev-state
+  "produces previous state given the current and
+  the next state and the resampled entry
+  by re-attaching new rdb to the original state"
+  [state next-state entry]
+  (let [rdb (dissoc (mk-rdb (next-state ::trace)) (:choice-id entry))]
+    (assoc state ::rdb rdb)))
+
+;; Computing transition probability.
+
+(defn get-log-retained
+  "computes log probability of retained random choices"
+  [state]
+  (reduce + (keep
+              (fn [{:keys [choice-id value log-p]}]
+                (when (and (contains? (state ::rdb) choice-id)
+                           (= value ((state ::rdb) choice-id)))
+                  log-p))
+              (state ::trace))))
+
 (defn utility
   "computes state utility, used to determine
   the acceptance log-probability as (next-utility - prev-utility)"
   [state]
-  (+ ;; log-probability of observed values
-     (- (get-log-weight state)
-        (Math/log (count (state ::trace))))
-
-     ;; log-probability of rescored samples
-     (reduce + (keep
-                 (fn [{:keys [choice-id value log-p]}]
-                   (when (and (contains?  (state ::rdb) choice-id)
-                              (= value ((state ::rdb) choice-id)))
-                     log-p))
-                 (state ::trace)))))
+  (+ (get-log-weight state)
+     (get-log-retained state)
+     (- (Math/log (count (state ::trace))))))
 
 (defmethod infer :lmh [_ prog & {}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
-         (let [entry (rand-nth (state ::trace))
-               entry-id (:choice-id entry)
-
-               next-rdb (dissoc (mk-rdb (state ::trace)) entry-id)
-               next-prog ((:mk-cont entry) next-rdb)
-               next-state (:state (exec ::algorithm
-                                        next-prog nil initial-state))
-
-               ;; Previous state is the state that would be obtained
-               ;; by transitioning from the new state to the current
-               ;; state.
-               prev-rdb (dissoc (mk-rdb (next-state ::trace)) entry-id)
-               prev-state (assoc state ::rdb prev-rdb)
-
+         (let [;; Choose uniformly a random choice to resample.
+               entry (rand-nth (state ::trace))
+               ;; Compute next state from the resampled choice.
+               next-state (mk-next-state state entry)
+               ;; Reconstruct the current state through transition back
+               ;; from the next state; the rdb will be different.
+               prev-state (mk-prev-state state next-state entry)
+               ;; Apply Metropolis-Hastings acceptance rule to select
+               ;; either the new or the current state.
                state (if (> (- (utility next-state) (utility prev-state))
                             (Math/log (rand)))
                        next-state
                        state)]
+           ;; Include the selected state into the sequence of samples,
+           ;; setting the weight to the unit weight.
            (cons (set-log-weight state 0.) (sample-seq state)))))]
     (sample-seq (:state (exec ::algorithm prog nil initial-state)))))
