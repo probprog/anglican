@@ -74,35 +74,34 @@
 (defn award
   "distributes the reward between random choices;
   returns updated state"
-  ([state entry reward] (award state entry reward 1.))
-  ([state entry reward weight]
-   (let [ ;; Push new choice into the history.
-         history (take +history-size+
-                       (cons (:choice-id entry)
-                             (::choice-history state)))
+  [state entry reward]
+  (let [ ;; Push new choice into the history.
+        history (take +history-size+
+                      (cons (:choice-id entry)
+                            (::choice-history state)))
 
-         ;; Distribute discount reward among choices 
-         ;; in the history.
-         rewards (loop [rewards (state ::choice-rewards)
-                        discount (* +reward-discount+ weight)
-                        history history]
-                   (if-let [[choice-id & history] (seq history)]
-                     (recur (update-in rewards [choice-id]
-                                       (fnil update-choice-reward
-                                             +prior-choice-reward+)
-                                       reward discount)
-                            (* discount (- 1. +reward-discount+))
-                            history)
-                     rewards))]
+        ;; Distribute discount reward among choices 
+        ;; in the history.
+        rewards (loop [rewards (state ::choice-rewards)
+                       discount +reward-discount+
+                       history history]
+                  (if-let [[choice-id & history] (seq history)]
+                    (recur (update-in rewards [choice-id]
+                                      (fnil update-choice-reward
+                                            +prior-choice-reward+)
+                                      reward discount)
+                           (* discount (- 1. +reward-discount+))
+                           history)
+                    rewards))]
 
-     ;; Finally, record new rewards, history, predicts, and
-     ;; counts in the state.
-     (-> state
-         (assoc ::choice-rewards rewards
-                ::choice-history history
-                ::last-predicts (into {} (get-predicts state)))
-         (update-in [::choice-counts (:choice-id entry)]
-                    (fnil inc 0))))))
+    ;; Finally, record new rewards, history, predicts, and
+    ;; counts in the state.
+    (-> state
+        (assoc ::choice-rewards rewards
+               ::choice-history history
+               ::last-predicts (into {} (get-predicts state)))
+        (update-in [::choice-counts (:choice-id entry)]
+                   (fnil inc 0)))))
 
 (defn state-update
   "computes state update --- fields that
@@ -203,10 +202,8 @@
                    (reduce + (map second
                                   (state ::choice-counts))))))
 
-(defmethod infer :asmh [_ prog & {:keys [predict-choices
-                                         punish-rejects]
-                                  :or {predict-choices false
-                                       punish-rejects false}}]
+(defmethod infer :asmh [_ prog & {:keys [predict-choices]
+                                  :or {predict-choices false}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
@@ -231,10 +228,9 @@
                          ;; predicts.
                          (award next-state entry (reward next-state))
 
-                         ;; The old state is held:
-                         ;;   - either award choices zero reward,
-                         ;;   - or just ignore the rejected update.
-                         (award state entry 0. (if punish-rejects 1. 0.)))
+                         ;; The old state is held --- award 1
+                         ;; to increase sampling rate.
+                         (award state entry 1.))
 
                  ;; Include the selected state into the sequence of samples,
                  ;; setting the weight to the unit weight.
