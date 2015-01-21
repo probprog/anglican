@@ -427,7 +427,7 @@
 
 (defmethod infer :map
   [_ prog & {:keys [number-of-samples  ; samples before branching
-                    number-of-maps     ; MAP estimates per branch
+                    number-of-maps     ; MAP candidates per branch
                     distance-heuristic ; plug for alternative heuristic
                     number-of-draws    ; random draws to compute h
                     beam-width         ; search beam width
@@ -467,7 +467,7 @@
                                 prog state
                                 distance-heuristic
                                 number-of-draws beam-width)
-                   ;; If there is a cap on the number of MAP estimates
+                   ;; If there is a cap on the number of MAP candidates
                    ;; considered for a given partial G_prog, truncate
                    ;; the sequence.
                    map-states (if (nil? number-of-maps)

@@ -23,32 +23,29 @@
 
 ;;; Trace
 
-;; Variants of LMH need access to the trace, expose it
-;; via an accessor function.
+;; ASMH need access to the trace, expose it via an accessor function.
 
 (defn get-trace "returns trace" [state] (state ::trace))
 
 ;; The trace is a vector of entries
-;;   {choice-id value log-p mk-cont}
+;;   {choice-id value log-p cont}
 ;; where
 ;;   - `choice-id' is the identifier of the random choice
 ;;   - `value' is the value of random choice in the current
 ;;     run,
 ;;   - `log-p' is the log probability (mass or density) of
 ;;     the value given the distribution,
-;;   - `mk-cont' is the continuation constructor that
-;;     accepts a new database and returns the continuation
-;;     that starts at the checkpoint.
+;;   - `cont' is the continuation that starts at the checkpoint.
 
-(defrecord entry [choice-id value log-p mk-cont])
+(defrecord entry [choice-id value log-p cont])
 
 (defn record-random-choice
   "records random choice in the state"
-  [state choice-id value log-p mk-cont]
+  [state choice-id value log-p cont]
   (let [sample-id (first choice-id)]
     (-> state
         (update-in [::trace]
-                   conj (->entry choice-id value log-p mk-cont))
+                   conj (->entry choice-id value log-p cont))
         (update-in [::counts sample-id]
                    ;; If the count is positive but the last sample-id
                    ;; is different, pad the count to decrease
@@ -74,7 +71,7 @@
 
 ;; RDB is a mapping from choice-ids to the chosen values.
 
-(defn mk-rdb
+(defn rdb
   "creates random database from trace"
   [trace]
   (into {} (map (comp vec (juxt :choice-id :value)) trace)))
@@ -94,35 +91,47 @@
                 ;; The retained value is not in support,
                 ;; resample the value from the prior.
                 (sample (:dist smp)))
-        mk-cont (fn [rdb]
-                  ;; Continuation which starts from this checkpoint
-                  ;; --- called when the random choice is selected
-                  ;; for resampling.
-                  (fn [_ state]
-                    (assoc-in smp [:state ::rdb] rdb)))
+        cont (fn [_ update]
+               ;; Continuation which starts from this checkpoint
+               ;; --- called when the random choice is selected
+               ;; for resampling.
+               (update-in smp [:state]
+                          ;; Update fields override state fields.
+                          (fn [state]
+                            (merge-with #(or %2 %1) state update))))
         state (record-random-choice state
-                                    choice-id value log-p mk-cont)]
+                                    choice-id value log-p cont)]
     #((:cont smp) value state)))
 
 ;;; State transition
 
-(defn mk-next-state
+;; Optional `update' argument is used by ASMH to override
+;; additional fields. The state is extensible, so are
+;; state transformation methods.
+
+(defn next-state
   "produces next state given current state
   and the trace entry to resample"
-  [state entry]
-  (let [rdb (dissoc (mk-rdb (state ::trace)) (:choice-id entry))
-        prog ((:mk-cont entry) rdb)]
-    (:state (exec ::algorithm prog nil initial-state))))
+  ([state entry] (next-state state entry {}))
+  ([state entry update]
+   (:state (exec ::algorithm (:cont entry) nil 
+                 ;; Remove the selected entry from RDB.
+                 (into update
+                       {::rdb (dissoc (rdb (state ::trace))
+                                      (:choice-id entry))})))))
 
-(defn mk-prev-state
+(defn prev-state
   "produces previous state given the current and
   the next state and the resampled entry
   by re-attaching new rdb to the original state"
-  [state next-state entry]
-  (let [rdb (dissoc (mk-rdb (next-state ::trace)) (:choice-id entry))]
-    (assoc state ::rdb rdb)))
+  ([state next-state entry] (prev-state state next-state entry {}))
+  ([state next-state entry update]
+   (merge-with #(or %2 %1) state
+               (into update
+                     {::rdb (dissoc (rdb (next-state ::trace))
+                                    (:choice-id entry))}))))
 
-;; Computing transition probability.
+;; Transition probability
 
 (defn get-log-retained
   "computes log probability of retained random choices"
@@ -149,10 +158,10 @@
          (let [;; Choose uniformly a random choice to resample.
                entry (rand-nth (state ::trace))
                ;; Compute next state from the resampled choice.
-               next-state (mk-next-state state entry)
+               next-state (next-state state entry)
                ;; Reconstruct the current state through transition back
                ;; from the next state; the rdb will be different.
-               prev-state (mk-prev-state state next-state entry)
+               prev-state (prev-state state next-state entry)
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
                state (if (> (- (utility next-state) (utility prev-state))
