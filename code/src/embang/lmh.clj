@@ -1,4 +1,5 @@
 (ns embang.lmh
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [observe sample]]))
@@ -30,9 +31,8 @@
 ;; The trace is a vector of entries
 ;;   {choice-id value log-p cont}
 ;; where
-;;   - `choice-id' is the identifier of the random choice
-;;   - `value' is the value of random choice in the current
-;;     run,
+;;   - `choice-id' is the identifier of the random choice,
+;;   - `value' is the value of random choice in the current run,
 ;;   - `log-p' is the log probability (mass or density) of
 ;;     the value given the distribution,
 ;;   - `cont' is the continuation that starts at the checkpoint.
@@ -133,7 +133,7 @@
 
 ;; Transition probability
 
-(defn get-log-retained
+(defn get-log-retained-probability
   "computes log probability of retained random choices"
   [state]
   (reduce + (keep
@@ -148,27 +148,32 @@
   the acceptance log-probability as (next-utility - prev-utility)"
   [state]
   (+ (get-log-weight state)
-     (get-log-retained state)
+     (get-log-retained-probability state)
      (- (Math/log (count (state ::trace))))))
 
 (defmethod infer :lmh [_ prog & {}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
-         (let [;; Choose uniformly a random choice to resample.
-               entry (rand-nth (state ::trace))
-               ;; Compute next state from the resampled choice.
-               next-state (next-state state entry)
-               ;; Reconstruct the current state through transition back
-               ;; from the next state; the rdb will be different.
-               prev-state (prev-state state next-state entry)
-               ;; Apply Metropolis-Hastings acceptance rule to select
-               ;; either the new or the current state.
-               state (if (> (- (utility next-state) (utility prev-state))
-                            (Math/log (rand)))
-                       next-state
-                       state)]
-           ;; Include the selected state into the sequence of samples,
-           ;; setting the weight to the unit weight.
+         (if (seq (state ::trace))
+           (let [;; Choose uniformly a random choice to resample.
+                 entry (rand-nth (state ::trace))
+                 ;; Compute next state from the resampled choice.
+                 next-state (next-state state entry)
+                 ;; Reconstruct the current state through transition back
+                 ;; from the next state; the rdb will be different.
+                 prev-state (prev-state state next-state entry)
+                 ;; Apply Metropolis-Hastings acceptance rule to select
+                 ;; either the new or the current state.
+                 state (if (> (- (utility next-state) (utility prev-state))
+                              (Math/log (rand)))
+                         next-state
+                         state)]
+             ;; Include the selected state into the sequence of samples,
+             ;; setting the weight to the unit weight.
+             (cons (set-log-weight state 0.) (sample-seq state)))
+
+           ;; No randomness in the program.
            (cons (set-log-weight state 0.) (sample-seq state)))))]
+
     (sample-seq (:state (exec ::algorithm prog nil initial-state)))))

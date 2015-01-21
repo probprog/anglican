@@ -1,4 +1,5 @@
 (ns embang.importance
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use embang.state
         embang.inference))
 
@@ -11,8 +12,8 @@
 (derive ::algorithm :embang.inference/algorithm)
 
 (defmethod infer :importance [_ prog & {}]
-  (lazy-seq
-    (letfn [(sample-seq []
+  (letfn [(sample-seq []
+            (lazy-seq
               (cons (:state (exec ::algorithm prog nil initial-state))
-                    (sample-seq)))]
-    (sample-seq))))
+                    (sample-seq))))]
+            (sample-seq)))

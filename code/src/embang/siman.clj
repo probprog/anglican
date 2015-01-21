@@ -1,4 +1,5 @@
 (ns embang.siman
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [observe sample]]))
@@ -25,9 +26,8 @@
 ;; The trace is a vector of entries
 ;;   {choice-id value cont}
 ;; where
-;;   - `choice-id' is the identifier of the random choice
-;;   - `value' is the value of random choice in the current
-;;     run,
+;;   - `choice-id' is the identifier of the random choice,
+;;   - `value' is the value of random choice in the current run,
 ;;   - `cont' is the continuation that starts at the checkpoint.
 
 (defrecord entry [choice-id value cont])
@@ -109,6 +109,14 @@
                 {::rdb (dissoc (rdb (state ::trace))
                                (:choice-id entry))})))
 
+;;; Reporting the mode
+
+(defn add-trace-predict
+  "adds trace as a predict"
+  [state]
+  (add-predict state
+               '$trace (map :value (::trace state))))
+
 (defmethod infer :siman [_ prog & {:keys [cooling-rate
                                           number-of-samples]
                                    :or {cooling-rate 0.99}}]
@@ -118,18 +126,22 @@
     [(sample-seq [state T]
        ;; Produces samples via simulated annealing.
        (lazy-seq
-         (let [entry (rand-nth (state ::trace))
-               next-state (next-state state entry)
-               state (if (> (/ (- (get-log-weight next-state)
-                                  (get-log-weight state))
-                               T)
-                            (Math/log (rand)))
-                       next-state
-                       state)]
+         (if (seq (state ::trace))
+           (let [;; Choose uniformly a random choice to resample.
+                 entry (rand-nth (state ::trace))
+                 ;; Compute next state from the resampled choice.
+                 next-state (next-state state entry)
+                 state (if (> (/ (- (get-log-weight next-state)
+                                    (get-log-weight state))
+                                 T)
+                              (Math/log (rand)))
+                         next-state
+                         state)]
+             (cons (add-trace-predict state)
+                  (sample-seq state (* T cooling-rate))))
 
-           (cons (add-predict state
-                              '$trace (map :value (::trace state)))
-                 (sample-seq state (* T cooling-rate))))))
+           ;; Deterministic program, the only output is the mode.
+           (list (add-trace-predict state)))))
 
      (map-seq [sample-seq max-log-weight]
        ;; Filters MAP estimates by increasing weight.

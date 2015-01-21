@@ -1,4 +1,5 @@
 (ns embang.map
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [clojure.data.priority-map
              :refer [priority-map-keyfn-by]])
   (:use [embang.state :exclude [initial-state]]
@@ -401,8 +402,8 @@
 
 (defmethod expand embang.trap.result [res search]
   ;; returns a lazy sequence of MAP estimates
-  (lazy-seq                             
-    (cons (:state res) (trampoline (next-node search)))))
+  #(lazy-seq                             
+     (cons (:state res) (trampoline (next-node search)))))
 
 (defn max-a-posteriori
   "returns a sequence of end states
@@ -419,6 +420,14 @@
               (or distance-heuristic
                   (mk-distance-heuristic number-of-draws))
               beam-width))))
+
+;;; Reporting the mode
+
+(defn add-trace-predict
+  "adds trace as a predict"
+  [state]
+  (add-predict state
+               '$trace (map :value (::trace state))))
 
 ;;; Inference method 
 
@@ -453,11 +462,8 @@
                  ;; The map-state contains a better MAP estimate.
                  ;; Add the trace as a predict and include the
                  ;; state in the returned lazy sequence.
-                 (let [map-state
-                       (add-predict map-state '$trace
-                                    (map :value (map-state ::trace)))]
-                   (cons map-state
-                         (state-seq G-states map-states log-weight)))
+                 (cons (add-trace-predict map-state)
+                       (state-seq G-states map-states log-weight))
                  (state-seq G-states map-states max-log-weight)))
 
              ;; No more MAP estimates for the current graph are

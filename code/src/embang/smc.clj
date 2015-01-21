@@ -1,4 +1,5 @@
 (ns embang.smc
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use embang.state
         embang.inference
         [embang.runtime :only [observe]]))

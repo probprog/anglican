@@ -1,4 +1,5 @@
 (ns embang.pgibbs
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require embang.smc) ; observe checkpoint inherited
   (:use [embang.state :exclude [initial-state]]
         embang.inference
