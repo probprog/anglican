@@ -126,7 +126,6 @@
 
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
-
 (defn log-gamma-fn 
   "log gamma function"
   [x]
