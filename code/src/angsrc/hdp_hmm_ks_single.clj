@@ -123,7 +123,7 @@
     ;; predict latent activity class 
     [predict (map activity (range 200))]
     ;; predict smoothed (and predicted) latent pose
-    [predict (map latent-pose (range 1 200))] 
+    ;; [predict (map latent-pose (range 1 200))] 
     ;; predict A - state transition matrix 
     ;; [predict (map A (range 1 200))]
     ;; predict W where the process noise is drawn from Normal(w|0,W)
@@ -244,7 +244,7 @@
     ;; predict latent activity class 
     [predict (map activity (range 200))]
     ;; predict smoothed (and predicted) latent pose
-    [predict (map latent-pose (range 1 200))] 
+    ;; [predict (map latent-pose (range 1 200))] 
     ;; predict A - state transition matrix 
     ;; [predict (map A (range 1 200))]
     ;; predict W where the process noise is drawn from Normal(w|0,W)

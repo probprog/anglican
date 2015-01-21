@@ -22,7 +22,8 @@
   (into embang.lmh/initial-state
         {::choice-rewards {}
          ::choice-history ()
-         ::last-predicts {}}))
+         ::last-predicts {}
+         ::choice-counts {}}))
 
 (def ^:private +history-size+ 
   "number of past choices to keep in the history"
@@ -52,29 +53,31 @@
 (defn award
   "distributes the reward between random choices;
   returns updated state"
-  [state entry reward]
-  (let [history (take +history-size+ 
-                      (cons (:choice-id entry)
-                            (::choice-history state)))
+  ([state entry reward] (award state entry reward 1.))
+  ([state entry reward weight]
+   (let [history (take +history-size+ 
+                       (cons (:choice-id entry)
+                             (::choice-history state)))
 
-        rewards (loop [rewards (state ::choice-rewards)
-                       discount +reward-discount+
-                       history history]
-                  (if-let [[choice-id & history] (seq history)]
-                    (recur
-                      (update-in
-                        rewards [choice-id]
-                        (fnil (fn [[sum cnt]]
-                                [(+ sum (* discount reward))
-                                 (+ cnt discount)])
-                              [0. 0.]))
-                      (* discount +reward-discount+)
-                      history)
-                    rewards))]
-    (assoc state
-           ::choice-rewards rewards
-           ::choice-history history
-           ::last-predicts (into {} (get-predicts state)))))
+         rewards (loop [rewards (state ::choice-rewards)
+                        discount (* +reward-discount+ weight)
+                        history history]
+                   (if-let [[choice-id & history] (seq history)]
+                     (recur
+                       (update-in
+                         rewards [choice-id]
+                         (fnil (fn [[sum cnt]]
+                                 [(+ sum (* discount reward))
+                                  (+ cnt discount)])
+                               [0. 0.]))
+                       (* discount +reward-discount+)
+                       history)
+                     rewards))]
+     (-> state
+     (assoc ::choice-rewards rewards
+            ::choice-history history
+            ::last-predicts (into {} (get-predicts state)))
+     (update-in [::choice-counts (:choice-id entry)] (fnil inc 0))))))
 
 (defn state-update
   "computes state update --- fields that
@@ -84,7 +87,8 @@
   (into {} (map (fn [k] [k (state k)])
                 [::choice-rewards
                  ::choice-history
-                 ::last-predicts])))
+                 ::last-predicts
+                 ::choice-counts])))
 
 (defn next-state
   "produces next state given current state
@@ -111,20 +115,22 @@
      (get-log-retained state)
      (- (Math/log (count (get-trace state))))))
 
-(defmethod infer :asmh [_ prog & {:keys [predict-rewards
+(defmethod infer :asmh [_ prog & {:keys [predict-choices
                                          punish-rejects]
-                                  :or {predict-rewards false
-                                       punish-rejects true}}]
+                                  :or {predict-choices false
+                                       punish-rejects false}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
          (let [;; Choose uniformly a random choice to resample.
                entry (rand-nth (get-trace state))
+
                ;; Compute next state from the resampled choice.
                next-state (next-state state entry)
                ;; Reconstruct the current state through transition back
                ;; from the next state; the rdb will be different.
                prev-state (prev-state state next-state entry)
+
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
                state (if (> (- (utility next-state entry)
@@ -137,16 +143,20 @@
                        (award next-state entry (reward next-state))
 
                        ;; The old state is held:
-                       (if punish-rejects
-                         ;; either award choices zero reward,
-                         (award state entry 0.)
-                         ;; or just ignore the rejected update.
-                         state))
-               state (if predict-rewards
-                       (add-predict state '$rewards
-                                    (state ::choice-rewards))
-                       state)]
-           ;; Include the selected state into the sequence of samples,
-           ;; setting the weight to the unit weight.
-           (cons (set-log-weight state 0.) (sample-seq state)))))]
+                       ;;   - either award choices zero reward,
+                       ;;   - or just ignore the rejected update.
+                       (award state entry 0. (if punish-rejects 1. 0.)))
+
+               ;; Include the selected state into the sequence of samples,
+               ;; setting the weight to the unit weight.
+               sample (set-log-weight state 0.)
+               ;; Optionally, add rewards and counts to predicts.
+               sample (if predict-choices
+                           (-> sample
+                               (add-predict '$choice-rewards
+                                            (state ::choice-rewards))
+                               (add-predict '$choice-counts
+                                            (state ::choice-counts)))
+                           sample)]
+           (cons sample (sample-seq state)))))]
     (sample-seq (:state (exec ::algorithm prog nil initial-state)))))
