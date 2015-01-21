@@ -9,8 +9,8 @@
 ;;;; Adaptive scheduling single-site Metropolis-Hastings
 
 ;; The code here deliberately inherits from LMH. I wanted
-;; to find a compromise between reproducing much of the code
-;; of LMH and saving the reader from jumping back and forth
+;; to find a compromise between reproducing much of the 
+;; LMH code and forcing the reader to jump back and forth
 ;; between two source files.
 
 (derive ::algorithm :embang.lmh/algorithm)
@@ -111,8 +111,10 @@
      (get-log-retained state)
      (- (Math/log (count (get-trace state))))))
 
-(defmethod infer :asmh [_ prog & {:keys [predict-rewards]
-                                  :or {predict-rewards false}}]
+(defmethod infer :asmh [_ prog & {:keys [predict-rewards
+                                         punish-rejects]
+                                  :or {predict-rewards false
+                                       punish-rejects true}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
@@ -128,13 +130,22 @@
                state (if (> (- (utility next-state entry)
                                (utility prev-state entry))
                             (Math/log (rand)))
+
                        ;; The new state is accepted --- award choices
                        ;; in the history according to changes in
                        ;; predicts.
                        (award next-state entry (reward next-state))
-                       ;; The old state is held --- award choices
-                       ;; in the history zero reward.
-                       (award state entry 0.))]
+
+                       ;; The old state is held:
+                       (if punish-rejects
+                         ;; either award choices zero reward,
+                         (award state entry 0.)
+                         ;; or just ignore the rejected update.
+                         state))
+               state (if predict-rewards
+                       (add-predict state '$rewards
+                                    (state ::choice-rewards))
+                       state)]
            ;; Include the selected state into the sequence of samples,
            ;; setting the weight to the unit weight.
            (cons (set-log-weight state 0.) (sample-seq state)))))]
