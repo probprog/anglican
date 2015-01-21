@@ -155,20 +155,25 @@
   (letfn
     [(sample-seq [state]
        (lazy-seq
-         (let [;; Choose uniformly a random choice to resample.
-               entry (rand-nth (state ::trace))
-               ;; Compute next state from the resampled choice.
-               next-state (next-state state entry)
-               ;; Reconstruct the current state through transition back
-               ;; from the next state; the rdb will be different.
-               prev-state (prev-state state next-state entry)
-               ;; Apply Metropolis-Hastings acceptance rule to select
-               ;; either the new or the current state.
-               state (if (> (- (utility next-state) (utility prev-state))
-                            (Math/log (rand)))
-                       next-state
-                       state)]
-           ;; Include the selected state into the sequence of samples,
-           ;; setting the weight to the unit weight.
+         (if (seq (state ::trace))
+           (let [;; Choose uniformly a random choice to resample.
+                 entry (rand-nth (state ::trace))
+                 ;; Compute next state from the resampled choice.
+                 next-state (next-state state entry)
+                 ;; Reconstruct the current state through transition back
+                 ;; from the next state; the rdb will be different.
+                 prev-state (prev-state state next-state entry)
+                 ;; Apply Metropolis-Hastings acceptance rule to select
+                 ;; either the new or the current state.
+                 state (if (> (- (utility next-state) (utility prev-state))
+                              (Math/log (rand)))
+                         next-state
+                         state)]
+             ;; Include the selected state into the sequence of samples,
+             ;; setting the weight to the unit weight.
+             (cons (set-log-weight state 0.) (sample-seq state)))
+
+           ;; No randomness in the program.
            (cons (set-log-weight state 0.) (sample-seq state)))))]
+
     (sample-seq (:state (exec ::algorithm prog nil initial-state)))))

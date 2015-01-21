@@ -5,7 +5,8 @@
             embang.trap)
   (:use embang.state
         [embang.runtime :only [sample observe
-                               uniform-continuous]]))
+                               uniform-continuous
+                               discrete]]))
 
 ;;; Inference multimethod
 
@@ -58,7 +59,7 @@
   [prog]
   (let [cpt (exec ::warmup prog nil initial-state)]
     (fn [value initial-state]
-      (update-in cpt [:state] merge initial-state))))
+      (update-in cpt [:state] #(merge initial-state %)))))
 
 ;;; Random functions for inference algorithms
 
@@ -84,6 +85,11 @@
   for the given collection."
   [coll]
   (nth coll (rand-int (count coll))))
+
+(defn rand-roulette
+  "random roulette selection,
+  accepts unnormalized weights"
+  [weights] (sample (discrete weights)))
 
 ;;; Output
 

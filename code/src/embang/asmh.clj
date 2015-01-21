@@ -163,37 +163,42 @@
   (letfn
     [(sample-seq [state]
        (lazy-seq
-         (let [;; Choose uniformly a random choice to resample.
-               entry (rand-nth (get-trace state))
+         (if (seq (get-trace state))
+           (let [;; Choose uniformly a random choice to resample.
+                 entry (rand-nth (get-trace state))
 
-               ;; Compute next state from the resampled choice.
-               next-state (next-state state entry)
-               ;; Reconstruct the current state through transition back
-               ;; from the next state; the rdb will be different.
-               prev-state (prev-state state next-state entry)
+                 ;; Compute next state from the resampled choice.
+                 next-state (next-state state entry)
+                 ;; Reconstruct the current state through transition back
+                 ;; from the next state; the rdb will be different.
+                 prev-state (prev-state state next-state entry)
 
-               ;; Apply Metropolis-Hastings acceptance rule to select
-               ;; either the new or the current state.
-               state (if (> (- (utility next-state entry)
-                               (utility prev-state entry))
-                            (Math/log (rand)))
+                 ;; Apply Metropolis-Hastings acceptance rule to select
+                 ;; either the new or the current state.
+                 state (if (> (- (utility next-state entry)
+                                 (utility prev-state entry))
+                              (Math/log (rand)))
 
-                       ;; The new state is accepted --- award choices
-                       ;; in the history according to changes in
-                       ;; predicts.
-                       (award next-state entry (reward next-state))
+                         ;; The new state is accepted --- award choices
+                         ;; in the history according to changes in
+                         ;; predicts.
+                         (award next-state entry (reward next-state))
 
-                       ;; The old state is held:
-                       ;;   - either award choices zero reward,
-                       ;;   - or just ignore the rejected update.
-                       (award state entry 0. (if punish-rejects 1. 0.)))
+                         ;; The old state is held:
+                         ;;   - either award choices zero reward,
+                         ;;   - or just ignore the rejected update.
+                         (award state entry 0. (if punish-rejects 1. 0.)))
 
-               ;; Include the selected state into the sequence of samples,
-               ;; setting the weight to the unit weight.
-               sample (set-log-weight state 0.)
-               ;; Optionally, add rewards and counts to predicts.
-               sample (if predict-choices
-                        (add-choice-predicts sample)
-                        sample)]
-           (cons sample (sample-seq state)))))]
+                 ;; Include the selected state into the sequence of samples,
+                 ;; setting the weight to the unit weight.
+                 sample (set-log-weight state 0.)
+                 ;; Optionally, add rewards and counts to predicts.
+                 sample (if predict-choices
+                          (add-choice-predicts sample)
+                          sample)]
+             (cons sample (sample-seq state)))
+           
+           ;; No randomness in the program.
+           (cons (set-log-weight state 0.) (sample-seq state)))))]
+
     (sample-seq (:state (exec ::algorithm prog nil initial-state)))))
