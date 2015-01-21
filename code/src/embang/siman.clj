@@ -1,4 +1,5 @@
 (ns embang.siman
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [observe sample]]))

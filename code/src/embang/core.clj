@@ -1,4 +1,5 @@
 (ns embang.core
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:gen-class)
   (:require [clojure.string :as str]
             [clojure.tools.cli :as cli])

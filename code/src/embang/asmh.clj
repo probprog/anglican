@@ -1,4 +1,5 @@
 (ns embang.asmh
+  (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use clojure.pprint)
   (:use [embang.state :exclude [initial-state]]
         embang.inference
@@ -141,11 +142,14 @@
   to the state"
   [state]
   (-> state
+      ;; Average choice rewards
       (add-predict '$choice-rewards
                    (sort-by first
                            (map (fn [[choice-id [rwd cnt]]]
                                   [choice-id (/ rwd cnt)])
                                 (state ::choice-rewards))))
+      ;; Actual choice counts, these are different
+      ;; from normalized discounted counts in rewards.
       (add-predict '$choice-counts
                    (sort-by first (state ::choice-counts)))
       (add-predict '$total-count

@@ -1,9 +1,11 @@
 (ns embang.inference
+  (:refer-clojure :exclude [rand rand-nth rand-int])
   (:require [clojure.string :as str]
             [clojure.data.json :as json]
             embang.trap)
   (:use embang.state
-        [embang.runtime :only [sample observe]]))
+        [embang.runtime :only [sample observe
+                               uniform-continuous]]))
 
 ;;; Inference multimethod
 
@@ -57,6 +59,31 @@
   (let [cpt (exec ::warmup prog nil initial-state)]
     (fn [value initial-state]
       (update-in cpt [:state] merge initial-state))))
+
+;;; Random functions for inference algorithms
+
+;; Random functions in inference algorithm should use 
+;; the random source as the runtime for consistency.
+
+(let [dist (delay (uniform-continuous 0. 1.))]
+  (defn rand
+    "Returns a random floating point number 
+    between 0 (inclusive) and n (default 1) (exclusive)"
+    ([] (rand 1.))
+    ([n] (* n (sample @dist)))))
+  
+(defn rand-int
+   "Returns a random integer between 0 (inclusive)
+   and n (exclusive)"
+   [n]
+   (int (rand n)))
+
+(defn rand-nth
+  "Return a random element of the (sequential) collection.
+  Will have the same performance characteristics as nth
+  for the given collection."
+  [coll]
+  (nth coll (rand-int (count coll))))
 
 ;;; Output
 
