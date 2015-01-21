@@ -76,7 +76,6 @@
            ::choice-history history
            ::last-predicts (into {} (get-predicts state)))))
 
-
 (defn state-update
   "computes state update --- fields that
   must be transferred to the state before
