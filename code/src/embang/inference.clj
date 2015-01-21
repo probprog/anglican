@@ -59,7 +59,10 @@
   [prog]
   (let [cpt (exec ::warmup prog nil initial-state)]
     (fn [value initial-state]
-      (update-in cpt [:state] #(merge initial-state %)))))
+      (update-in cpt [:state]
+                 ;; Predict sequence in state overrides
+                 ;; predict sequence in initial-state.
+                 (fn [state] (merge initial-state state))))))
 
 ;;; Random functions for inference algorithms
 
