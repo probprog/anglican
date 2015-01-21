@@ -10,21 +10,6 @@
            [4.0 -0.2]
            [5.0 0.1]])
 
-(defun interpolate (m)
-  (let ((xs (reverse
-              (reduce (lambda (xs point)
-                        (let ((x (first point)))
-                         (list* x (- x 0.5) xs) ))
-                      (list (ffirst data)) (next data)))))
-    (map (lambda (x) (list x (m x))) xs)))
-
-(defun deviation (m)
-  (sqrt
-    (reduce (lambda (deviation point)
-              (let ((d (- (second point) (m (first point)))))
-                (+ deviation (* d d))))
-            0. data)))
-
 (defanglican gp
   [assume belief (normal 0 1)]
   [assume positive-belief (gamma 1 1)]
@@ -49,34 +34,7 @@
                (absorb gp point)))
            (GP m k) data)]
 
-  [predict (list a b c d e)]
-  [predict (interpolate m)])
-
-(defanglican meansquare
-  [assume belief (normal 0 1)]
-  [assume positive-belief (gamma 1 1)]
-
-  ; priors on process parameters
-  [assume a (sample belief)]
-  [assume b (sample belief)]
-  [assume c (sample belief)]
-  [assume d (sample positive-belief)]
-  [assume e (sample positive-belief)]
-  
-  [assume m (lambda (x)
-              (+ c (* x (+ b (* x a)))))]
-  [assume k (lambda (x y)
-              (let ((dx (- x y)))
-                (* d (exp (- (/ (* dx dx) 2. e))))))]
-
-  [assume gp
-   (reduce (lambda (gp point)
-             (let ((d (produce gp)))
-               [observe (d (first point)) (second point)]
-               (absorb gp point)))
-           (GP m k) data)]
-
-  [predict (deviation m)])
+  [predict (list a b c d e)])
 
 (defanglican noisy
   [assume belief (normal 0 1)]
@@ -104,5 +62,4 @@
                (absorb gp point)))
            (GP m k) data)]
 
-  [predict (list a b c d e f)]
-  [predict (interpolate m)])
+  [predict (list a b c d e f)])
