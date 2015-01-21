@@ -112,7 +112,8 @@
      (get-log-retained state)
      (- (Math/log (count (get-trace state))))))
 
-(defmethod infer :asmh [_ prog & {}]
+(defmethod infer :asmh [_ prog & {:keys [predict-rewards]
+                                  :or {predict-rewards false}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
@@ -135,7 +136,6 @@
                        ;; The old state is held --- award choices
                        ;; in the history zero reward.
                        (award state entry 0.))]
-           (pprint (state ::choice-rewards))
            ;; Include the selected state into the sequence of samples,
            ;; setting the weight to the unit weight.
            (cons (set-log-weight state 0.) (sample-seq state)))))]
