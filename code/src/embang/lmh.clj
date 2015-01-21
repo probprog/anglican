@@ -31,9 +31,8 @@
 ;; The trace is a vector of entries
 ;;   {choice-id value log-p cont}
 ;; where
-;;   - `choice-id' is the identifier of the random choice
-;;   - `value' is the value of random choice in the current
-;;     run,
+;;   - `choice-id' is the identifier of the random choice,
+;;   - `value' is the value of random choice in the current run,
 ;;   - `log-p' is the log probability (mass or density) of
 ;;     the value given the distribution,
 ;;   - `cont' is the continuation that starts at the checkpoint.

@@ -26,9 +26,8 @@
 ;; The trace is a vector of entries
 ;;   {choice-id value cont}
 ;; where
-;;   - `choice-id' is the identifier of the random choice
-;;   - `value' is the value of random choice in the current
-;;     run,
+;;   - `choice-id' is the identifier of the random choice,
+;;   - `value' is the value of random choice in the current run,
 ;;   - `cont' is the continuation that starts at the checkpoint.
 
 (defrecord entry [choice-id value cont])
