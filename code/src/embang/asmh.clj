@@ -36,6 +36,10 @@
   "applied to rewards to backpropagate the evidence"
   0.5)
 
+(def ^:private +exploration-factor+
+  "UCB exploration factor"
+  0.1)
+
 ;;; Choice reward 
 
 ;; Choice reward is a tuple [sum count] of normalized
@@ -43,7 +47,7 @@
 
 (def ^:private  +prior-choice-reward+
   "reward of an unseen arm"
-  [+reward-discount+ +reward-discount+])
+  [1. 1.])
 
 (defn update-choice-reward
   "updates choice reward with new evidence"
@@ -87,9 +91,10 @@
                                        (fnil update-choice-reward
                                              +prior-choice-reward+)
                                        reward discount)
-                            (* discount +reward-discount+)
+                            (* discount (- 1. +reward-discount+))
                             history)
                      rewards))]
+
      ;; Finally, record new rewards, history, predicts, and
      ;; counts in the state.
      (-> state
@@ -125,6 +130,48 @@
   (embang.lmh/prev-state state next-state entry
                          (state-update next-state)))
 
+;; Adaptive scheduling
+
+(defn ucb
+  "returns function computing UCB of average reward"
+  [total-count]
+  (fn [[sum cnt]]
+    (+ (/ sum cnt) (* +exploration-factor+
+                      (Math/sqrt (/ (Math/log total-count)
+                                    cnt))))))
+
+(defn trace-weights
+  "constructs a vector of trace weights"
+  [state]
+  (let [trace-rewards (map (fn [{:keys [choice-id]}]
+                             ((state ::choice-rewards) choice-id
+                              +prior-choice-reward+))
+                           (get-trace state))
+        total-count (reduce + (map (fn [[_ cnt]] cnt) trace-rewards))]
+
+    (map (ucb total-count) trace-rewards)))
+
+(defn select-entry 
+  "selects trace entry based on reward beliefs"
+  [state]
+  ((get-trace state) (rand-roulette (trace-weights state))))
+
+(defn log-entry-probability
+  "computes log probability of the entry given state"
+  [state entry]
+  (let [trace-weights (trace-weights state)
+        entry-weight (some
+                       ;; find the entry's weight
+                       (fn [[choice-id weight]]
+                         (when (= choice-id (:choice-id entry))
+                           weight))
+                       ;; zip entry ids and weights
+                       (map (fn [entry weight]
+                              [(:choice-id entry) weight])
+                            (get-trace state) trace-weights))
+        total-weight (reduce + trace-weights)] 
+    (Math/log (/ entry-weight total-weight))))
+
 ;; Transition probability
 
 (defn utility
@@ -132,8 +179,8 @@
   the acceptance log-probability as (next-utility - prev-utility)"
   [state entry]
   (+ (get-log-weight state)
-     (get-log-retained state)
-     (- (Math/log (count (get-trace state))))))
+     (get-log-retained-probability state)
+     (log-entry-probability state entry)))
 
 ;; Reporting statistics
 
@@ -145,8 +192,8 @@
       ;; Average choice rewards
       (add-predict '$choice-rewards
                    (sort-by first
-                           (map (fn [[choice-id [rwd cnt]]]
-                                  [choice-id (/ rwd cnt)])
+                           (map (fn [[choice-id [sum cnt]]]
+                                  [choice-id (/ sum cnt)])
                                 (state ::choice-rewards))))
       ;; Actual choice counts, these are different
       ;; from normalized discounted counts in rewards.
@@ -165,7 +212,7 @@
        (lazy-seq
          (if (seq (get-trace state))
            (let [;; Choose uniformly a random choice to resample.
-                 entry (rand-nth (get-trace state))
+                 entry (select-entry state)
 
                  ;; Compute next state from the resampled choice.
                  next-state (next-state state entry)

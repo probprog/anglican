@@ -133,7 +133,7 @@
 
 ;; Transition probability
 
-(defn get-log-retained
+(defn get-log-retained-probability
   "computes log probability of retained random choices"
   [state]
   (reduce + (keep
@@ -148,7 +148,7 @@
   the acceptance log-probability as (next-utility - prev-utility)"
   [state]
   (+ (get-log-weight state)
-     (get-log-retained state)
+     (get-log-retained-probability state)
      (- (Math/log (count (state ::trace))))))
 
 (defmethod infer :lmh [_ prog & {}]
