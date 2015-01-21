@@ -23,8 +23,7 @@
 
 ;;; Trace
 
-;; Variants of LMH need access to the trace, expose it
-;; via an accessor function.
+;; ASMH need access to the trace, expose it via an accessor function.
 
 (defn get-trace "returns trace" [state] (state ::trace))
 
@@ -106,24 +105,33 @@
 
 ;;; State transition
 
+;; Optional `update' argument is used by ASMH to override
+;; additional fields. The state is extensible, so are
+;; state transformation methods.
+
 (defn next-state
   "produces next state given current state
   and the trace entry to resample"
-  [state entry]
-  (:state (exec ::algorithm (:cont entry) nil 
-                ;; Remove the selected entry from RDB.
-                {::rdb (dissoc (rdb (state ::trace))
-                               (:choice-id entry))})))
+  ([state entry] (next-state state entry {}))
+  ([state entry update]
+   (:state (exec ::algorithm (:cont entry) nil 
+                 ;; Remove the selected entry from RDB.
+                 (into update
+                       {::rdb (dissoc (rdb (state ::trace))
+                                      (:choice-id entry))})))))
 
 (defn prev-state
   "produces previous state given the current and
   the next state and the resampled entry
   by re-attaching new rdb to the original state"
-  [state next-state entry]
-  (assoc state ::rdb (dissoc (rdb (next-state ::trace))
-                             (:choice-id entry))))
+  ([state next-state entry] (prev-state state next-state entry {}))
+  ([state next-state entry update]
+   (merge-with #(or %2 %1) state
+               (into update
+                     {::rdb (dissoc (rdb (next-state ::trace))
+                                    (:choice-id entry))}))))
 
-;; Computing transition probability.
+;; Transition probability
 
 (defn get-log-retained
   "computes log probability of retained random choices"
