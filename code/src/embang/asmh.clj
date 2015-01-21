@@ -9,7 +9,7 @@
 ;;;; Adaptive scheduling single-site Metropolis-Hastings
 
 ;; The code here deliberately inherits from LMH. I wanted
-;; to find a compromise between reproducing much of the 
+;; to find a compromise between reproducing much of the
 ;; LMH code and forcing the reader to jump back and forth
 ;; between two source files.
 
@@ -25,13 +25,29 @@
          ::last-predicts {}
          ::choice-counts {}}))
 
-(def ^:private +history-size+ 
+;;; Algorithm parameters
+
+(def ^:private +history-size+
   "number of past choices to keep in the history"
   16)
 
 (def ^:private +reward-discount+
   "applied to rewards to backpropagate the evidence"
   0.5)
+
+;;; Choice reward 
+
+;; Choice reward is a tuple [sum count] of normalized
+;; total reward and total weight.
+
+(def ^:private  +prior-choice-reward+
+  "reward of an unseen arm"
+  [+reward-discount+ +reward-discount+])
+
+(defn update-choice-reward
+  "updates choice reward with new evidence"
+  [[sum cnt] reward discount]
+  [(+ sum (* discount reward)) (+ cnt discount)])
 
 ;;; State transition
 
@@ -55,29 +71,32 @@
   returns updated state"
   ([state entry reward] (award state entry reward 1.))
   ([state entry reward weight]
-   (let [history (take +history-size+ 
+   (let [ ;; Push new choice into the history.
+         history (take +history-size+
                        (cons (:choice-id entry)
                              (::choice-history state)))
 
+         ;; Distribute discount reward among choices 
+         ;; in the history.
          rewards (loop [rewards (state ::choice-rewards)
                         discount (* +reward-discount+ weight)
                         history history]
                    (if-let [[choice-id & history] (seq history)]
-                     (recur
-                       (update-in
-                         rewards [choice-id]
-                         (fnil (fn [[sum cnt]]
-                                 [(+ sum (* discount reward))
-                                  (+ cnt discount)])
-                               [0. 0.]))
-                       (* discount +reward-discount+)
-                       history)
+                     (recur (update-in rewards [choice-id]
+                                       (fnil update-choice-reward
+                                             +prior-choice-reward+)
+                                       reward discount)
+                            (* discount +reward-discount+)
+                            history)
                      rewards))]
+     ;; Finally, record new rewards, history, predicts, and
+     ;; counts in the state.
      (-> state
-     (assoc ::choice-rewards rewards
-            ::choice-history history
-            ::last-predicts (into {} (get-predicts state)))
-     (update-in [::choice-counts (:choice-id entry)] (fnil inc 0))))))
+         (assoc ::choice-rewards rewards
+                ::choice-history history
+                ::last-predicts (into {} (get-predicts state)))
+         (update-in [::choice-counts (:choice-id entry)]
+                    (fnil inc 0))))))
 
 (defn state-update
   "computes state update --- fields that
@@ -114,6 +133,24 @@
   (+ (get-log-weight state)
      (get-log-retained state)
      (- (Math/log (count (get-trace state))))))
+
+;; Reporting statistics
+
+(defn add-choice-predicts
+  "adds predicts for choice statistics
+  to the state"
+  [state]
+  (-> state
+      (add-predict '$choice-rewards
+                   (sort-by first
+                           (map (fn [[choice-id [rwd cnt]]]
+                                  [choice-id (/ rwd cnt)])
+                                (state ::choice-rewards))))
+      (add-predict '$choice-counts
+                   (sort-by first (state ::choice-counts)))
+      (add-predict '$total-count
+                   (reduce + (map second
+                                  (state ::choice-counts))))))
 
 (defmethod infer :asmh [_ prog & {:keys [predict-choices
                                          punish-rejects]
@@ -152,11 +189,7 @@
                sample (set-log-weight state 0.)
                ;; Optionally, add rewards and counts to predicts.
                sample (if predict-choices
-                           (-> sample
-                               (add-predict '$choice-rewards
-                                            (state ::choice-rewards))
-                               (add-predict '$choice-counts
-                                            (state ::choice-counts)))
-                           sample)]
+                        (add-choice-predicts sample)
+                        sample)]
            (cons sample (sample-seq state)))))]
     (sample-seq (:state (exec ::algorithm prog nil initial-state)))))
