@@ -59,16 +59,15 @@
 (defn reward
   "computes reward for predicts in the state"
   [state]
-  ;; The reward is `d' for each predict with a different
-  ;; value, 0 otherwise.  The total reward is bounded
-  ;; between 0 (all predicts are unchanged) and 1
-  ;; (all predicts are different).
-  (let [d (/ 1. (double (count (get-predicts state))))]
+  ;; The reward is 1/N_predicts for each changed predict, 0
+  ;; otherwise. The total reward is bounded between 0 (all
+  ;; predicts are unchanged) and 1 (all predicts are different).
+  (let [predict-reward (/ 1. (double (count (get-predicts state))))]
     (reduce
-      (fn [sum [label value]]
+      (fn [reward [label value]]
         (if (= value
                ((state ::last-predicts) label))
-          sum (+ sum d)))
+          reward (+ reward predict-reward)))
       0. (get-predicts state))))
 
 (defn award
@@ -228,9 +227,8 @@
                          ;; predicts.
                          (award next-state entry (reward next-state))
 
-                         ;; The old state is held --- award 1
-                         ;; to increase sampling rate.
-                         (award state entry 1.))
+                         ;; The old state is held.
+                         state)
 
                  ;; Include the selected state into the sequence of samples,
                  ;; setting the weight to the unit weight.
