@@ -94,18 +94,18 @@
                    last-predicts)))))
 
 (defn award
-  "distributes the reward between random choices;
+  "distributes rewards between random choices;
   returns updated state"
   [state entry]
   (let [choice-id (:choice-id entry)
-        ;; TODO: merge predicts and last predicts 
-        ;; for the case of non-global predicts
-        discnt (/ 1. (double (count (get-predicts state))))]
+        predicts (combined-predicts state)
+        discnt (/ 1. (double (count predicts)))]
 
     (loop [choice-rewards (state ::choice-rewards)
            last-predicts (state ::last-predicts)
-           predicts (combined-predicts state)]
+           predicts predicts]
       (if-let [[[label value] & predicts] (seq predicts)]
+
         ;; Append the new choice to the list of pending choices.
         (let [pending-choices (conj (:choices (last-predicts label))
                                     choice-id)
