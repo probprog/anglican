@@ -8,4 +8,4 @@
                   (loop ((n n) (acc 1))
                     (if (<= n 1) acc
                         (recur (- n 1) (* acc n)))))]
-  (prn (fact 10)))
+  [predict (map fact (range 10))])
