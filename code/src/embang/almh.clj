@@ -9,9 +9,9 @@
 
 ;;;; Adaptive scheduling single-site Metropolis-Hastings
 ;
-;; An alternative version: instead of maintaining a single
-;; queue as in ALMH, a separate set of pending entries
-;; for each predict is maintained.]
+;; A separate set of pending entries is maintained
+;; for each predict, and the reward is distributed
+;; between the entries when the predict is updated.
 
 ;; The code here deliberately inherits from LMH. I wanted
 ;; to find a compromise between reproducing much of the
@@ -44,7 +44,7 @@
   "reward of an unseen arm"
   [1. 1.])
 
-(defn update-choice-reward
+(defn update-reward
   "updates choice reward with new evidence"
   [[sum cnt] reward discnt]
   [(+ sum (* discnt reward)) (+ cnt discnt)])
@@ -55,7 +55,7 @@
   [choice-rewards pending-choices reward discnt]
   (reduce (fn [choice-rewards choice-id]
             (update-in choice-rewards [choice-id]
-                       (fnil update-choice-reward
+                       (fnil update-reward
                              +prior-choice-reward+)
                        reward discnt))
           choice-rewards pending-choices))
@@ -77,6 +77,22 @@
 
 ;;; State transition
 
+(defn combined-predicts
+  "combines current predicts with last predicts
+  for which no current predict is available, assigning
+  the latters +not-a-predict+ as the value;
+  returns combined predicts"
+  [state]
+  (loop [predicts (get-predicts state)
+         last-predicts (state ::last-predicts)]
+    (if-let [[[label _] & predicts] (seq predicts)]
+      (recur predicts
+             (dissoc last-predicts label))
+      (concat (get-predicts state)
+              (map (fn [[label _]]
+                     [label +not-a-predict+])
+                   last-predicts)))))
+
 (defn award
   "distributes the reward between random choices;
   returns updated state"
@@ -88,7 +104,7 @@
 
     (loop [choice-rewards (state ::choice-rewards)
            last-predicts (state ::last-predicts)
-           predicts (get-predicts state)]
+           predicts (combined-predicts state)]
       (if-let [[[label value] & predicts] (seq predicts)]
         ;; Append the new choice to the list of pending choices.
         (let [pending-choices (conj (:choices (last-predicts label))
@@ -240,10 +256,17 @@
                                  (utility prev-state entry))
                               (Math/log (rand)))
                          ;; The new state is accepted --- award choices
-                         ;; according to changes in predicts.
+                         ;; according to changes in predicts to favor
+                         ;; choices which affect more predicts.
                          (award next-state entry)
-                         ;; The old state is held.
-                         state)
+                         ;; The old state is held. Award 0 reward to
+                         ;; the choice that caused reject to increase
+                         ;; acceptance rate.
+                         (update-in state
+                                    [::choice-rewards (:choice-id entry)]
+                                    (fnil update-reward
+                                          +prior-choice-reward+)
+                                    0. 1.))
                  ;; In any case, update the entry count.
                  state (update-choice-count state entry)
 

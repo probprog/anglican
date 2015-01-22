@@ -4,7 +4,7 @@
 ;;; HMM
 
 (defanglican hmm-1
-  "HMM with predicts for all states"
+  "HMM with predicts for first state"
   [assume initial-state-distribution
    (normalize (list 1.0 1.0 1.0))]
   [assume get-state-transition-vector
@@ -39,7 +39,7 @@
   [predict (get-state 1)])
 
 (defanglican hmm-17
-  "HMM with predicts for all states"
+  "HMM with predicts for last state"
   [assume initial-state-distribution
    (normalize (list 1.0 1.0 1.0))]
   [assume get-state-transition-vector
