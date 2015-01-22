@@ -126,9 +126,9 @@
               predicts)))
 
         ;; Finally, record new rewards and predicts in the state.
-        (-> state
-            (assoc ::choice-rewards choice-rewards
-                   ::last-predicts last-predicts))))))
+        (assoc state
+               ::choice-rewards choice-rewards
+               ::last-predicts last-predicts)))))
 
 (defn update-choice-count
   "updates total count for the chosen entry"
