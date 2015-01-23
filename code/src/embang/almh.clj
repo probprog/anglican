@@ -75,6 +75,16 @@
   for non-global predicts missing in the state"
   ::not-a-predict)
 
+(defn initialize-last-predicts
+  "initializes last predicts from current predicts,
+  called on the first end state;
+  returns updated state"
+  [state]
+  state (assoc state ::last-predicts
+               (into {} (map (fn [[label value]]
+                               [label (->predict value nil)])
+                             (get-predicts state)))))
+
 ;;; State transition
 
 (defn combined-predicts
@@ -130,11 +140,19 @@
                ::choice-rewards choice-rewards
                ::last-predicts last-predicts)))))
 
+(defn punish
+  "assigns zero reward to the entry;
+  called when a sample is rejected"
+  [state entry]
+  (update-in state
+             [::choice-rewards (:choice-id entry)]
+             (fnil update-reward +prior-choice-reward+)
+             0. 1.))
+
 (defn update-choice-count
   "updates total count for the chosen entry"
   [state entry]
-  (update-in state [::choice-counts
-                    (:choice-id entry)]
+  (update-in state [::choice-counts (:choice-id entry)]
              (fnil inc 0)))
 
 (defn state-update
@@ -168,6 +186,7 @@
   "returns function computing UCB of average reward"
   [total-count]
   (fn [[sum cnt]]
+    ;; b_i = \overline r_i + C \sqrt {\frac {log N} {N_i}}
     (+ (/ sum cnt) (* +exploration-factor+
                       (Math/sqrt (/ (Math/log total-count)
                                     cnt))))))
@@ -262,11 +281,7 @@
                          ;; The old state is held. Award 0 reward to
                          ;; the choice that caused reject to increase
                          ;; acceptance rate.
-                         (update-in state
-                                    [::choice-rewards (:choice-id entry)]
-                                    (fnil update-reward
-                                          +prior-choice-reward+)
-                                    0. 1.))
+                         (punish state entry))
                  ;; In any case, update the entry count.
                  state (update-choice-count state entry)
 
@@ -285,8 +300,5 @@
     (let [;; Run the first particle.
           state (:state (exec ::algorithm prog nil initial-state))
           ;; Initialize the predict table.
-          state (assoc state ::last-predicts
-                       (into {} (map (fn [[label value]]
-                                       [label (->predict value nil)])
-                                     (get-predicts state))))]
+          state (initialize-last-predicts state)]
       (sample-seq state))))
