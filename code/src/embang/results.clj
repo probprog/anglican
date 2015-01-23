@@ -85,7 +85,8 @@
          (let [[[label value weight] & lines] lines]
            (recur 
             lines
-            (if (or (integer? value) (symbol? value))
+            (if (or (integer? value) (symbol? value)
+                    (contains? #{true false nil} value))
               (update-in weights [label value] (fnil + 0.) weight)
               weights)))
 
