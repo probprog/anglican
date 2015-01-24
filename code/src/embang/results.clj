@@ -110,12 +110,14 @@
          (let [[[label value weight] & lines] lines]
            (recur 
             lines
-            (let [weighted-value (* value weight)]
-              (-> sums
-                  (update-in [label :weight] (fnil + 0.) weight)
-                  (update-in [label :sum] (fnil + 0.) weighted-value)
-                  (update-in [label :sum2] (fnil + 0.) 
-                             (* weighted-value weighted-value))))))
+            (if (number? value)
+              (let [weighted-value (* value weight)]
+                (-> sums
+                    (update-in [label :weight] (fnil + 0.) weight)
+                    (update-in [label :sum] (fnil + 0.) weighted-value)
+                    (update-in [label :sum2] (fnil + 0.) 
+                               (* weighted-value weighted-value))))
+              sums)))
 
          (doseq [label (sort (keys sums))]
            (let [mean (/ (get-in sums [label :sum])
