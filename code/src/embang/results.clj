@@ -4,6 +4,10 @@
             [clojure.edn :as edn]
             [clojure.data.json :as json]))
 
+;;;; Helper commands for inference results
+
+;;; Input/output redirection in the REPL.
+
 (defmacro redir
   "Input/output redirection macro,
   useful for running inference and processing results
@@ -36,11 +40,12 @@
    :else
    `(do ~@body)))
 
+;;; Parsing inference output.
+
 (defmulti parse-line 
   "parses output line and returns [label value height]"
   (fn [line format] format))
 
-;; legacy anglican syntax
 (defmethod parse-line :anglican [line format]
   (let [fields (str/split line #" *, *")
         [label value weight] (map edn/read-string
@@ -53,8 +58,9 @@
 (defmethod parse-line :json [line format]
   (json/read-str line))
 
-;; consistent with the default for print-predict
-;; and compatible with original Anglican
+;; The default method is consistent with the default
+;; for print-predict and compatible with original Anglican.
+
 (defmethod parse-line :default [line format]
   (parse-line line :anglican))
 
@@ -73,6 +79,10 @@
          (cons (parse-line line format)
                (lazy-seq (parsed-line-seq lines format)))))))
 
+;;; Summary statistics on inference results
+
+;; Discrete results: total counts.
+
 (defn freqs
   "reads the result file in anglican format
   and writes the frequency table for every
@@ -87,6 +97,7 @@
             lines
             (if (or (integer? value) (symbol? value)
                     (contains? #{true false nil} value))
+              ;; The value looks like a discrete value.
               (update-in weights [label value] (fnil + 0.) weight)
               weights)))
 
@@ -97,6 +108,9 @@
                                total-weight)]
                  (printf "%s, %s, %6g, %6g\n"
                          label value weight (Math/log weight))))))))))
+
+
+;; Continuous results: mean and standard deviation.
 
 (defn meansd
   "reads the result file in anglican format
@@ -111,6 +125,8 @@
            (recur 
             lines
             (if (number? value)
+              ;; The value is a numeric value for which mean
+              ;; and standard deviation can be computed.
               (let [weighted-value (* value weight)]
                 (-> sums
                     (update-in [label :weight] (fnil + 0.) weight)
