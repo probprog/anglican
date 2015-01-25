@@ -21,7 +21,6 @@
         q-freqs (fix-freqs q-freqs p-freqs)
         PC (double (reduce + (vals p-freqs)))
         QC (double (reduce + (vals q-freqs)))]
-    (prn p-freqs q-freqs)
     (reduce (fn [kl k]
               (let [q (/ (q-freqs k) QC)
                     p (/ (p-freqs k) PC)]
@@ -47,7 +46,7 @@
 
 (defn KS
   "computes Kolmogorov-Smirnov distance for two samples"
-  [sa sb]:e 
+  [sa sb]
   (let [sa (sort sa)
         sb (sort sb)
         s (sort (concat sa sb))
@@ -61,7 +60,7 @@
   "reads results from stdin and returns
   a table of total frequences for discrete-valued predicts"
  [& {:keys [exclude] :or {exclude #{}}}]
- (normalize-weights (reduce dissoc total-weights exclude)))
+ (normalize-weights (reduce dissoc (total-weights) exclude)))
 
 ;; REPL command:
 (defn kl-seq 
@@ -83,8 +82,13 @@
                            weights)]
              (if (= iline step)
                ;; Include KL into the sequence.
-               (cons (KL true-freqs (normalize-weights weights))
-                     (kl-seq* lines 0 weights))
+               (cons
+                 (let [freqs (normalize-weights weights)]
+                   (reduce
+                     + (map (fn [label]
+                              (KL (true-freqs label) (freqs label)))
+                            (keys true-freqs))))
+                 (kl-seq* lines 0 weights))
                ;; Otherwise, just accumulate the weights.
                (kl-seq* lines (inc iline) weights))))))]
     (kl-seq*

@@ -194,11 +194,12 @@
 (defn trace-weights
   "constructs a vector of trace weights"
   [state]
-  (let [trace-rewards (map (fn [{:keys [choice-id]}]
-                             ((state ::choice-rewards) choice-id
+  (let [choice-rewards (state ::choice-rewards)
+        trace-rewards (map (fn [{:keys [choice-id]}]
+                             (choice-rewards choice-id
                               +prior-choice-reward+))
                            (get-trace state))
-        total-count (reduce + (map (fn [[_ cnt]] cnt) trace-rewards))]
+        total-count (reduce + (map second trace-rewards))]
 
     (map (ucb total-count) trace-rewards)))
 
