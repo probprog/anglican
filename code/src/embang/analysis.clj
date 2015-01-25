@@ -28,14 +28,14 @@
             0. (keys q-freqs))))
 
 ;; For use with KS-two-samples.
-(defn search-sorted 
+(defn search-sorted
   "returns a sequence of indices such that if `values' are
   inserted at the indices into `grid', `grid' remains sorted;
   assumes that both `grid' and `values' are sorted"
   [grid values]
   (letfn
     [(indices [grid values index]
-       (lazy-seq 
+       (lazy-seq
          (when (seq values)
            (if (or (empty? grid)
                    (> (first grid) (first values)))
@@ -63,7 +63,7 @@
  (normalize-weights (reduce dissoc (total-weights) exclude)))
 
 ;; REPL command:
-(defn kl-seq 
+(defn kl-seq
   "reads results from stdin and returns a lazy sequence
   of KL distances, skipping first `skip' predict lines and
   then producing a sequence entry each `step' predict lines"
@@ -71,8 +71,8 @@
                  :or {skip 0
                       step 1
                       exclude #{}}}]
-  (letfn 
-    [(kl-seq* [lines iline weights]
+  (letfn
+    [(kl-seq* [lines nlines weights]
        (lazy-seq
          (if (empty? lines) nil
            (let [[[label value weight] & lines] (seq lines)
@@ -80,34 +80,45 @@
                            (update-in weights [label value]
                                       (fnil + 0.) weight)
                            weights)]
-             (if (= iline step)
+             (if (= nlines step)
                ;; After each `step' predict lines, include KL
-               ;; into the sequence. 
+               ;; into the sequence.
                (cons
                  (let [freqs (normalize-weights weights)]
                    (reduce
                      + (map (fn [label]
                               (KL (true-freqs label) (freqs label)))
                             (keys true-freqs))))
-                 (kl-seq* lines 0 weights))
+                 (kl-seq* lines 1 weights))
                ;; Otherwise, just accumulate the weights.
-               (kl-seq* lines (inc iline) weights))))))]
+               (kl-seq* lines (inc nlines) weights))))))]
     (kl-seq*
       (drop skip (parsed-line-seq (line-seq (io/reader *in*))))
-      0 {})))
+      1 {})))
 
 ;; REPL command:
-(defn total-predicts
-  "reads results from stdin and returns a lazy sequence of predicts,
-  skipping first `skip' predict lines and then producing a sequence
-  entry each `step' predict lines"
-  [& {:keys [skip step]
+(defn total-samples
+  "reads results from stdin and returns a map label -> sequence
+  of samples, skipping first `skip' predict lines and
+  then processing one entry per label each `step' predict lines"
+  [& {:keys [skip step exclude]
       :or {skip 0
            step 1}}]
-  (map (fn [[predict]] predict)
-    (partition 1 step
-               (drop skip
-                     (parsed-line-seq (line-seq (io/reader *in*))))))) 
+  (loop [predicts (drop skip
+                        (parsed-line-seq (line-seq (io/reader *in*))))
+         samples {}
+         nlines 1
+         seen-labels #{}]
+    (if-let [[[label value _] & predicts] (seq predicts)]
+      (let [samples (if (and (not (or (contains? exclude label)
+                                      (contains? seen-labels label)))
+                             (number? value))
+                      (update-in samples label (fnil conj []) value)
+                      samples)]
+        (if (= nlines step)
+          (recur predicts samples 0 (empty seen-labels))
+          (recur predicts samples (inc nlines) (conj seen-labels label))))
+      samples)))
 
 ;; REPL command:
 (defn ks-seq
@@ -118,5 +129,4 @@
                    :or {skip 0
                         step 1
                         exclude #{}}}]
-  ;; TODO
   )
