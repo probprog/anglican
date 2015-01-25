@@ -106,18 +106,21 @@
            step 1}}]
   (loop [predicts (drop skip
                         (parsed-line-seq (line-seq (io/reader *in*))))
-         samples {}
          nlines 1
+         samples {}
          seen-labels #{}]
+    (prn seen-labels nlines)
     (if-let [[[label value _] & predicts] (seq predicts)]
-      (let [samples (if (and (not (or (contains? exclude label)
-                                      (contains? seen-labels label)))
-                             (number? value))
-                      (update-in samples label (fnil conj []) value)
+      (let [samples (if-not (or (contains? exclude label)
+                                (contains? seen-labels label))
+                      (update-in samples [label]
+                                 (fnil conj []) value)
                       samples)]
         (if (= nlines step)
-          (recur predicts samples 0 (empty seen-labels))
-          (recur predicts samples (inc nlines) (conj seen-labels label))))
+          (recur predicts 0
+                 samples (empty seen-labels))
+          (recur predicts (inc nlines)
+                 samples (conj seen-labels label))))
       samples)))
 
 ;; REPL command:
@@ -129,4 +132,24 @@
                    :or {skip 0
                         step 1
                         exclude #{}}}]
-  )
+  (letfn
+    [(ks-seq* [lines nlines samples]
+       (if (empty? lines) nil
+         (let [[[label value _] & lines] (seq lines)
+               samples (if-not (contains? exclude label)
+                         (update-in samples [label]
+                                    (fnil conj []) value)
+                         samples)]
+           (if (= nlines step)
+             ;; After each `step' predict lines, include KL
+             ;; into the sequence.
+             (cons (reduce
+                     + (map (fn [label]
+                              (KS (true-samples label)
+                                  (samples label)))
+                            (keys true-samples)))
+                   (ks-seq* lines 1 samples))
+               ;; Otherwise, just collect the samples.
+               (ks-seq* lines (inc nlines) samples)))))]
+    (ks-seq*
+      (drop skip (parsed-line-seq (line-seq (io/reader *in*)))))))
