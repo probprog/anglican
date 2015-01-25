@@ -8,6 +8,7 @@
 
 ;;; Input/output redirection in the REPL.
 
+;; REPL/command-line command:
 (defmacro redir
   "Input/output redirection macro,
   useful for running inference and processing results
@@ -81,64 +82,75 @@
 
 ;;; Summary statistics on inference results
 
-;; Discrete results: total counts.
+;; Discrete results: value frequences (categorical distribution).
 
+;; Helper functions: total-weights and normalize-weights.
+
+(defn total-weights
+  "reads results from stdin and returns total weights
+  for every value of every discrete-valued predict"
+  []
+  (reduce
+    (fn [weights [label value weight]]
+      (if (or (integer? value) (symbol? value)
+              (contains? #{true false nil} value))
+        ;; The value looks like a discrete value.
+        (update-in weights [label value] (fnil + 0.) weight)
+        weights))
+    {} (parsed-line-seq (line-seq (io/reader *in*)))))
+
+(defn normalize-weights
+  "normalizes weights for each label"
+  [weights]
+  (reduce
+    (fn [weights label]
+      (let [sum-for-label (reduce + (vals (weights label)))]
+        (reduce
+          (fn [weights value]
+            (update-in weights [label value] / sum-for-label))
+          weights (keys (weights label)))))
+    weights (keys weights)))
+
+;; REPL/command-line command:
 (defn freqs
-  "reads the result file in anglican format
-  and writes the frequency table for every
-  integer-valued predict"
-  ([iname] (redir [:in iname] (freqs)))
-  ([]
-     (loop [lines (parsed-line-seq (line-seq (io/reader *in*)))
-            weights {}]
-       (if (seq lines)
-         (let [[[label value weight] & lines] lines]
-           (recur 
-            lines
-            (if (or (integer? value) (symbol? value)
-                    (contains? #{true false nil} value))
-              ;; The value looks like a discrete value.
-              (update-in weights [label value] (fnil + 0.) weight)
-              weights)))
-
-         (doseq [label (sort-by str (keys weights))]
-           (let [total-weight (reduce + (vals (weights label)))]
-             (doseq [value (sort (keys (weights label)))]
-               (let [weight (/ (double (get-in weights [label value]))
-                               total-weight)]
-                 (printf "%s, %s, %6g, %6g\n"
-                         label value weight (Math/log weight))))))))))
-
+  "reads results from stdin and writes the frequency table
+  for every integer-valued predict"
+  []
+  (let [total-freqs (normalize-weights (total-weights))]
+    (doseq [label (sort-by str (keys total-freqs))]
+      (doseq [value (sort (keys (total-freqs label)))]
+        (let [count (get-in total-freqs [label value])]
+          (printf "%s, %s, %6g, %6g\n"
+                  label value count (Math/log count)))))))
 
 ;; Continuous results: mean and standard deviation.
 
+;; REPL/command-line command:
 (defn meansd
-  "reads the result file in anglican format
-  and outputs the mean and standard deviation
-  for each predict"
-  ([iname] (redir [:in iname] (freqs)))
-  ([]
-     (loop [lines (parsed-line-seq (line-seq (io/reader *in*)))
-            sums {}]
-       (if (seq lines)
-         (let [[[label value weight] & lines] lines]
-           (recur 
-            lines
-            (if (number? value)
-              ;; The value is a numeric value for which mean
-              ;; and standard deviation can be computed.
-              (let [weighted-value (* value weight)]
-                (-> sums
-                    (update-in [label :weight] (fnil + 0.) weight)
-                    (update-in [label :sum] (fnil + 0.) weighted-value)
-                    (update-in [label :sum2] (fnil + 0.) 
-                               (* weighted-value weighted-value))))
-              sums)))
+  "reads results from stdin and writes the mean and
+  standard deviation for each predict"
+  []
+  (loop [lines (parsed-line-seq (line-seq (io/reader *in*)))
+         sums {}]
+    (if (seq lines)
+      (let [[[label value weight] & lines] lines]
+        (recur 
+          lines
+          (if (number? value)
+            ;; The value is a numeric value for which mean
+            ;; and standard deviation can be computed.
+            (let [weighted-value (* value weight)]
+              (-> sums
+                  (update-in [label :weight] (fnil + 0.) weight)
+                  (update-in [label :sum] (fnil + 0.) weighted-value)
+                  (update-in [label :sum2] (fnil + 0.) 
+                             (* weighted-value weighted-value))))
+            sums)))
 
-         (doseq [label (sort (keys sums))]
-           (let [mean (/ (get-in sums [label :sum])
-                         (get-in sums [label :weight]))
-                 sd (Math/sqrt (-(/ (get-in sums [label :sum2])
-                                    (get-in sums [label :weight]))
+      (doseq [label (sort (keys sums))]
+        (let [mean (/ (get-in sums [label :sum])
+                      (get-in sums [label :weight]))
+              sd (Math/sqrt (-(/ (get-in sums [label :sum2])
+                                 (get-in sums [label :weight]))
                                  (* mean mean)))]
-             (printf "%s, %6g, %6g\n" label mean sd)))))))
+          (printf "%s, %6g, %6g\n" label mean sd))))))
