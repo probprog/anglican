@@ -81,7 +81,8 @@
                                       (fnil + 0.) weight)
                            weights)]
              (if (= iline step)
-               ;; Include KL into the sequence.
+               ;; After each `step' predict lines, include KL
+               ;; into the sequence. 
                (cons
                  (let [freqs (normalize-weights weights)]
                    (reduce
