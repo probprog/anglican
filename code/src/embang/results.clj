@@ -72,7 +72,7 @@
        (if (re-find #"^\s*;|^\s*$" line)
          ;; meta-info or comment
          (if-let [format-option (re-matches
-                                 #"^;;\s*:output-format\s+:(.+)"
+                                 #"^;;\s*Output format:\s+:(.+)"
                                  line)]
            (recur lines (keyword (format-option 1)))
            (recur lines format))
