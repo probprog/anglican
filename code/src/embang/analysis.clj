@@ -4,30 +4,28 @@
                               total-weights
                               normalize-weights]]))
 
-;;;; Analysis of inference results.
+;;;; Analysis of inference results
 
-;;; Sample distance measures.
+;;; Sample distance measures
 
 (defn KL
   "computes Kullback-Leibler divergence for value frequencies."
   [p-freqs q-freqs] {:pre [(map? p-freqs) (map? q-freqs)]}
-  ;; Fix freqs so that have the same keys.
+  ;; Fix freqs so that p and q have the same keys.
   (let [fix-freqs (fn [a-freqs b-freqs]
                      (reduce (fn [ac k]
                                (if (ac k) ac
                                  (assoc ac k Double/MIN_NORMAL)))
                              a-freqs (keys b-freqs)))
         p-freqs (fix-freqs p-freqs q-freqs)
-        q-freqs (fix-freqs q-freqs p-freqs)
-        PC (double (reduce + (vals p-freqs)))
-        QC (double (reduce + (vals q-freqs)))]
+        q-freqs (fix-freqs q-freqs p-freqs)]
     (reduce (fn [kl k]
-              (let [q (/ (q-freqs k) QC)
-                    p (/ (p-freqs k) PC)]
+              (let [q (q-freqs k)
+                    p (p-freqs k)]
                 (+ kl (* p (Math/log (/ p q))))))
             0. (keys q-freqs))))
 
-;; For use with KS-two-samples.
+;; For use with KS-two-samples:
 (defn search-sorted
   "returns a sequence of indices such that if `values' are
   inserted at the indices into `grid', `grid' remains sorted;
@@ -55,28 +53,51 @@
                 (map #(/ (double %) nx) (search-sorted sx s))))]
     (reduce max (map #(Math/abs (- %1 %2)) (cdf sa) (cdf sb)))))
 
+;;; Manipulating inference outputs
+
+(defn included?
+  "true when the label should be included"
+  [only exclude label]
+  (and (or (nil? only) (contains? only label))
+       (not (contains? exclude label))))
+
+(defn predict-seq-skipping
+  "returns lazy sequence of predicts, 
+  skipping first `skip' predicts"
+  [skip]
+  (drop skip (parsed-line-seq (line-seq (io/reader *in*)))))
+
 ;; REPL command:
 (defn total-freqs
   "reads results from stdin and returns
   a table of total frequences for discrete-valued predicts"
- [& {:keys [exclude] :or {exclude #{}}}]
- (normalize-weights (reduce dissoc (total-weights) exclude)))
+  [& {:keys [only exclude]
+      :or {only nil
+           exclude #{}}}]
+  (let [total-weights (total-weights)]
+    (normalize-weights
+      (reduce dissoc total-weights 
+              (keep (complement 
+                      (partial included?  only exclude))
+                    (keys total-weights))))))
+
 
 ;; REPL command:
 (defn kl-seq
   "reads results from stdin and returns a lazy sequence
   of KL distances, skipping first `skip' predict lines and
   then producing a sequence entry each `step' predict lines"
-  [true-freqs & {:keys [skip step exclude]
+  [true-freqs & {:keys [skip step only exclude]
                  :or {skip 0
                       step 1
+                      only nil
                       exclude #{}}}]
   (letfn
     [(kl-seq* [lines nlines weights]
        (lazy-seq
          (if (empty? lines) nil
            (let [[[label value weight] & lines] (seq lines)
-                 weights (if-not (contains? exclude label)
+                 weights (if (included? only exclude label)
                            (update-in weights [label value]
                                       (fnil + 0.) weight)
                            weights)]
@@ -92,33 +113,35 @@
                  (kl-seq* lines 1 weights))
                ;; Otherwise, just accumulate the weights.
                (kl-seq* lines (inc nlines) weights))))))]
-    (kl-seq*
-      (drop skip (parsed-line-seq (line-seq (io/reader *in*))))
-      1 {})))
+    (kl-seq* (predict-seq-skipping skip) 1 {})))
 
 ;; REPL command:
 (defn total-samples
   "reads results from stdin and returns a map label -> sequence
   of samples, skipping first `skip' predict lines and
   then processing one entry per label each `step' predict lines"
-  [& {:keys [skip step exclude]
+  [& {:keys [skip step only exclude]
       :or {skip 0
-           step 1}}]
-  (loop [predicts (drop skip
-                        (parsed-line-seq (line-seq (io/reader *in*))))
+           step 1
+           only nil
+           exclude #{}}}]
+  (loop [predicts (predict-seq-skipping skip)
          nlines 1
          samples {}
          seen-labels #{}]
-    (prn seen-labels nlines)
     (if-let [[[label value _] & predicts] (seq predicts)]
-      (let [samples (if-not (or (contains? exclude label)
-                                (contains? seen-labels label))
+      (let [samples (if (and (included? only exclude label)
+                             (not (contains? seen-labels label)))
                       (update-in samples [label]
                                  (fnil conj []) value)
                       samples)]
         (if (= nlines step)
-          (recur predicts 0
+          ;; After each nlines forget seen labels
+          ;; and start collecting new layer of samples.
+          (recur predicts 1
                  samples (empty seen-labels))
+          ;; Only a single value for every label is
+          ;; collected over each nlines.
           (recur predicts (inc nlines)
                  samples (conj seen-labels label))))
       samples)))
@@ -128,20 +151,22 @@
   "reads results from stdin and returns a lazy sequence
   of KS distances, skipping first `skip' predict lines and
   then producing a sequence entry each `step' predict lines"
-  [true-samples & {:keys [skip step exclude]
+  [true-samples & {:keys [skip step only exclude]
                    :or {skip 0
                         step 1
+                        only nil
                         exclude #{}}}]
   (letfn
     [(ks-seq* [lines nlines samples]
+       (lazy-seq
        (if (empty? lines) nil
          (let [[[label value _] & lines] (seq lines)
-               samples (if-not (contains? exclude label)
+               samples (if (included? only exclude label)
                          (update-in samples [label]
                                     (fnil conj []) value)
                          samples)]
            (if (= nlines step)
-             ;; After each `step' predict lines, include KL
+             ;; After each `step' predict lines, include KS
              ;; into the sequence.
              (cons (reduce
                      + (map (fn [label]
@@ -150,6 +175,5 @@
                             (keys true-samples)))
                    (ks-seq* lines 1 samples))
                ;; Otherwise, just collect the samples.
-               (ks-seq* lines (inc nlines) samples)))))]
-    (ks-seq*
-      (drop skip (parsed-line-seq (line-seq (io/reader *in*)))))))
+               (ks-seq* lines (inc nlines) samples))))))]
+    (ks-seq* (predict-seq-skipping skip) 1 {})))
