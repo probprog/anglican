@@ -38,17 +38,101 @@
                              (obs (rest obs))
                              (state (first ob))
                              (mean (second ob)))
-                         (observe
+                         [observe
                           (normal
                            (get-state-observation-mean (get-state state)) 1)
-                           mean))
+                           mean])
                        (observes obs))))))
     (observes '((1 0.9) (2 0.8) (3 0.7) (4 0)
                 (5 -0.025) (6 -5) (7 -2) (8 -0.1)
                 (9 0) (10 0.13) (11 0.45) (12 6)
                 (13 0.2) (14 0.3) (15 -1) (16 -1))))
 
-  (predict (map get-state (range 25))))
+  [predict (get-state 0)]
+  [predict (get-state 1)]
+  [predict (get-state 2)]
+  [predict (get-state 3)]
+  [predict (get-state 4)]
+  [predict (get-state 5)]
+  [predict (get-state 6)]
+  [predict (get-state 7)]
+  [predict (get-state 8)]
+  [predict (get-state 9)]
+  [predict (get-state 10)]
+  [predict (get-state 11)]
+  [predict (get-state 12)]
+  [predict (get-state 13)]
+  [predict (get-state 14)]
+  [predict (get-state 15)]
+  [predict (get-state 16)]
+  [predict (get-state 17)] 
+  [predict (sample (normal (get-state-observation-mean (get-state 25)) 1))])
+
+(defanglican hhmm
+  "HMM with predicts for all states"
+  [assume dir-prior (dirichlet (repeat 3 1))]
+
+  [assume initial-state-distribution
+   (sample dir-prior)]
+
+  [assume get-state-transition-vector
+   (lambda (s)
+           (cond ((= s 0) (sample dir-prior))
+                 ((= s 1) (sample dir-prior))
+                 ((= s 2) (sample dir-prior))))]
+
+  [assume transition
+   (lambda (prev-state)
+     (sample (discrete (get-state-transition-vector prev-state))))]
+
+  [assume get-state
+   (mem (lambda (index)
+                (if (<= index 0)
+                  (sample (discrete initial-state-distribution))
+                  (transition (get-state (- index 1))))))]
+
+  [assume get-state-observation-mean
+   (lambda (s)
+           (cond ((= s 0) -1)
+                 ((= s 1) 1)
+                 ((= s 2) 0)))]
+
+  (let ((observes (lambda (obs)
+                    (if (not (empty? obs))
+                      (begin
+                       (let ((ob (first obs))
+                             (obs (rest obs))
+                             (state (first ob))
+                             (mean (second ob)))
+                         [observe
+                          (normal
+                           (get-state-observation-mean (get-state state)) 1)
+                           mean])
+                       (observes obs))))))
+    (observes '((1 0.9) (2 0.8) (3 0.7) (4 0)
+                (5 -0.025) (6 -5) (7 -2) (8 -0.1)
+                (9 0) (10 0.13) (11 0.45) (12 6)
+                (13 0.2) (14 0.3) (15 -1) (16 -1))))
+
+  [predict (get-state 0)]
+  [predict (get-state 1)]
+  [predict (get-state 2)]
+  [predict (get-state 3)]
+  [predict (get-state 4)]
+  [predict (get-state 5)]
+  [predict (get-state 6)]
+  [predict (get-state 7)]
+  [predict (get-state 8)]
+  [predict (get-state 9)]
+  [predict (get-state 10)]
+  [predict (get-state 11)]
+  [predict (get-state 12)]
+  [predict (get-state 13)]
+  [predict (get-state 14)]
+  [predict (get-state 15)]
+  [predict (get-state 16)]
+  [predict (get-state 17)] 
+  [predict (sample (normal (get-state-observation-mean (get-state 25)) 1))])
 
 (defanglican original
   "HMM with predicts for all states"

@@ -81,7 +81,6 @@
                       (partial included?  only exclude))
                     (keys total-weights))))))
 
-
 ;; REPL command:
 (defn kl-seq
   "reads results from stdin and returns a lazy sequence
