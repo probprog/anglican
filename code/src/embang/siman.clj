@@ -67,7 +67,9 @@
 (defn rdb
   "creates random database from trace"
   [trace]
-  (into {} (map (comp vec (juxt :choice-id :value)) trace)))
+  (into {} (map (fn [entry]
+                  [(:choice-id entry) (:value entry)])
+                trace)))
 
 ;;; Inference
 

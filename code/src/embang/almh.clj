@@ -81,8 +81,10 @@
   returns updated state"
   [state]
   state (assoc state ::last-predicts
+               ;; Every pending choice is rewarded once, hence
+               ;; pending choices is a set rather than a list.
                (into {} (map (fn [[label value]]
-                               [label (->predict value nil)])
+                               [label (->predict value #{})])
                              (get-predicts state)))))
 
 ;;; State transition

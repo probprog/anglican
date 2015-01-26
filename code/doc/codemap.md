@@ -6,7 +6,7 @@
         # Running inference and processing results
         core.clj       --- Running inference
         results.clj    --- Auxiliary REPL functions
-        analysis.clj   --- Analysis of inference results (in progress)
+        analysis.clj   --- Analysis of inference results
 
         # Inference 
         ## General
