@@ -108,7 +108,8 @@
   (prn [label value weight]))
 
 (defmethod print-predict :json [label value weight format]
-  (json/pprint [(str label) value weight]))
+  (json/write [(str label) value weight] *out*)
+  (prn))
 
 (defmethod print-predict :default [label value weight format]
   (print-predict label value weight :anglican))

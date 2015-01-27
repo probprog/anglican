@@ -1,6 +1,5 @@
 (ns embang.almh
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use clojure.pprint)
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.lmh :exclude [initial-state
@@ -53,18 +52,18 @@
   "updates rewards in pending choices;
   returns updated choice-rewards"
   [choice-rewards pending-choices reward discnt]
-  (reduce (fn [choice-rewards choice-id]
+  (reduce (fn [choice-rewards [choice-id choice-cnt]]
             (update-in choice-rewards [choice-id]
                        (fnil update-reward
                              +prior-choice-reward+)
-                       reward discnt))
+                       reward (* choice-cnt discnt)))
           choice-rewards pending-choices))
 
 ;;; Stored predict for reward distribution.
 
 ;; Predicts are stored in a map indexed by predict label.
 ;; Each predict record contains the last predict value
-;; and a list of pending choice ids --- those which were
+;; and all pending choice ids --- those which were
 ;; selected after the last change of predict's value.
 
 (defrecord predict [value     ; predicted value
@@ -74,6 +73,28 @@
   "a value different from any possible predict,
   for non-global predicts missing in the state"
   ::not-a-predict)
+
+(defn initialize-last-predicts
+  "initializes last predicts from current predicts,
+  called on the first end state;
+  returns updated state"
+  [state]
+  (assoc state ::last-predicts
+         (into {} (map (fn [[label value]]
+                         [label (->predict value {})])
+                       (get-predicts state)))))
+
+;; Pending choices is a map choice-id -> choice count.
+(defn add-pending-choice
+  "adds a pending choice to the predict"
+  [predict choice-id]
+  (update-in predict [:choices choice-id] (fnil inc 0)))
+
+(defn pending-choice-count
+  "returns total number of pending choices
+  for the predict"
+  [predict]
+  (reduce + (vals (:choices predict))))
 
 ;;; State transition
 
@@ -101,40 +122,54 @@
         predicts (combined-predicts state)
         discnt (/ 1. (double (count predicts)))]
 
-    (loop [choice-rewards (state ::choice-rewards)
-           last-predicts (state ::last-predicts)
-           predicts predicts]
+    (loop [predicts predicts
+           choice-rewards (state ::choice-rewards)
+           last-predicts (state ::last-predicts)]
       (if-let [[[label value] & predicts] (seq predicts)]
 
         ;; Append the new choice to the list of pending choices.
-        (let [pending-choices (conj (:choices (last-predicts label))
-                                    choice-id)
-              discnt (/ discnt (double (count pending-choices)))]
+        (let [last-predicts (update-in last-predicts [label]
+                                       add-pending-choice choice-id)
+              discnt (/ discnt
+                        (double (pending-choice-count
+                                  (last-predicts label))))]
           (if (= value (:value (last-predicts label)))
             ;; Same predict, append the choice to the collection.
             (recur
-              (update-rewards choice-rewards pending-choices 0. discnt)
-              (assoc-in last-predicts [label :choices] pending-choices)
-              predicts)
+              predicts
+              (update-rewards
+                choice-rewards (:choices (last-predicts label))
+                0. discnt)
+              last-predicts)
 
             ;; Different predict, update rewards for pending choices.
             (recur
-              (update-rewards choice-rewards pending-choices 1. discnt)
+              predicts
+              (update-rewards
+                choice-rewards (:choices (last-predicts label))
+                1. discnt)
               (-> last-predicts
                   (update-in [label :choices] empty)
-                  (assoc-in [label :value] value))
-              predicts)))
+                  (assoc-in [label :value] value)))))
 
         ;; Finally, record new rewards and predicts in the state.
         (assoc state
                ::choice-rewards choice-rewards
                ::last-predicts last-predicts)))))
 
+(defn punish
+  "assigns zero reward to the entry;
+  called when a sample is rejected"
+  [state entry]
+  (update-in state
+             [::choice-rewards (:choice-id entry)]
+             (fnil update-reward +prior-choice-reward+)
+             0. 1.))
+
 (defn update-choice-count
   "updates total count for the chosen entry"
   [state entry]
-  (update-in state [::choice-counts
-                    (:choice-id entry)]
+  (update-in state [::choice-counts (:choice-id entry)]
              (fnil inc 0)))
 
 (defn state-update
@@ -168,6 +203,7 @@
   "returns function computing UCB of average reward"
   [total-count]
   (fn [[sum cnt]]
+    ;; b_i = \overline r_i + C \sqrt {\frac {log N} {N_i}}
     (+ (/ sum cnt) (* +exploration-factor+
                       (Math/sqrt (/ (Math/log total-count)
                                     cnt))))))
@@ -246,8 +282,8 @@
 
                  ;; Compute next state from the resampled choice.
                  next-state (next-state state entry)
-                 ;; Reconstruct the current state through transition back
-                 ;; from the next state; the rdb will be different.
+                 ;; Reconstruct the current state through transition
+                 ;; back from the next state, with a different rdb.
                  prev-state (prev-state state next-state entry)
 
                  ;; Apply Metropolis-Hastings acceptance rule to select
@@ -262,16 +298,12 @@
                          ;; The old state is held. Award 0 reward to
                          ;; the choice that caused reject to increase
                          ;; acceptance rate.
-                         (update-in state
-                                    [::choice-rewards (:choice-id entry)]
-                                    (fnil update-reward
-                                          +prior-choice-reward+)
-                                    0. 1.))
+                         (punish state entry))
                  ;; In any case, update the entry count.
                  state (update-choice-count state entry)
 
-                 ;; Include the selected state into the sequence of samples,
-                 ;; setting the weight to the unit weight.
+                 ;; Include the selected state into the sequence of
+                 ;; samples, setting the weight to the unit weight.
                  sample (set-log-weight state 0.)
                  ;; Optionally, add rewards and counts to predicts.
                  sample (if predict-choices
@@ -285,8 +317,5 @@
     (let [;; Run the first particle.
           state (:state (exec ::algorithm prog nil initial-state))
           ;; Initialize the predict table.
-          state (assoc state ::last-predicts
-                       (into {} (map (fn [[label value]]
-                                       [label (->predict value nil)])
-                                     (get-predicts state))))]
+          state (initialize-last-predicts state)]
       (sample-seq state))))
