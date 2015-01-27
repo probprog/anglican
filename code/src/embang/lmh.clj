@@ -24,7 +24,7 @@
 
 ;;; Trace
 
-;; ASMH need access to the trace, expose it via an accessor function.
+;; ALMH need access to the trace, expose it via an accessor function.
 
 (defn get-trace "returns trace" [state] (state ::trace))
 
@@ -90,8 +90,11 @@
                    ;; NaN is returned if value is not in support.
                    (catch Exception e (/ 0. 0.)))
         value (if (< (/ -1. 0.) log-p (/ 1. 0.)) value
-                ;; The retained value is not in support,
-                ;; resample the value from the prior.
+                ;; The retained value is not in support, resample
+                ;; the value from the prior.  When the value is
+                ;; resampled, log-p is no longer valid, but log-p
+                ;; of a resampled value is ignored anyway (see
+                ;; `utility' below).
                 (sample (:dist smp)))
         cont (fn [_ update]
                ;; Continuation which starts from this checkpoint
@@ -107,9 +110,9 @@
 
 ;;; State transition
 
-;; Optional `update' argument is used by ASMH to override
-;; additional fields. The state is extensible, so are
-;; state transformation methods.
+;; Optional `update' argument is used by Adaptive LMH to supply
+;; additional fields. The state is extensible, so are state
+;; transformation methods.
 
 (defn next-state
   "produces next state given current state

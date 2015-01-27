@@ -76,10 +76,11 @@
    (sample dir-prior)]
 
   [assume get-state-transition-vector
-   (lambda (s)
-           (cond ((= s 0) (sample dir-prior))
-                 ((= s 1) (sample dir-prior))
-                 ((= s 2) (sample dir-prior))))]
+   (mem
+     (lambda (s)
+             (cond ((= s 0) (sample dir-prior))
+                   ((= s 1) (sample dir-prior))
+                   ((= s 2) (sample dir-prior)))))]
 
   [assume transition
    (lambda (prev-state)

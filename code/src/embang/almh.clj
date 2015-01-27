@@ -32,7 +32,7 @@
 
 (def ^:private +exploration-factor+
   "UCB exploration factor"
-  0.1)
+  0.5)
 
 ;;; Choice reward 
 
