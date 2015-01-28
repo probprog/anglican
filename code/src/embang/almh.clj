@@ -32,7 +32,7 @@
 
 (def ^:private +exploration-factor+
   "UCB exploration factor"
-  0.1)
+  0.5)
 
 ;;; Choice reward 
 
@@ -271,8 +271,10 @@
                    (reduce + (map second
                                   (state ::choice-counts))))))
 
-(defmethod infer :almh [_ prog & {:keys [predict-choices]
-                                  :or {predict-choices false}}]
+(defmethod infer :almh [_ prog & {:keys [predict-choices
+                                         punish-rejects]
+                                  :or {predict-choices false
+                                       punish-rejects true}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
@@ -288,17 +290,26 @@
 
                  ;; Apply Metropolis-Hastings acceptance rule to select
                  ;; either the new or the current state.
-                 state (if (> (- (utility next-state entry)
-                                 (utility prev-state entry))
-                              (Math/log (rand)))
+                 state (cond
+                         (> (- (utility next-state entry)
+                               (utility prev-state entry))
+                            (Math/log (rand)))
                          ;; The new state is accepted --- award choices
                          ;; according to changes in predicts to favor
                          ;; choices which affect more predicts.
                          (award next-state entry)
+
+                         punish-rejects
                          ;; The old state is held. Award 0 reward to
                          ;; the choice that caused reject to increase
                          ;; acceptance rate.
-                         (punish state entry))
+                         (punish state entry)
+                         
+                         :else
+                         ;; If adaptation is only by influence on
+                         ;; the output, return the current state.
+                         state)
+
                  ;; In any case, update the entry count.
                  state (update-choice-count state entry)
 
