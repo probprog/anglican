@@ -157,15 +157,6 @@
                ::choice-rewards choice-rewards
                ::last-predicts last-predicts)))))
 
-(defn punish
-  "assigns zero reward to the entry;
-  called when a sample is rejected"
-  [state entry]
-  (update-in state
-             [::choice-rewards (:choice-id entry)]
-             (fnil update-reward +prior-choice-reward+)
-             0. 1.))
-
 (defn update-choice-count
   "updates total count for the chosen entry"
   [state entry]
@@ -271,10 +262,8 @@
                    (reduce + (map second
                                   (state ::choice-counts))))))
 
-(defmethod infer :almh [_ prog & {:keys [predict-choices
-                                         punish-rejects]
-                                  :or {predict-choices false
-                                       punish-rejects true}}]
+(defmethod infer :almh [_ prog & {:keys [predict-choices]
+                                  :or {predict-choices false}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
@@ -290,8 +279,7 @@
 
                  ;; Apply Metropolis-Hastings acceptance rule to select
                  ;; either the new or the current state.
-                 state (cond
-                         (> (- (utility next-state entry)
+                 state (if (> (- (utility next-state entry)
                                (utility prev-state entry))
                             (Math/log (rand)))
                          ;; The new state is accepted --- award choices
@@ -299,15 +287,7 @@
                          ;; choices which affect more predicts.
                          (award next-state entry)
 
-                         punish-rejects
-                         ;; The old state is held. Award 0 reward to
-                         ;; the choice that caused reject to increase
-                         ;; acceptance rate.
-                         (punish state entry)
-                         
-                         :else
-                         ;; If adaptation is only by influence on
-                         ;; the output, return the current state.
+                         ;; The old state is held.
                          state)
 
                  ;; In any case, update the entry count.
