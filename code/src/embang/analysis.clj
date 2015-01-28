@@ -12,18 +12,13 @@
   "computes Kullback-Leibler divergence for value frequencies."
   [p-freqs q-freqs] {:pre [(map? p-freqs) (map? q-freqs)]}
   ;; Fix freqs so that p and q have the same keys.
-  (let [fix-freqs (fn [a-freqs b-freqs]
-                     (reduce (fn [ac k]
-                               (if (ac k) ac
-                                 (assoc ac k Double/MIN_NORMAL)))
-                             a-freqs (keys b-freqs)))
-        p-freqs (fix-freqs p-freqs q-freqs)
-        q-freqs (fix-freqs q-freqs p-freqs)]
-    (reduce (fn [kl k]
-              (let [q (q-freqs k)
-                    p (p-freqs k)]
-                (+ kl (* p (Math/log (/ p q))))))
-            0. (keys q-freqs))))
+  (reduce (fn [kl k]
+            (let [q (q-freqs k)
+                  p (p-freqs k)]
+              (if (and p q)
+                (+ kl (* p (Math/log (/ p q))))
+                kl)))
+          0. (keys q-freqs)))
 
 ;; For use with KS-two-samples:
 (defn search-sorted
@@ -58,7 +53,7 @@
 (defn included?
   "true when the label should be included"
   [only exclude label]
-  (and (or (nil? only) (contains? only label))
+  (and (or (empty? only) (contains? only label))
        (not (contains? exclude label))))
 
 (defn predict-seq-skipping
@@ -80,7 +75,6 @@
               (keep (complement 
                       (partial included?  only exclude))
                     (keys total-weights))))))
-
 
 ;; REPL command:
 (defn kl-seq
