@@ -1,10 +1,10 @@
-(ns embang.analysis
+(ns embang.postproc
   (require [clojure.java.io :as io])
   (use [embang.results :only [parsed-line-seq
                               total-weights
                               normalize-weights]]))
 
-;;;; Analysis of inference results
+;;;; Postprocessing of inference results
 
 ;;; Sample distance measures
 
