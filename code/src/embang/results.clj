@@ -120,8 +120,9 @@
     (doseq [label (sort-by str (keys total-freqs))]
       (doseq [value (sort (keys (total-freqs label)))]
         (let [count (get-in total-freqs [label value])]
-          (printf "%s, %s, %6g, %6g\n"
-                  label value count (Math/log count)))))))
+          (println
+            (format "%s, %s, %6g, %6g"
+                    label value count (Math/log count))))))))
 
 ;; Continuous results: mean and standard deviation.
 
@@ -153,7 +154,7 @@
               sd (Math/sqrt (-(/ (get-in sums [label :sum2])
                                  (get-in sums [label :weight]))
                                  (* mean mean)))]
-          (printf "%s, %6g, %6g\n" label mean sd))))))
+          (println (format "%s, %6g, %6g" label mean sd)))))))
 
 ;;; Sample distance measures
 
@@ -387,7 +388,7 @@ Options:
         (binding [*out* *err*]
           (doseq [[option value] (sort-by first
                                           (merge options config))]
-            (printf ";; %s %s\n" option value)))
+            (println (format ";; %s %s" option value))))
         (let [[mk-seq get-truth] (case (:distance config)
                                    :kl [kl-seq total-freqs]
                                    :ks [ks-seq total-samples])

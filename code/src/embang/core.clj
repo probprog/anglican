@@ -14,8 +14,9 @@
     (try (require algorithm-namespace) true
       (catch Exception e
         (binding [*out* *err*]
-          (printf "ERROR loading namespace '%s':\n\t%s\n"
-                  algorithm-namespace e))
+          (println
+            (format "ERROR loading namespace '%s':\n\t%s"
+                    algorithm-namespace e)))
         false))))
 
 (defn load-program
@@ -109,20 +110,20 @@ Options:
               inference-algorithm (:inference-algorithm options)
               algorithm-options (:algorithm-options options)]
 
-          (printf (str ";; Program: %s/%s\n"
-                       ";; Inference algorithm: %s\n"
-                       ";; Number of samples: %s\n"
-                       ";; Output format: %s\n"
-                       ";; Algorithm options: %s\n")
-                  nsname progname
-                  (:inference-algorithm options)
-                  (:number-of-samples options)
-                  (:output-format options)
-                  (str/join
-                    (map (fn [[name value]]
-                           (format "\n;;\t%s %s" name value))
-                         (partition 2 (:algorithm-options options)))))
-          (flush)
+          (println
+            (format (str ";; Program: %s/%s\n"
+                         ";; Inference algorithm: %s\n"
+                         ";; Number of samples: %s\n"
+                         ";; Output format: %s\n"
+                         ";; Algorithm options: %s")
+                    nsname progname
+                    (:inference-algorithm options)
+                    (:number-of-samples options)
+                    (:output-format options)
+                    (str/join
+                      (map (fn [[name value]]
+                             (format "\n;;\t%s %s" name value))
+                           (partition 2 (:algorithm-options options))))))
 
           ;; load the program
           (try
@@ -143,16 +144,16 @@ Options:
                         (recur (inc i) (rest states))))))
                 (catch Exception e
                   (binding [*out* *err*]
-                    (printf "Error during inference: %s\n" e))
+                    (println (format "Error during inference: %s" e)))
                   (when (:debug options)
                     (.printStackTrace e)))))
 
             ;; otherwise, could not load the program
             (catch Exception e
               (binding [*out* *err*]
-                (printf "ERROR loading program '%s/%s':\n\t%s\n"
-                        nsname progname e)
-                (flush)
+                (println
+                  (format "ERROR loading program '%s/%s':\n\t%s"
+                          nsname progname e))
                 (when (:debug options)
                   (.printStackTrace e))))))))))
 
@@ -160,13 +161,13 @@ Options:
   "auxiliary commands"
   [& args]
   (assert (>= (count args) 1) "Usage: :cmd command [argument ...]")
-  (case
-    (keyword (first args))
+  (case (keyword (first args))
     :freqs (freqs)
     :meansd (meansd)
     :diff (apply diff (rest args))
     (binding [*out* *err*]
-      (println "Unrecognized command: %s" (first args)))))
+      (println "Unrecognized command: %s" (first args))))
+  (flush))
 
 (defmacro m!
   "invoking -main from the REPL"
