@@ -166,8 +166,7 @@ Options:
     :meansd (meansd)
     :diff (apply diff (rest args))
     (binding [*out* *err*]
-      (println "Unrecognized command: %s" (first args))))
-  (flush))
+      (println "Unrecognized command: %s" (first args)))))
 
 (defmacro m!
   "invoking -main from the REPL"
