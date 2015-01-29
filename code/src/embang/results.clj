@@ -329,11 +329,11 @@
 ;; The truth is stored in an external file in predict format. So,
 ;; the configuration would look like
 
-#_ (:period 19                          ; number of predicts per particle
+#_ (:period 19                          ; predicts per particle
     :only [(get-state 1) (get-state 2)] ; predicts to account for
     :exclude []                         ; predicts to ignore
     :distance :ks                       ; type of distance
-    :truth "hhmm.truth")                ; resource containing the truth
+    :truth "hhmm.truth")                ; resource with the truth
 
 ;; Two additional parameters, skip and step, 
 ;; are provided on the command line.
@@ -381,10 +381,12 @@ Options:
       (let [config (apply hash-map 
                           (with-open [in (java.io.PushbackReader.
                                            (io/reader
-                                             (io/resource (first arguments))))]
+                                             (io/resource
+                                               (first arguments))))]
                             (edn/read in)))]
         (binding [*out* *err*]
-          (doseq [[option value] (sort-by first (merge options config))]
+          (doseq [[option value] (sort-by first
+                                          (merge options config))]
             (printf ";; %s %s\n" option value)))
         (let [[mk-seq get-truth] (case (:distance config)
                                    :kl [kl-seq total-freqs]
