@@ -159,7 +159,7 @@ Options:
 (defn -cmd
   "auxiliary commands"
   [& args]
-  (assert (= (count args) 1) "Usage: embang.core/-cmd COMMAND")
+  (assert (>= (count args) 1) "Usage: :cmd command [argument ...]")
   (case
     (keyword (first args))
     :freqs (freqs)
