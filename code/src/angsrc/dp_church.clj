@@ -12,6 +12,14 @@
 ;; even in a separate module. Here, it is kept inside to retain
 ;; the structure of the original example.
 
+(defun draw (dist)
+  ;; Sampling unconditionally, otherwise LMH is useless with
+  ;; the code below. A more logical way is to just predict
+  ;; the distribution parameters.
+  (let ((draw sample))
+    ;; Use sample, but hide it from the transformation.
+    (draw dist)))
+
 (defanglican dp-church
   ;; sample-stick-index is a procedure that samples an index from
   ;; a potentially infinite dimensional discrete distribution 
@@ -57,7 +65,7 @@
                                o))
                     nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))]
 
-  [predict (sample (apply normal (gaussian-mixture-model-parameters)))])
+  [predict (draw (apply normal (gaussian-mixture-model-parameters)))])
 
 ;; The same example, but without re-definition of DPmem. DPmem is 
 ;; defined in a separate module, angsrc.dp-mem, and imported in
@@ -75,7 +83,7 @@
                                o))
                     nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))]
 
-  [predict (sample (apply normal (gaussian-mixture-model-parameters)))])
+  [predict (draw (apply normal (gaussian-mixture-model-parameters)))])
 
 ;; The same example in the new streamlined syntax. 
 
@@ -93,7 +101,4 @@
                            o))
           nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))
 
-  (predict (sample (apply normal (gaussian-mixture-model-parameters)))))
-
-
-
+  (predict (draw (apply normal (gaussian-mixture-model-parameters)))))
