@@ -10,7 +10,7 @@
 
 ;;; Inference multimethod
 
-(defmulti infer 
+(defmulti infer
   "main inference procedure, accepts algorithm, program, and
   options; returns a lazy sequence of states"
   (fn [algorithm & _] algorithm))
@@ -41,7 +41,9 @@
 ;;; Running a single particle until checkpoint
 
 (defn exec
-  "executes the program until a checkpoint"
+  "executes the program, calling checkpoint handlers
+  at the checkpoints and stopping when the handler
+  returns a non-callable value"
   [algorithm prog value state]
   (loop [step (trampoline prog value state)]
     (let [next (checkpoint algorithm step)]
@@ -50,10 +52,10 @@
         next))))
 
 ;;; Warmup --- runnning until the first checkpoint
-;;
+
 ;; All particles will run the same way.
 
-(defn warmup 
+(defn warmup
   "runs until the first checkpoint and returns
   a continuation that starts with that checkpoint"
   [prog]
@@ -66,16 +68,16 @@
 
 ;;; Random functions for inference algorithms
 
-;; Random functions in inference algorithm should use 
+;; Random functions in inference algorithm should use
 ;; the random source as the runtime for consistency.
 
 (let [dist (delay (uniform-continuous 0. 1.))]
   (defn rand
-    "Returns a random floating point number 
+    "Returns a random floating point number
     between 0 (inclusive) and n (default 1) (exclusive)"
     ([] (rand 1.))
     ([n] (* n (sample @dist)))))
-  
+
 (defn rand-int
    "Returns a random integer between 0 (inclusive)
    and n (exclusive)"
@@ -113,7 +115,7 @@
 
 (defmethod print-predict :default [label value weight format]
   (print-predict label value weight :anglican))
-  
+
 (defn print-predicts
   "print predicts as returned by a probabilistic program
   in the specified format"

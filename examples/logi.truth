@@ -1,0 +1,2 @@
+(sample (flip (z 8))), false, 0.0291330
+(sample (flip (z 8))), true, 0.970867
