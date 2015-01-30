@@ -1,0 +1,9 @@
+the UCB of an arm for K arms and N pulls is bounded from below
+by C\sqrt { \log N}. Which means that every arm for given N
+is pulled with probability greater than 
+
+\frac {C\sqrt {\log N}} {(K-1)(1+C)+C\sqrt{\log N}}
+
+On the other hand, the weight of a variable changes by at most
+
+\frac 1 N_i  - which diminishes in probability

@@ -4,7 +4,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.cli :as cli])
   (:use [embang.inference :only [warmup infer print-predicts]])
-  (:use embang.results))
+  (:use [embang.results :only [redir freqs meansd diff]]))
 
 (defn validate-algorithm
   "validate algorithm by requiring the namespace"
@@ -14,8 +14,9 @@
     (try (require algorithm-namespace) true
       (catch Exception e
         (binding [*out* *err*]
-          (printf "ERROR loading namespace '%s':\n\t%s\n"
-                  algorithm-namespace e))
+          (println
+            (format "ERROR loading namespace '%s':\n\t%s"
+                    algorithm-namespace e)))
         false))))
 
 (defn load-program
@@ -78,89 +79,96 @@ Options:
 (defn error-msg [errors]
   (str/join "\n\t" (cons "ERROR parsing the command line:" errors)))
 
+(declare -cmd)
+
 (defn -main
   "transforms anglican program to clojure code;
   in REPL run (-main \"--help\") for option summary."
   [& args]
-  (let [{:keys [options arguments errors summary] :as parsed-options}
-        (cli/parse-opts args cli-options)]
+  (if (= (first args) ":cmd")
+    ;; Run auxiliary commands.
+    (apply -cmd (rest args))
+    (let [{:keys [options arguments errors summary] :as parsed-options}
+          (cli/parse-opts args cli-options)]
 
-    ;; Handle help and error conditions.
-    (cond
-      (:help options) (binding [*out* *err*]
-                        (println (usage summary)))
+      ;; Handle help and error conditions.
+      (cond
+        (:help options) (binding [*out* *err*]
+                          (println (usage summary)))
 
-      errors (binding [*out* *err*]
-               (println (error-msg errors)))
+        errors (binding [*out* *err*]
+                 (println (error-msg errors)))
 
-      (empty? arguments) (binding [*out* *err*]
-                           (println (usage summary)))
+        (empty? arguments) (binding [*out* *err*]
+                             (println (usage summary)))
 
-      :else
-      (let [[nsname progname] (if (next arguments) arguments
-                                [(first arguments)
-                                 (str/replace (first arguments)
-                                              #".+\." "")])
-            inference-algorithm (:inference-algorithm options)
-            algorithm-options (:algorithm-options options)]
+        :else
+        (let [[nsname progname] (if (next arguments) arguments
+                                  [(first arguments)
+                                   (str/replace (first arguments)
+                                                #".+\." "")])
+              inference-algorithm (:inference-algorithm options)
+              algorithm-options (:algorithm-options options)]
 
-        (printf (str ";; Program: %s/%s\n"
-                     ";; Inference algorithm: %s\n"
-                     ";; Number of samples: %s\n"
-                     ";; Output format: %s\n"
-                     ";; Algorithm options: %s\n")
-                nsname progname
-                (:inference-algorithm options)
-                (:number-of-samples options)
-                (:output-format options)
-                (str/join
-                  (map (fn [[name value]]
-                         (format "\n;;\t%s %s" name value))
-                       (partition 2 (:algorithm-options options)))))
-        (flush)
+          (println
+            (format (str ";; Program: %s/%s\n"
+                         ";; Inference algorithm: %s\n"
+                         ";; Number of samples: %s\n"
+                         ";; Output format: %s\n"
+                         ";; Algorithm options: %s")
+                    nsname progname
+                    (:inference-algorithm options)
+                    (:number-of-samples options)
+                    (:output-format options)
+                    (str/join
+                      (map (fn [[name value]]
+                             (format "\n;;\t%s %s" name value))
+                           (partition 2 (:algorithm-options options))))))
 
-        ;; load the program
-        (try
-          (let [program (load-program nsname progname)]
+          ;; load the program
+          (try
+            (let [program (load-program nsname progname)]
 
-            ;; if loaded, run the inference.
-            (try
-              (loop [i 0
-                     states (apply infer (:inference-algorithm options)
-                                   (warmup program)
-                                   (:algorithm-options options))]
-                (when-not (= i (:number-of-samples options))
-                  (when (seq states)
-                    (let [state (first states)]
-                      (print-predicts state (:output-format options))
-                      (recur (inc i) (rest states))))))
-              (catch Exception e
-                (binding [*out* *err*]
-                  (printf "Error during inference: %s\n" e))
+              ;; if loaded, run the inference.
+              (try
+                (loop [i 0
+                       states (apply infer
+                                     (:inference-algorithm options)
+                                     (warmup program)
+                                     (:algorithm-options options))]
+                  (when-not (= i (:number-of-samples options))
+                    (when (seq states)
+                      (let [state (first states)]
+                        (print-predicts state
+                                        (:output-format options))
+                        (recur (inc i) (rest states))))))
+                (catch Exception e
+                  (binding [*out* *err*]
+                    (println (format "Error during inference: %s" e)))
+                  (when (:debug options)
+                    (.printStackTrace e)))))
+
+            ;; otherwise, could not load the program
+            (catch Exception e
+              (binding [*out* *err*]
+                (println
+                  (format "ERROR loading program '%s/%s':\n\t%s"
+                          nsname progname e))
                 (when (:debug options)
-                  (.printStackTrace e)))))
+                  (.printStackTrace e))))))))))
 
-          ;; otherwise, could not load the program
-          (catch Exception e
-            (binding [*out* *err*]
-              (printf "ERROR loading program '%s/%s':\n\t%s\n"
-                      nsname progname e)
-              (flush)
-              (when (:debug options)
-                (.printStackTrace e)))))))))
+(defn -cmd
+  "auxiliary commands"
+  [& args]
+  (assert (>= (count args) 1) "Usage: :cmd command [argument ...]")
+  (case (keyword (first args))
+    :freqs (freqs)
+    :meansd (meansd)
+    :diff (apply diff (rest args))
+    (binding [*out* *err*]
+      (println "Unrecognized command: %s" (first args)))))
 
 (defmacro m!
   "invoking -main from the REPL"
   [& args]
   `(-main ~@(map str args)))
-
-(defn -cmd
-  "auxiliary commands"
-  [& args]
-  (assert (= (count args) 1) "Usage: embang.core/-cmd COMMAND")
-  (case
-    (keyword (first args))
-    :freqs (freqs)
-    :meansd (meansd)
-    (binding [*out* *err*]
-      (println "Unrecognized command: %s" (first args)))))
