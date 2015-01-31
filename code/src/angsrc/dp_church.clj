@@ -103,8 +103,26 @@
 
   (predict (draw (apply normal (gaussian-mixture-model-parameters)))))
 
-;; predict mean and sd as well sample
+;; predict mean and sd 
 (defanglican mean-sd
+  (assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
+                              (list (sample (normal 0 (sqrt (* 10 v)))) (sqrt v)))))
+
+  (define gaussian-mixture-model-parameters (DPmem 1.72 H))
+
+  (reduce (lambda (_ o)
+                  (observe (apply normal (gaussian-mixture-model-parameters))
+                           o))
+          nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))
+
+  (let ((params (gaussian-mixture-model-parameters))
+        (mean (first params))
+        (sd (second params)))
+    (predict mean)
+    (predict sd)))
+
+;; Mean, sd, sample
+(defanglican mean-sd-sample
   (assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
                               (list (sample (normal 0 (sqrt (* 10 v)))) (sqrt v)))))
 
