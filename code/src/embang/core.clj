@@ -30,7 +30,7 @@
 (def cli-options
   [;; problems
    ["-a" "--inference-algorithm NAME" "Inference algorithm"
-    :default "lmh"
+    :default :lmh
     :parse-fn keyword
     :validate [validate-algorithm "unrecognized algorithm name."]]
 

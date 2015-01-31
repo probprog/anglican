@@ -148,7 +148,7 @@
                              (* weighted-value weighted-value))))
             sums)))
 
-      (doseq [label (sort (keys sums))]
+      (doseq [label (sort-by str (keys sums))]
         (let [mean (/ (get-in sums [label :sum])
                       (get-in sums [label :weight]))
               sd (Math/sqrt (-(/ (get-in sums [label :sum2])
