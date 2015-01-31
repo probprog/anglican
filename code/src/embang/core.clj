@@ -6,18 +6,18 @@
   (:use [embang.inference :only [warmup infer print-predicts]])
   (:use [embang.results :only [redir freqs meansd diff]]))
 
-(defn validate-algorithm
-  "validate algorithm by requiring the namespace"
+(defn load-algorithm
+  "loads algorithm by requiring the namespace"
   [algorithm]
   (let [algorithm-namespace (symbol
                               (format "embang.%s" (name algorithm)))]
     (try (require algorithm-namespace) true
-      (catch Exception e
-        (binding [*out* *err*]
-          (println
-            (format "ERROR loading namespace '%s':\n\t%s"
-                    algorithm-namespace e)))
-        false))))
+         (catch Exception e
+           (binding [*out* *err*]
+             (println
+               (format "ERROR loading namespace '%s':\n\t%s"
+                       algorithm-namespace e)))
+           false))))
 
 (defn load-program
   "loads program from clojure module"
@@ -30,9 +30,9 @@
 (def cli-options
   [;; problems
    ["-a" "--inference-algorithm NAME" "Inference algorithm"
-    :default (#(and (validate-algorithm %) %) :lmh)
+    :default (#(do (load-algorithm %) %) :lmh)
     :parse-fn keyword
-    :validate [validate-algorithm "unrecognized algorithm name."]]
+    :validate [load-algorithm "unrecognized algorithm name."]]
 
    ["-d" "--debug" "Print debugging information"
     :default false
