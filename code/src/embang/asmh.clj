@@ -1,4 +1,4 @@
-(ns embang.almh
+(ns embang.asmh
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference
@@ -132,12 +132,12 @@
                                        add-pending-choice choice-id)]
           (if (= value (:value (last-predicts label)))
             ;; Same predict, append the choice to the collection,
-			;; and penalize the last added choice.
+            ;; and penalize the last added choice.
             (recur
               predicts
               (update-rewards
                 choice-rewards [choice-id]
-                0. discnt.)
+                0. discnt)
               last-predicts)
 
             ;; Different predict, reward all pending choices.
@@ -145,10 +145,9 @@
               predicts
               (update-rewards
                 choice-rewards (:choices (last-predicts label))
-				(/ discnt
-				 (double (pending-choice-count
-						  (last-predicts label))))
-                1. discnt)
+                1. (/ discnt
+                      (double (pending-choice-count
+                                (last-predicts label)))))
               (-> last-predicts
                   (update-in [label :choices] empty)
                   (assoc-in [label :value] value)))))
@@ -263,7 +262,7 @@
                    (reduce + (map second
                                   (state ::choice-counts))))))
 
-(defmethod infer :almh [_ prog & {:keys [predict-choices]
+(defmethod infer :asmh [_ prog & {:keys [predict-choices]
                                   :or {predict-choices false}}]
   (letfn
     [(sample-seq [state]
