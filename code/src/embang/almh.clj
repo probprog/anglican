@@ -19,6 +19,14 @@
 
 (derive ::algorithm :embang.lmh/algorithm)
 
+;;; Algorithm parameters
+
+(def ^:private +exploration-factor+
+  "UCB exploration factor"
+  ;; 0.5 is going to work well in most cases.
+  ;; A lower value would favour exploitation.
+  0.5)
+
 ;;; Initial state
 
 (def initial-state
@@ -27,37 +35,6 @@
         {::choice-rewards {}
          ::last-predicts {}
          ::choice-counts {}}))
-
-;;; Algorithm parameters
-
-(def ^:private +exploration-factor+
-  "UCB exploration factor"
-  0.5)
-
-;;; Choice reward 
-
-;; Choice reward is a tuple [sum count] of normalized
-;; total reward and total weight.
-
-(def ^:private  +prior-choice-reward+
-  "reward of an unseen arm"
-  [1. 1.])
-
-(defn update-reward
-  "updates choice reward with new evidence"
-  [[sum cnt] reward discnt]
-  [(+ sum (* discnt reward)) (+ cnt discnt)])
-
-(defn update-rewards 
-  "updates rewards in pending choices;
-  returns updated choice-rewards"
-  [choice-rewards pending-choices reward discnt]
-  (reduce (fn [choice-rewards [choice-id choice-cnt]]
-            (update-in choice-rewards [choice-id]
-                       (fnil update-reward
-                             +prior-choice-reward+)
-                       reward (* choice-cnt discnt)))
-          choice-rewards pending-choices))
 
 ;;; Stored predict for reward distribution.
 
@@ -85,16 +62,38 @@
                        (get-predicts state)))))
 
 ;; Pending choices is a map choice-id -> choice count.
+
 (defn add-pending-choice
   "adds a pending choice to the predict"
   [predict choice-id]
   (update-in predict [:choices choice-id] (fnil inc 0)))
 
-(defn pending-choice-count
-  "returns total number of pending choices
-  for the predict"
-  [predict]
-  (reduce + (vals (:choices predict))))
+;;; Choice reward 
+
+;; Choice reward is a tuple [sum count] of normalized
+;; total reward and total weight.
+
+(def ^:private  +prior-choice-reward+
+  "reward of an unseen arm"
+  [1. 1.])
+
+(defn update-reward
+  "updates choice reward with new evidence"
+  [[sum cnt] reward discnt]
+  [(+ sum (* discnt reward)) (+ cnt discnt)])
+
+(defn update-rewards 
+  "updates rewards in pending choices;
+  returns updated choice-rewards"
+  [choice-rewards pending-choices reward discnt]
+  ;; Distribute the reward equally between pending choices.
+  (let [discnt (/ discnt (reduce + (vals pending-choices)))]
+    (reduce (fn [choice-rewards [choice-id choice-cnt]]
+              (update-in choice-rewards [choice-id]
+                         (fnil update-reward
+                               +prior-choice-reward+)
+                         reward (* choice-cnt discnt)))
+            choice-rewards pending-choices)))
 
 ;;; State transition
 
@@ -129,10 +128,7 @@
 
         ;; Append the new choice to the list of pending choices.
         (let [last-predicts (update-in last-predicts [label]
-                                       add-pending-choice choice-id)
-              discnt (/ discnt
-                        (double (pending-choice-count
-                                  (last-predicts label))))]
+                                       add-pending-choice choice-id)]
           (if (= value (:value (last-predicts label)))
             ;; Same predict, append the choice to the collection.
             (recur
@@ -220,11 +216,11 @@
   [state entry]
   (let [trace-weights (trace-weights state)
         entry-weight (some
-                       ;; find the entry's weight
+                       ;; Find the entry's weight.
                        (fn [[choice-id weight]]
                          (when (= choice-id (:choice-id entry))
                            weight))
-                       ;; zip entry ids and weights
+                       ;; Zip entry ids and weights.
                        (map (fn [entry weight]
                               [(:choice-id entry) weight])
                             (get-trace state) trace-weights))
