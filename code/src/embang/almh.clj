@@ -36,7 +36,7 @@
          ::last-predicts {}
          ::choice-counts {}}))
 
-;;; Stored predict for reward distribution.
+;;; Stored predicts for reward distribution.
 
 ;; Predicts are stored in a map indexed by predict label.
 ;; Each predict record contains the last predict value
