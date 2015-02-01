@@ -130,7 +130,7 @@
         (let [last-predicts (update-in last-predicts [label]
                                        add-pending-choice choice-id)]
           (if (= value (:value (last-predicts label)))
-            ;; Same predict, append the choice to the collection.
+            ;; Same predict, penalize pendings choices.
             (recur
               predicts
               (update-rewards
@@ -138,12 +138,13 @@
                 0. discnt)
               last-predicts)
 
-            ;; Different predict, update rewards for pending choices.
+            ;; Different predict, reward pending choices.
             (recur
               predicts
               (update-rewards
                 choice-rewards (:choices (last-predicts label))
                 1. discnt)
+              ;; Flush pending choices and update the value.
               (-> last-predicts
                   (update-in [label :choices] empty)
                   (assoc-in [label :value] value)))))
