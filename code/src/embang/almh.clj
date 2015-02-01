@@ -52,12 +52,14 @@
   "updates rewards in pending choices;
   returns updated choice-rewards"
   [choice-rewards pending-choices reward discnt]
-  (reduce (fn [choice-rewards [choice-id choice-cnt]]
-            (update-in choice-rewards [choice-id]
-                       (fnil update-reward
-                             +prior-choice-reward+)
-                       reward (* choice-cnt discnt)))
-          choice-rewards pending-choices))
+  ;; Distribute the reward equally between pending choices.
+  (let [discnt (/ discnt (reduce + (vals pending-choices)))]
+    (reduce (fn [choice-rewards [choice-id choice-cnt]]
+              (update-in choice-rewards [choice-id]
+                         (fnil update-reward
+                               +prior-choice-reward+)
+                         reward (* choice-cnt discnt)))
+            choice-rewards pending-choices)))
 
 ;;; Stored predict for reward distribution.
 
@@ -85,16 +87,11 @@
                        (get-predicts state)))))
 
 ;; Pending choices is a map choice-id -> choice count.
+
 (defn add-pending-choice
   "adds a pending choice to the predict"
   [predict choice-id]
   (update-in predict [:choices choice-id] (fnil inc 0)))
-
-(defn pending-choice-count
-  "returns total number of pending choices
-  for the predict"
-  [predict]
-  (reduce + (vals (:choices predict))))
 
 ;;; State transition
 
@@ -129,10 +126,7 @@
 
         ;; Append the new choice to the list of pending choices.
         (let [last-predicts (update-in last-predicts [label]
-                                       add-pending-choice choice-id)
-              discnt (/ discnt
-                        (double (pending-choice-count
-                                  (last-predicts label))))]
+                                       add-pending-choice choice-id)]
           (if (= value (:value (last-predicts label)))
             ;; Same predict, append the choice to the collection.
             (recur
