@@ -19,7 +19,7 @@
           () iris-data)
 
   [assume iris-class (lambda (x)
-                       (if (apply sample (list (flip (z x))))
+                       (if (sample (flip (z x)))
                          iris-setosa
                          iris-virginica))]
 
