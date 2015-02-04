@@ -17,10 +17,13 @@
             (observe (flip (z (cons 1 (butlast record))))
                      (= (last record) iris-setosa)))
           () iris-data)
-  [predict b]
-  ; should be Iris-setosa    (from training data)
-  [assume x1 '( 1 5.1 3.5 1.4 0.2)]
-  [predict (z x1)]
-  ; should be Iris-virginica (from training data)
-  [assume x2 '(1 7.7 2.6 6.9 2.3)]
-  [predict (z x2)])
+
+  [assume iris-class (lambda (x)
+                       (if (apply sample (list (flip (z x))))
+                         iris-setosa
+                         iris-virginica))]
+
+  [assume test-setosa '( 1 5.1 3.5 1.4 0.2)]
+  [predict (iris-class test-setosa)]
+  [assume test-virginica '(1 7.7 2.6 6.9 2.3)]
+  [predict (iris-class test-virginica)])

@@ -92,7 +92,8 @@
   []
   (reduce
     (fn [weights [label value weight]]
-      (if (or (integer? value) (symbol? value)
+      (if (or (integer? value)
+              (symbol? value) (keyword? value)
               (contains? #{true false nil} value))
         ;; The value looks like a discrete value.
         (update-in weights [label value] (fnil + 0.) weight)
