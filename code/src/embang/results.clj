@@ -92,7 +92,8 @@
   []
   (reduce
     (fn [weights [label value weight]]
-      (if (or (integer? value) (symbol? value)
+      (if (or (integer? value)
+              (symbol? value) (keyword? value)
               (contains? #{true false nil} value))
         ;; The value looks like a discrete value.
         (update-in weights [label value] (fnil + 0.) weight)
@@ -161,7 +162,6 @@
 (defn KL
   "computes Kullback-Leibler divergence for value frequencies."
   [p-freqs q-freqs] {:pre [(map? p-freqs) (map? q-freqs)]}
-  ;; Fix freqs so that p and q have the same keys.
   (reduce (fn [kl k]
             (let [q (q-freqs k)
                   p (p-freqs k)]
@@ -169,6 +169,15 @@
                 (+ kl (* p (Math/log (/ p q))))
                 kl)))
           0. (keys q-freqs)))
+
+(defn L2
+  "computes L2 distance for value frequencies."
+  [p-freqs q-freqs] {:pre [(map? p-freqs) (map? q-freqs)]}
+  (Math/sqrt
+    (reduce (fn [l2 k]
+              (let [d (- (p-freqs k 0.) (q-freqs k 0.))]
+                (+ l2 (* d d))))
+            0. (keys (merge p-freqs q-freqs)))))
 
 ;; For use with KS-two-samples:
 (defn search-sorted
@@ -212,7 +221,6 @@
   [skip]
   (drop skip (parsed-line-seq (line-seq (io/reader *in*)))))
 
-;; REPL command:
 (defn total-freqs
   "reads results from stdin and returns
   a table of total frequences for discrete-valued predicts"
@@ -226,18 +234,31 @@
                       (partial included?  only exclude))
                     (keys total-weights))))))
 
-;; REPL command:
-(defn kl-seq
+(defmulti get-truth
+  "reads truth from stdin and returns
+  a structure suitable for dist-seq"
+  (fn [distance-type & _]))
+
+(defmethod get-truth :kl [_] (total-freqs))
+(defmethod get-truth :l2 [_] (total-freqs))
+(defmethod get-truth :ks [_] (total-weights))
+
+(defmulti dist-seq 
   "reads results from stdin and returns a lazy sequence
-  of KL distances, skipping first `skip' predict lines and
+  of distances from the truth"
+  (fn [distance-type truth & options] distance-type))
+
+(defn freq-seq
+  "reads results from stdin and returns a lazy sequence
+  of frequence distances, skipping first `skip' predict lines and
   then producing a sequence entry each `step' predict lines"
-  [true-freqs & {:keys [skip step only exclude]
-                 :or {skip 0
-                      step 1
-                      only nil
-                      exclude #{}}}]
+  [distance true-freqs & {:keys [skip step only exclude]
+                          :or {skip 0
+                               step 1
+                               only nil
+                               exclude #{}}}]
   (letfn
-    [(kl-seq* [lines nlines weights]
+    [(freq-seq* [lines nlines weights]
        (lazy-seq
          (if (empty? lines) nil
            (let [[[label value weight] & lines] (seq lines)
@@ -252,14 +273,22 @@
                  (let [freqs (normalize-weights weights)]
                    (reduce
                      + (map (fn [label]
-                              (KL (true-freqs label) (freqs label)))
+                              (distance
+                                (true-freqs label) (freqs label)))
                             (keys true-freqs))))
-                 (kl-seq* lines 1 weights))
+                 (freq-seq* lines 1 weights))
                ;; Otherwise, just accumulate the weights.
-               (kl-seq* lines (inc nlines) weights))))))]
-    (kl-seq* (predict-seq-skipping skip) 1 {})))
+               (freq-seq* lines (inc nlines) weights))))))]
+    (freq-seq* (predict-seq-skipping skip) 1 {})))
 
-;; REPL command:
+(defmethod dist-seq :kl 
+  [_ true-freqs options]
+  (apply freq-seq KL true-freqs options))
+
+(defmethod dist-seq :l2
+  [_ true-freqs options]
+  (apply freq-seq L2 true-freqs options))
+
 (defn total-samples
   "reads results from stdin and returns a map label -> sequence
   of samples, skipping first `skip' predict lines and
@@ -290,16 +319,12 @@
                  samples (conj seen-labels label))))
       samples)))
 
-;; REPL command:
-(defn ks-seq
-  "reads results from stdin and returns a lazy sequence
-  of KS distances, skipping first `skip' predict lines and
-  then producing a sequence entry each `step' predict lines"
-  [true-samples & {:keys [skip step only exclude]
-                   :or {skip 0
-                        step 1
-                        only nil
-                        exclude #{}}}]
+(defmethod dist-seq :ks
+  [_ true-samples & {:keys [skip step only exclude]
+                     :or {skip 0
+                          step 1
+                          only nil
+                          exclude #{}}}]
   (letfn
     [(ks-seq* [lines nlines samples]
        (lazy-seq
@@ -341,12 +366,20 @@
 
 (def cli-options
   [;; problems
+   ["-d" "--distance d" "distance type"
+    :default :kl
+    :parse-fn keyword
+    :validate [#{:kl :l2 :ks} "unrecognized distance"]]
+   ["-p" "--period N" "number of predicts per sample"
+    :default 1
+    :parse-fn #(Integer/parseInt %)]
    ["-s" "--skip N" "Skip first N predict lines"
     :default 0
     :parse-fn #(Integer/parseInt %)]
    ["-t" "--step N" "Output distance each N predict lines"
     :default 1
     :parse-fn #(Integer/parseInt %)]
+   ["-T" "--truth resource" "Resource containing ground truth"]
    ["-h" "--help" "print usage summary and exit"]])
 
 (defn usage [summary]
@@ -384,20 +417,17 @@ Options:
                                            (io/reader
                                              (io/resource
                                                (first arguments))))]
-                            (edn/read in)))]
+                            (edn/read in)))
+            options (merge config options)]
         (binding [*out* *err*]
-          (doseq [[option value] (sort-by first
-                                          (merge options config))]
+          (doseq [[option value] (sort-by first options)]
             (println (format ";; %s %s" option value))))
-        (let [[mk-seq get-truth] (case (:distance config)
-                                   :kl [kl-seq total-freqs]
-                                   :ks [ks-seq total-samples])
-              truth (redir [:in (io/resource (:truth config))]
-                      (get-truth))
-              period (or (:period config) 1)]
-          (doseq [distance (mk-seq truth
-                                   :skip (* (:skip options) period)
-                                   :step (* (:step options) period)
-                                   :only (set (:only config))
-                                   :exclude (set (:exclude config)))]
+        (let [truth (redir [:in (io/resource (:truth options))]
+                      (get-truth (:distance options)))
+              period (or (:period options) 1)]
+          (doseq [distance (dist-seq (:distance options) truth
+                             :skip (* (:skip options) period)
+                             :step (* (:step options) period)
+                             :only (set (:only options))
+                             :exclude (set (:exclude options)))]
             (prn distance)))))))
