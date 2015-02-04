@@ -237,7 +237,7 @@
 (defmulti get-truth
   "reads truth from stdin and returns
   a structure suitable for dist-seq"
-  (fn [distance-type]))
+  (fn [distance-type & _]))
 
 (defmethod get-truth :kl [_] (total-freqs))
 (defmethod get-truth :l2 [_] (total-freqs))
