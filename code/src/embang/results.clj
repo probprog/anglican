@@ -366,12 +366,20 @@
 
 (def cli-options
   [;; problems
+   ["-d" "--distance d" "distance type"
+    :default :kl
+    :parse-fn keyword
+    :validate [#{:kl :l2 :ks} "unrecognized distance"]]
+   ["-p" "--period N" "number of predicts per sample"
+    :default 1
+    :parse-fn #(Integer/parseInt %)]
    ["-s" "--skip N" "Skip first N predict lines"
     :default 0
     :parse-fn #(Integer/parseInt %)]
    ["-t" "--step N" "Output distance each N predict lines"
     :default 1
     :parse-fn #(Integer/parseInt %)]
+   ["-T" "--truth resource" "Resource containing ground truth"]
    ["-h" "--help" "print usage summary and exit"]])
 
 (defn usage [summary]
@@ -409,17 +417,17 @@ Options:
                                            (io/reader
                                              (io/resource
                                                (first arguments))))]
-                            (edn/read in)))]
+                            (edn/read in)))
+            options (merge config options)]
         (binding [*out* *err*]
-          (doseq [[option value] (sort-by first
-                                          (merge options config))]
+          (doseq [[option value] (sort-by first options)]
             (println (format ";; %s %s" option value))))
-        (let [truth (redir [:in (io/resource (:truth config))]
-                      (get-truth (:distance config)))
-              period (or (:period config) 1)]
-          (doseq [distance (dist-seq truth
+        (let [truth (redir [:in (io/resource (:truth options))]
+                      (get-truth (:distance options)))
+              period (or (:period options) 1)]
+          (doseq [distance (dist-seq (:distance options) truth
                              :skip (* (:skip options) period)
                              :step (* (:step options) period)
-                             :only (set (:only config))
-                             :exclude (set (:exclude config)))]
+                             :only (set (:only options))
+                             :exclude (set (:exclude options)))]
             (prn distance)))))))
