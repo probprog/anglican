@@ -162,7 +162,6 @@
 (defn KL
   "computes Kullback-Leibler divergence for value frequencies."
   [p-freqs q-freqs] {:pre [(map? p-freqs) (map? q-freqs)]}
-  ;; Fix freqs so that p and q have the same keys.
   (reduce (fn [kl k]
             (let [q (q-freqs k)
                   p (p-freqs k)]
@@ -170,6 +169,15 @@
                 (+ kl (* p (Math/log (/ p q))))
                 kl)))
           0. (keys q-freqs)))
+
+(defn L2
+  "computes L2 distance for value frequencies."
+  [p-freqs q-freqs] {:pre [(map? p-freqs) (map? q-freqs)]}
+  (Math/sqrt
+    (reduce (fn [l2 k]
+              (let [d (- (p-freqs k 0.) (q-freqs k 0.))]
+                (+ l2 (* d d))))
+            0. (keys (merge p-freqs q-freqs)))))
 
 ;; For use with KS-two-samples:
 (defn search-sorted
@@ -227,18 +235,17 @@
                       (partial included?  only exclude))
                     (keys total-weights))))))
 
-;; REPL command:
-(defn kl-seq
+(defn freq-seq
   "reads results from stdin and returns a lazy sequence
-  of KL distances, skipping first `skip' predict lines and
+  of frequence distances, skipping first `skip' predict lines and
   then producing a sequence entry each `step' predict lines"
-  [true-freqs & {:keys [skip step only exclude]
-                 :or {skip 0
-                      step 1
-                      only nil
-                      exclude #{}}}]
+  [distance true-freqs & {:keys [skip step only exclude]
+                          :or {skip 0
+                               step 1
+                               only nil
+                               exclude #{}}}]
   (letfn
-    [(kl-seq* [lines nlines weights]
+    [(freq-seq* [lines nlines weights]
        (lazy-seq
          (if (empty? lines) nil
            (let [[[label value weight] & lines] (seq lines)
@@ -253,12 +260,17 @@
                  (let [freqs (normalize-weights weights)]
                    (reduce
                      + (map (fn [label]
-                              (KL (true-freqs label) (freqs label)))
+                              (distance
+                                (true-freqs label) (freqs label)))
                             (keys true-freqs))))
-                 (kl-seq* lines 1 weights))
+                 (freq-seq* lines 1 weights))
                ;; Otherwise, just accumulate the weights.
-               (kl-seq* lines (inc nlines) weights))))))]
-    (kl-seq* (predict-seq-skipping skip) 1 {})))
+               (freq-seq* lines (inc nlines) weights))))))]
+    (freq-seq* (predict-seq-skipping skip) 1 {})))
+
+;; REPL commands:
+(def kl-seq (partial freq-seq KL))
+(def l2-seq (partial freq-seq L2))
 
 ;; REPL command:
 (defn total-samples
@@ -392,6 +404,7 @@ Options:
             (println (format ";; %s %s" option value))))
         (let [[mk-seq get-truth] (case (:distance config)
                                    :kl [kl-seq total-freqs]
+                                   :l2 [l2-seq total-samples]
                                    :ks [ks-seq total-samples])
               truth (redir [:in (io/resource (:truth config))]
                       (get-truth))
