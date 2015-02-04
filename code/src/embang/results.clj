@@ -373,7 +373,7 @@
    ["-e" "--exclude LABELS" "predicts to exclude from statistics"
     :default #{}
     :parse-fn (fn [s] (read-string (str "#{" s "}")))]
-   ["-o" "--only LABELS" "predicts to include into statistics"
+   ["-o" "--only LABELS" "predicts to keep in statistics"
     :default nil
     :parse-fn (fn [s] (read-string (str "#{" s "}")))]
    ["-p" "--period N" "number of predicts per sample"
