@@ -1,4 +1,4 @@
-(ns angsrc.pdia
+(ns pdia
   (:use [embang emit runtime])
   (:use [angsrc crp dp-mem]))
 

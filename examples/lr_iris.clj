@@ -1,4 +1,4 @@
-(ns angsrc.lr-iris
+(ns lr-iris
   (:use [embang runtime emit]
         [angsrc iris-data]))
 

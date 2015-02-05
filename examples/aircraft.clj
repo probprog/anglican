@@ -1,4 +1,4 @@
-(ns angsrc.aircraft
+(ns aircraft
   (:use [embang emit runtime]))
 
 (defanglican aircraft
