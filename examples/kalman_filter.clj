@@ -9,7 +9,10 @@
 ;; x[t] ~ mvn(A . x[t-1], W)
 ;; y[t] ~ mvn(H . x[t], Q)
 
+;; observation matrix H
+;; (assumed to be somewhat sparse)
 (declare H)
+
 (declare data)
 
 (declare predict-angles x)
@@ -32,8 +35,6 @@
     ;; (assumed to be diagonal with uniform error rate)
     [assume w (sample (gamma 10. 100.))]
     [assume W (mmul (eye 2) w)]
-    ;; observation matrix H
-    ;; (assumed to be somewhat sparse)
     ;; observation covariance 
     ;; (assumed to be diagonal with uniform error rate)
     [assume q 1.0e-02]
@@ -49,64 +50,9 @@
             () data)
 
     ;; predict parameters
-    [predict omega]
+    (predict-angles x)
     [predict w]
-    (predict-angles x)))
-
-(defun angle (x) (atan (/ (second x) (first x))))
-
-(defun predict-angles (x)
-    [predict (angle (x 1))]
-    [predict (angle (x 2))]
-    [predict (angle (x 3))]
-    [predict (angle (x 4))]
-    [predict (angle (x 5))]
-    [predict (angle (x 6))]
-    [predict (angle (x 7))]
-    [predict (angle (x 8))]
-    [predict (angle (x 9))]
-    [predict (angle (x 10))]
-    [predict (angle (x 11))]
-    [predict (angle (x 12))]
-    [predict (angle (x 13))]
-    [predict (angle (x 14))]
-    [predict (angle (x 15))]
-    [predict (angle (x 16))]
-    [predict (angle (x 17))]
-    [predict (angle (x 18))]
-    [predict (angle (x 19))]
-    [predict (angle (x 20))]
-    [predict (angle (x 21))]
-    [predict (angle (x 22))]
-    [predict (angle (x 23))]
-    [predict (angle (x 24))]
-    [predict (angle (x 25))]
-    [predict (angle (x 26))]
-    [predict (angle (x 27))]
-    [predict (angle (x 28))]
-    [predict (angle (x 29))]
-    [predict (angle (x 30))]
-    [predict (angle (x 31))]
-    [predict (angle (x 32))]
-    [predict (angle (x 33))]
-    [predict (angle (x 34))]
-    [predict (angle (x 35))]
-    [predict (angle (x 36))]
-    [predict (angle (x 37))]
-    [predict (angle (x 38))]
-    [predict (angle (x 39))]
-    [predict (angle (x 40))]
-    [predict (angle (x 41))]
-    [predict (angle (x 42))]
-    [predict (angle (x 43))]
-    [predict (angle (x 44))]
-    [predict (angle (x 45))]
-    [predict (angle (x 46))]
-    [predict (angle (x 47))]
-    [predict (angle (x 48))]
-    [predict (angle (x 49))]
-    [predict (angle (x 50))])
-
+    [predict omega]))
 
 (def H [[1.7435e-01 2.5215e-03]
         [1.5101e-08 1.4628e-01]
@@ -176,3 +122,59 @@
     [48 [2.4965e-01 -1.5419e-01 -3.3920e-02 1.8036e-01 -4.5629e-02 -8.6515e-02 1.0623e-01 -1.1537e-01 2.1038e-01 3.6348e-01 -1.0922e-01 1.0703e-02 2.2265e-02 -1.1750e-01 -1.4582e-01 -1.0660e+00]]
     [49 [2.0180e-02 -4.0645e-01 -2.0926e-01 2.2857e-01 9.0316e-02 -6.6879e-03 6.0363e-02 -1.0821e-01 -2.7369e-03 3.0745e-01 -5.4711e-02 2.5546e-02 5.9082e-03 3.1657e-02 -1.4576e-01 -1.0088e+00]]
     [50 [1.9765e-01 -9.5476e-02 -8.8120e-02 3.0295e-01 -1.4055e-01 -1.3474e-01 -5.3639e-02 -1.5403e-01 -2.5956e-02 1.6712e-01 -1.6509e-01 3.3005e-02 -8.4615e-02 -3.1582e-02 -1.1673e-01 -6.8144e-01]]])
+
+(defun angle (x) (atan (/ (second x) (first x))))
+
+(defun predict-angles (x)
+    [predict (angle (x 1))]
+    [predict (angle (x 2))]
+    [predict (angle (x 3))]
+    [predict (angle (x 4))]
+    [predict (angle (x 5))]
+    [predict (angle (x 6))]
+    [predict (angle (x 7))]
+    [predict (angle (x 8))]
+    [predict (angle (x 9))]
+    [predict (angle (x 10))]
+    [predict (angle (x 11))]
+    [predict (angle (x 12))]
+    [predict (angle (x 13))]
+    [predict (angle (x 14))]
+    [predict (angle (x 15))]
+    [predict (angle (x 16))]
+    [predict (angle (x 17))]
+    [predict (angle (x 18))]
+    [predict (angle (x 19))]
+    [predict (angle (x 20))]
+    [predict (angle (x 21))]
+    [predict (angle (x 22))]
+    [predict (angle (x 23))]
+    [predict (angle (x 24))]
+    [predict (angle (x 25))]
+    [predict (angle (x 26))]
+    [predict (angle (x 27))]
+    [predict (angle (x 28))]
+    [predict (angle (x 29))]
+    [predict (angle (x 30))]
+    [predict (angle (x 31))]
+    [predict (angle (x 32))]
+    [predict (angle (x 33))]
+    [predict (angle (x 34))]
+    [predict (angle (x 35))]
+    [predict (angle (x 36))]
+    [predict (angle (x 37))]
+    [predict (angle (x 38))]
+    [predict (angle (x 39))]
+    [predict (angle (x 40))]
+    [predict (angle (x 41))]
+    [predict (angle (x 42))]
+    [predict (angle (x 43))]
+    [predict (angle (x 44))]
+    [predict (angle (x 45))]
+    [predict (angle (x 46))]
+    [predict (angle (x 47))]
+    [predict (angle (x 48))]
+    [predict (angle (x 49))]
+    [predict (angle (x 50))])
+
+
