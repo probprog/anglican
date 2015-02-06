@@ -376,6 +376,12 @@
    ["-d" "--distance d" "distance type"
     :parse-fn keyword
     :validate [#{:kl :l2 :ks} "unrecognized distance"]]
+   ["-e" "--exclude LABELS" "predicts to exclude from statistics"
+    :default #{}
+    :parse-fn (fn [s] (read-string (str "#{" s "}")))]
+   ["-o" "--only LABELS" "predicts to include into statistics"
+    :default nil
+    :parse-fn (fn [s] (read-string (str "#{" s "}")))]
    ["-p" "--period N" "number of predicts per sample"
     :parse-fn #(Integer/parseInt %)]
    ["-S" "--skip N" "Skip first N predict lines"

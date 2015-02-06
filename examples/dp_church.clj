@@ -1,4 +1,4 @@
-(ns angsrc.dp-church
+(ns dp-church
   (:use [embang emit runtime])
   (:use [angsrc dp-mem]))
 
