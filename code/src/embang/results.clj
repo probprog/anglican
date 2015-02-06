@@ -239,10 +239,6 @@
   a structure suitable for dist-seq"
   (fn [distance-type] distance-type))
 
-(defmethod get-truth :kl [_] (total-freqs))
-(defmethod get-truth :l2 [_] (total-freqs))
-(defmethod get-truth :ks [_] (total-weights))
-
 (defmulti dist-seq 
   "reads results from stdin and returns a lazy sequence
   of distances from the truth"
@@ -281,9 +277,13 @@
                (freq-seq* lines (inc nlines) weights))))))]
     (freq-seq* (predict-seq-skipping skip) 1 {})))
 
+(defmethod get-truth :kl [_] (total-freqs))
+
 (defmethod dist-seq :kl 
   [_ true-freqs & options]
   (apply freq-seq KL true-freqs options))
+
+(defmethod get-truth :l2 [_] (total-freqs))
 
 (defmethod dist-seq :l2
   [_ true-freqs & options]
@@ -318,6 +318,8 @@
           (recur predicts (inc nlines)
                  samples (conj seen-labels label))))
       samples)))
+
+(defmethod get-truth :ks [_] (total-samples))
 
 (defmethod dist-seq :ks
   [_ true-samples & {:keys [skip step only exclude]
