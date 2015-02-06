@@ -157,7 +157,9 @@
                                  (* mean mean)))]
           (println (format "%s, %6g, %6g" label mean sd)))))))
 
-;;; Sample distance measures
+;;;; Sample distance metrics
+
+;;; Metric formulas
 
 (defn KL
   "computes Kullback-Leibler divergence for value frequencies."
@@ -221,6 +223,20 @@
   [skip]
   (drop skip (parsed-line-seq (line-seq (io/reader *in*)))))
 
+;;; Multimethods dispatching on metrics
+
+(defmulti get-truth
+  "reads truth from stdin and returns
+  a structure suitable for dist-seq"
+  (fn [distance-type] distance-type))
+
+(defmulti dist-seq 
+  "reads results from stdin and returns a lazy sequence
+  of distances from the truth"
+  (fn [distance-type truth & options] distance-type))
+
+;;; Discrete predicts
+
 (defn total-freqs
   "reads results from stdin and returns
   a table of total frequences for discrete-valued predicts"
@@ -233,16 +249,6 @@
               (keep (complement 
                       (partial included?  only exclude))
                     (keys total-weights))))))
-
-(defmulti get-truth
-  "reads truth from stdin and returns
-  a structure suitable for dist-seq"
-  (fn [distance-type] distance-type))
-
-(defmulti dist-seq 
-  "reads results from stdin and returns a lazy sequence
-  of distances from the truth"
-  (fn [distance-type truth & options] distance-type))
 
 (defn freq-seq
   "reads results from stdin and returns a lazy sequence
@@ -288,6 +294,8 @@
 (defmethod dist-seq :l2
   [_ true-freqs & options]
   (apply freq-seq L2 true-freqs options))
+
+;;; Continuous metrics
 
 (defn total-samples
   "reads results from stdin and returns a map label -> sequence
