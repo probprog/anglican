@@ -237,7 +237,7 @@
 (defmulti get-truth
   "reads truth from stdin and returns
   a structure suitable for dist-seq"
-  (fn [distance-type]))
+  (fn [distance-type] distance-type))
 
 (defmethod get-truth :kl [_] (total-freqs))
 (defmethod get-truth :l2 [_] (total-freqs))
@@ -282,11 +282,11 @@
     (freq-seq* (predict-seq-skipping skip) 1 {})))
 
 (defmethod dist-seq :kl 
-  [_ true-freqs options]
+  [_ true-freqs & options]
   (apply freq-seq KL true-freqs options))
 
 (defmethod dist-seq :l2
-  [_ true-freqs options]
+  [_ true-freqs & options]
   (apply freq-seq L2 true-freqs options))
 
 (defn total-samples
@@ -364,22 +364,25 @@
 ;; Two additional parameters, skip and step, 
 ;; are provided on the command line.
 
+(def default-config
+     "default option values"
+     {:distance :kl
+	  :period 1
+	  :skip 0
+	  :step 1})
+
 (def cli-options
   [;; problems
    ["-d" "--distance d" "distance type"
-    :default :kl
     :parse-fn keyword
     :validate [#{:kl :l2 :ks} "unrecognized distance"]]
    ["-p" "--period N" "number of predicts per sample"
-    :default 1
     :parse-fn #(Integer/parseInt %)]
-   ["-s" "--skip N" "Skip first N predict lines"
-    :default 0
+   ["-S" "--skip N" "Skip first N predict lines"
     :parse-fn #(Integer/parseInt %)]
-   ["-t" "--step N" "Output distance each N predict lines"
-    :default 1
+   ["-s" "--step N" "Output distance each N predict lines"
     :parse-fn #(Integer/parseInt %)]
-   ["-T" "--truth resource" "Resource containing ground truth"]
+   ["-t" "--truth resource" "Resource containing ground truth"]
    ["-h" "--help" "print usage summary and exit"]])
 
 (defn usage [summary]
@@ -418,7 +421,7 @@ Options:
                                              (io/resource
                                                (first arguments))))]
                             (edn/read in)))
-            options (merge config options)]
+            options (merge default-config config options)]
         (binding [*out* *err*]
           (doseq [[option value] (sort-by first options)]
             (println (format ";; %s %s" option value))))
