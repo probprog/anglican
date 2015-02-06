@@ -134,9 +134,9 @@
             (recur
               predicts
               (update-rewards
-                ;; on average, assigning 0/1 to the just arrived
+                ;; On average, assigning 0/1 to the just arrived
                 ;; element is tantamount to distributing
-                ;; 0/|history|^-1 to all element in the queue;
+                ;; 0/|history|^-1 to all element in the queue,
                 ;; but faster.
                 choice-rewards {choice-id 1}
                 0. discnt)
