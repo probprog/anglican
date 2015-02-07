@@ -109,12 +109,14 @@ logi for anglican.logi).
 
 #### Options:
 
-    -a, --inference-algorithm NAME   importance  Inference algorithm
-    -d, --debug                                  Print debugging information
+    -a, --inference-algorithm NAME   :lmh       Inference algorithm
+    -b, --burn N                     0          Skip first N samples
+    -d, --debug                                 Print debugging information
     -f, --output-format FORMAT       :anglican  output format
-    -n, --number-of-samples N                   total number of samples to output
-    -o, --algorithm-options OPTIONS  []          Algorithm options
-    -h, --help                                   print usage summary and exit
+    -n, --number-of-samples N                   Output predicts for N samples
+    -o, --algorithm-options OPTIONS  []         Algorithm options
+    -t, --thin N                     1          Retain each Nth sample
+    -h, --help                                  print usage summary and exit
 
 
 ## Examples
