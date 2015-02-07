@@ -36,7 +36,7 @@
          ::last-predicts {}
          ::choice-counts {}}))
 
-;;; Stored predict for reward distribution.
+;;; Stored predicts for reward distribution.
 
 ;; Predicts are stored in a map indexed by predict label.
 ;; Each predict record contains the last predict value
@@ -134,7 +134,11 @@
             (recur
               predicts
               (update-rewards
-                choice-rewards (:choices (last-predicts label))
+                ;; On average, assigning 0/1 to the just arrived
+                ;; element is tantamount to distributing
+                ;; 0/|history|^-1 to all elements in the queue,
+                ;; but faster.
+                choice-rewards {choice-id 1}
                 0. discnt)
               last-predicts)
 
@@ -264,46 +268,45 @@
   (letfn
     [(sample-seq [state]
        (lazy-seq
-         (if (seq (get-trace state))
-           (let [;; Choose uniformly a random choice to resample.
-                 entry (select-entry state)
+         (let [;; Choose uniformly a random choice to resample.
+               entry (select-entry state)
 
-                 ;; Compute next state from the resampled choice.
-                 next-state (next-state state entry)
-                 ;; Reconstruct the current state through transition
-                 ;; back from the next state, with a different rdb.
-                 prev-state (prev-state state next-state entry)
+               ;; Compute next state from the resampled choice.
+               next-state (next-state state entry)
+               ;; Reconstruct the current state through transition
+               ;; back from the next state, with a different rdb.
+               prev-state (prev-state state next-state entry)
 
-                 ;; Apply Metropolis-Hastings acceptance rule to select
-                 ;; either the new or the current state.
-                 state (if (> (- (utility next-state entry)
+               ;; Apply Metropolis-Hastings acceptance rule to select
+               ;; either the new or the current state.
+               state (if (> (- (utility next-state entry)
                                (utility prev-state entry))
                             (Math/log (rand)))
-                         ;; The new state is accepted --- award choices
-                         ;; according to changes in predicts to favor
-                         ;; choices which affect more predicts.
-                         (award next-state entry)
+                       ;; The new state is accepted --- award choices
+                       ;; according to changes in predicts to favor
+                       ;; choices which affect more predicts.
+                       (award next-state entry)
 
-                         ;; The old state is held.
-                         state)
+                       ;; The old state is held.
+                       state)
 
-                 ;; In any case, update the entry count.
-                 state (update-choice-count state entry)
+               ;; In any case, update the entry count.
+               state (update-choice-count state entry)
 
-                 ;; Include the selected state into the sequence of
-                 ;; samples, setting the weight to the unit weight.
-                 sample (set-log-weight state 0.)
-                 ;; Optionally, add rewards and counts to predicts.
-                 sample (if predict-choices
-                          (add-choice-predicts sample)
-                          sample)]
-             (cons sample (sample-seq state)))
-           
-           ;; No randomness in the program.
-           (cons (set-log-weight state 0.) (sample-seq state)))))]
+               ;; Include the selected state into the sequence of
+               ;; samples, setting the weight to the unit weight.
+               sample (set-log-weight state 0.)
+               ;; Optionally, add rewards and counts to predicts.
+               sample (if predict-choices
+                        (add-choice-predicts sample)
+                        sample)]
+           (cons sample (sample-seq state)))))]
 
     (let [;; Run the first particle.
           state (:state (exec ::algorithm prog nil initial-state))
           ;; Initialize the predict table.
           state (initialize-last-predicts state)]
-      (sample-seq state))))
+      (if (seq (:trace state))
+        (sample-seq state)
+        ;; No randomness in the program
+        (repeat (set-log-weight state 0.))))))
