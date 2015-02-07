@@ -34,7 +34,7 @@
     :parse-fn keyword
     :validate [load-algorithm "unrecognized algorithm name."]]
 
-   ["-b" "--burn N" "Skip predicts from first N samples"
+   ["-b" "--burn N" "Skip first N samples"
     :default 0
     :parse-fn #(Integer/parseInt %)]
 
@@ -48,7 +48,7 @@
     :validate [#{:anglican :clojure :json}
                "must be one of anglican, clojure, json."]]
 
-   ["-n" "--number-of-samples N" "total number of samples to output"
+   ["-n" "--number-of-samples N" "Output predicts for N samples"
     :default nil
     :parse-fn #(Integer/parseInt %)]
 
@@ -56,7 +56,7 @@
     :default []
     :parse-fn (fn [s] (read-string (str "[" s "]")))]
 
-   ["-t" "--thin N" "Print predicts for each Nth sample"
+   ["-t" "--thin N" "Retain each Nth sample"
     :default 1
     :parse-fn #(Integer/parseInt %)]
 
