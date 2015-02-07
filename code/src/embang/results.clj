@@ -295,7 +295,7 @@
   [_ true-freqs & options]
   (apply freq-seq L2 true-freqs options))
 
-;;; Continuous metrics
+;;; Continuous predicts
 
 (defn total-samples
   "reads results from stdin and returns a map label -> sequence
@@ -370,9 +370,6 @@
     :exclude []                         ; predicts to ignore
     :distance :ks                       ; type of distance
     :truth "hhmm.truth")                ; resource with the truth
-
-;; Two additional parameters, skip and step, 
-;; are provided on the command line.
 
 (def default-config
      "default option values"
