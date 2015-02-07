@@ -375,11 +375,12 @@
      "default option values"
      {:distance :kl
 	  :period 1
-	  :skip 0
-	  :step 1})
+	  :burn 0
+	  :thin 1})
 
 (def cli-options
-  [;; problems
+  [["-b" "--burn N" "Skip first N predict lines"
+    :parse-fn #(Integer/parseInt %)]
    ["-d" "--distance d" "distance type"
     :parse-fn keyword
     :validate [#{:kl :l2 :ks} "unrecognized distance"]]
@@ -391,11 +392,9 @@
     :parse-fn (fn [s] (read-string (str "#{" s "}")))]
    ["-p" "--period N" "number of predicts per sample"
     :parse-fn #(Integer/parseInt %)]
-   ["-S" "--skip N" "Skip first N predict lines"
+   ["-t" "--thin N" "Output distance each N predict lines"
     :parse-fn #(Integer/parseInt %)]
-   ["-s" "--step N" "Output distance each N predict lines"
-    :parse-fn #(Integer/parseInt %)]
-   ["-t" "--truth resource" "Resource containing ground truth"]
+   ["-T" "--truth resource" "Resource containing ground truth"]
    ["-h" "--help" "print usage summary and exit"]])
 
 (defn usage [summary]
@@ -442,8 +441,8 @@ Options:
                       (get-truth (:distance options)))
               period (or (:period options) 1)]
           (doseq [distance (dist-seq (:distance options) truth
-                             :skip (* (:skip options) period)
-                             :step (* (:step options) period)
+                             :skip (* (:burn options) period)
+                             :step (* (:thin options) period)
                              :only (set (:only options))
                              :exclude (set (:exclude options)))]
             (prn distance)))))))

@@ -34,6 +34,10 @@
     :parse-fn keyword
     :validate [load-algorithm "unrecognized algorithm name."]]
 
+   ["-b" "--burn N" "Skip predicts from first N samples"
+    :default 0
+    :parse-fn #(Integer/parseInt %)]
+
    ["-d" "--debug" "Print debugging information"
     :default false
     :flag true]
@@ -51,6 +55,10 @@
    ["-o" "--algorithm-options OPTIONS" "Algorithm options"
     :default []
     :parse-fn (fn [s] (read-string (str "[" s "]")))]
+
+   ["-t" "--thin N" "Print predicts for each Nth sample"
+    :default 1
+    :parse-fn #(Integer/parseInt %)]
 
    ["-h" "--help" "print usage summary and exit"]])
 
@@ -132,10 +140,18 @@ Options:
               ;; if loaded, run the inference.
               (try
                 (loop [i 0
-                       states (apply infer
-                                     (:inference-algorithm options)
-                                     (warmup program)
-                                     (:algorithm-options options))]
+                       states (as->
+                                (apply infer
+                                       (:inference-algorithm options)
+                                       (warmup program)
+                                       (:algorithm-options options))
+                                states
+                                ;; Burn samples
+                                (drop (:burn options) states)
+                                ;; Thin samples
+                                (map first
+                                  (partition
+                                    1 (:thin options) states)))]
                   (when-not (= i (:number-of-samples options))
                     (when (seq states)
                       (let [state (first states)]
