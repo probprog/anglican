@@ -306,7 +306,7 @@
           state (:state (exec ::algorithm prog nil initial-state))
           ;; Initialize the predict table.
           state (initialize-last-predicts state)]
-      (if (seq (:trace state))
+      (if (seq (get-trace state))
         (sample-seq state)
         ;; No randomness in the program
         (repeat (set-log-weight state 0.))))))
