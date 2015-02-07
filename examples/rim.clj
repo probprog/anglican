@@ -1,4 +1,4 @@
-(ns angsrc.rim
+(ns rim
   (:use [embang emit runtime]))
 
 ;;; Anglican example from fwood/anglican issue #134

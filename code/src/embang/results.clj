@@ -157,7 +157,9 @@
                                  (* mean mean)))]
           (println (format "%s, %6g, %6g" label mean sd)))))))
 
-;;; Sample distance measures
+;;;; Sample distance metrics
+
+;;; Metric formulas
 
 (defn KL
   "computes Kullback-Leibler divergence for value frequencies."
@@ -221,6 +223,20 @@
   [skip]
   (drop skip (parsed-line-seq (line-seq (io/reader *in*)))))
 
+;;; Multimethods dispatching on metrics
+
+(defmulti get-truth
+  "reads truth from stdin and returns
+  a structure suitable for dist-seq"
+  (fn [distance-type] distance-type))
+
+(defmulti dist-seq 
+  "reads results from stdin and returns a lazy sequence
+  of distances from the truth"
+  (fn [distance-type truth & options] distance-type))
+
+;;; Discrete predicts
+
 (defn total-freqs
   "reads results from stdin and returns
   a table of total frequences for discrete-valued predicts"
@@ -233,20 +249,6 @@
               (keep (complement 
                       (partial included?  only exclude))
                     (keys total-weights))))))
-
-(defmulti get-truth
-  "reads truth from stdin and returns
-  a structure suitable for dist-seq"
-  (fn [distance-type & _]))
-
-(defmethod get-truth :kl [_] (total-freqs))
-(defmethod get-truth :l2 [_] (total-freqs))
-(defmethod get-truth :ks [_] (total-weights))
-
-(defmulti dist-seq 
-  "reads results from stdin and returns a lazy sequence
-  of distances from the truth"
-  (fn [distance-type truth & options] distance-type))
 
 (defn freq-seq
   "reads results from stdin and returns a lazy sequence
@@ -281,13 +283,19 @@
                (freq-seq* lines (inc nlines) weights))))))]
     (freq-seq* (predict-seq-skipping skip) 1 {})))
 
+(defmethod get-truth :kl [_] (total-freqs))
+
 (defmethod dist-seq :kl 
-  [_ true-freqs options]
+  [_ true-freqs & options]
   (apply freq-seq KL true-freqs options))
 
+(defmethod get-truth :l2 [_] (total-freqs))
+
 (defmethod dist-seq :l2
-  [_ true-freqs options]
+  [_ true-freqs & options]
   (apply freq-seq L2 true-freqs options))
+
+;;; Continuous metrics
 
 (defn total-samples
   "reads results from stdin and returns a map label -> sequence
@@ -318,6 +326,8 @@
           (recur predicts (inc nlines)
                  samples (conj seen-labels label))))
       samples)))
+
+(defmethod get-truth :ks [_] (total-samples))
 
 (defmethod dist-seq :ks
   [_ true-samples & {:keys [skip step only exclude]
@@ -364,10 +374,16 @@
 ;; Two additional parameters, skip and step, 
 ;; are provided on the command line.
 
+(def default-config
+     "default option values"
+     {:distance :kl
+	  :period 1
+	  :skip 0
+	  :step 1})
+
 (def cli-options
   [;; problems
    ["-d" "--distance d" "distance type"
-    :default :kl
     :parse-fn keyword
     :validate [#{:kl :l2 :ks} "unrecognized distance"]]
    ["-e" "--exclude LABELS" "predicts to exclude from statistics"
@@ -377,15 +393,12 @@
     :default nil
     :parse-fn (fn [s] (read-string (str "#{" s "}")))]
    ["-p" "--period N" "number of predicts per sample"
-    :default 1
     :parse-fn #(Integer/parseInt %)]
-   ["-s" "--skip N" "Skip first N predict lines"
-    :default 0
+   ["-S" "--skip N" "Skip first N predict lines"
     :parse-fn #(Integer/parseInt %)]
-   ["-t" "--step N" "Output distance each N predict lines"
-    :default 1
+   ["-s" "--step N" "Output distance each N predict lines"
     :parse-fn #(Integer/parseInt %)]
-   ["-T" "--truth resource" "Resource containing ground truth"]
+   ["-t" "--truth resource" "Resource containing ground truth"]
    ["-h" "--help" "print usage summary and exit"]])
 
 (defn usage [summary]
@@ -424,7 +437,7 @@ Options:
                                              (io/resource
                                                (first arguments))))]
                             (edn/read in)))
-            options (merge config options)]
+            options (merge default-config config options)]
         (binding [*out* *err*]
           (doseq [[option value] (sort-by first options)]
             (println (format ";; %s %s" option value))))

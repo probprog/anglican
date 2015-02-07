@@ -32,3 +32,4 @@
         dp_mem.clj     --- Implementation of DPmem
         crp.clj        --- Wrapped CRP for compatibility
                            with the original Anglican syntax
+        iris_data.clj  --- Ronald Fisher's Iris dataset

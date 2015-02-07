@@ -1,11 +1,11 @@
-(ns angsrc.hdp-hmm-ks
+(ns hdp-hmm-ks
   (:require [clojure.core.matrix
              :refer [identity-matrix join reshape
                      add sub mul mmul inverse]
              :rename {identity-matrix eye}])
   (:use [embang emit runtime]
-        [angsrc crp dp-mem
-                hdp-hmm-ks-data]))
+        [angsrc crp dp-mem]
+        hdp-hmm-ks-data))
 
 (with-primitive-procedures [eye join reshape
                             add sub mul mmul inverse]
