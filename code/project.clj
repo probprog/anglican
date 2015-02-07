@@ -1,4 +1,4 @@
-(defproject embang "0.2.1-SNAPSHOT"
+(defproject embang "0.3.0-SNAPSHOT"
   :description "MAP inference in anglican programs"
   :url "http://bitbucket.org/dtolpin/mappp"
   :license {:name "Eclipse Public License"
