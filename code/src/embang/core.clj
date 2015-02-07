@@ -124,12 +124,14 @@
           (println
             (format (str ";; Program: %s/%s\n"
                          ";; Inference algorithm: %s\n"
-                         ";; Number of samples: %s\n"
+                         ";; Number of samples: %s (*%s+%s) \n"
                          ";; Output format: %s\n"
                          ";; Algorithm options: %s")
                     nsname progname
                     (:inference-algorithm options)
                     (:number-of-samples options)
+                    (:thin options)
+                    (:burn options)
                     (:output-format options)
                     (str/join
                       (map (fn [[name value]]
