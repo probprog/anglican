@@ -37,18 +37,18 @@
                [entry next-state] (first next-states)
                ;; Reconstruct the current state through transition
                ;; back from the next state; the rdb will be different.
-               prev-state (prev-state state next-state entry)]
-
-           ;; Apply Metropolis-Hastings acceptance rule to select
-           ;; either the new or the current state.
-           (if (> (- (utility next-state) (utility prev-state))
-                  (Math/log (rand)))
-             ;; Include the selected state into the sequence of
-             ;; samples, setting the weight to the unit weight.
-             (cons (set-log-weight next-state 0.)
-                   (sample-seq next-state (next-seq next-state)))
-             (cons (set-log-weight state 0.)
-                   (sample-seq state (rest next-states)))))))]
+               prev-state (prev-state state next-state entry)
+               [state next-states]
+               ;; Apply Metropolis-Hastings acceptance rule to select
+               ;; either the new or the current state.
+               (if (> (- (utility next-state) (utility prev-state))
+                      (Math/log (rand)))
+                 [next-state (next-seq next-state)]
+                 [state (rest next-states)])]
+           ;; Include the selected state into the sequence of
+           ;; samples, setting the weight to the unit weight.
+           (cons (set-log-weight state 0.)
+                 (sample-seq state next-states)))))]
 
     (let [state (:state (exec ::algorithm prog nil initial-state))]
       (if (seq (get-trace state))
