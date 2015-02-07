@@ -1,7 +1,7 @@
-(ns embang.core
-  (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:gen-class)
-  (:require [clojure.string :as str]
+(ns embang.core (:gen-class)
+  (:refer-clojure :exclude [rand rand-int rand-nth read-string])
+  (:require [clojure.edn :refer [read-string]]
+            [clojure.string :as str]
             [clojure.tools.cli :as cli])
   (:use [embang.inference :only [warmup infer print-predicts]])
   (:use [embang.results :only [redir freqs meansd diff]]))
@@ -28,8 +28,7 @@
                                           nsname progname))))))
 
 (def cli-options
-  [;; problems
-   ["-a" "--inference-algorithm NAME" "Inference algorithm"
+  [["-a" "--inference-algorithm NAME" "Inference algorithm"
     :default (#(do (load-algorithm %) %) :lmh)
     :parse-fn keyword
     :validate [load-algorithm "unrecognized algorithm name."]]
@@ -64,38 +63,42 @@
 
 (defn usage [summary]
   (str "Usage:
-     lein run namespace [program] [option ...]
-from the command line, or:
-     (m! namespace [program] [\"option\" ...])
-in the REPL, where `namespace' is the namespace containing the
-embedded Anglican program to run, for example:
+       lein run namespace [program] [option ...]
+       from the command line, or:
+       (m! namespace [program] [\"option\" ...])
+       in the REPL, where `namespace' is the namespace containing the
+       embedded Anglican program to run, for example:
 
-  bash$ lein run angsrc.branching -a pgibbs -n 500 \\
-            -o \":number-of-particles 50\"
+       bash$ lein run angsrc.branching -a pgibbs -n 500 \\
+       -o \":number-of-particles 50\"
 
-  embang.core=> (m! -a pgibbs -n 500 -o \":number-of-particles 50\"
-                    angsrc.branching)
+       embang.core=> (m! -a pgibbs -n 500 -o \":number-of-particles 50\"
+       angsrc.branching)
 
-`program' is the first argument of `defanglican'. The namespace
-may contain multiple programs. If `program' is omitted, it defaults
-to the last component of the namespace (hmm for anglican.hmm,
-logi for anglican.logi).
+       `program' is the first argument of `defanglican'. The namespace
+       may contain multiple programs. If `program' is omitted, it defaults
+       to the last component of the namespace (hmm for anglican.hmm,
+       logi for anglican.logi).
 
-Options:
-" summary))
+       Options:
+       " summary))
 
 (defn error-msg [errors]
   (str/join "\n\t" (cons "ERROR parsing the command line:" errors)))
 
-(declare -cmd)
-
-(defn -main
-  "transforms anglican program to clojure code;
-  in REPL run (-main \"--help\") for option summary."
+(defn main
+  "runs the interface and the auxiliary commands"
   [& args]
-  (if (= (first args) ":cmd")
-    ;; Run auxiliary commands.
-    (apply -cmd (rest args))
+  (if (= (ffirst args) \:)
+    ;; Run auxiliary commands
+    (case (read-string (first args))
+      :freqs (freqs)
+      :meansd (meansd)
+      :diff (apply diff (rest args))
+      (binding [*out* *err*]
+        (println (format "Unrecognized command: %s" (first args)))))
+
+    ;; Run the inference
     (let [{:keys [options arguments errors summary] :as parsed-options}
           (cli/parse-opts args cli-options)]
 
@@ -133,11 +136,11 @@ Options:
                              (format "\n;;\t%s %s" name value))
                            (partition 2 (:algorithm-options options))))))
 
-          ;; load the program
+          ;; Load the program.
           (try
             (let [program (load-program nsname progname)]
 
-              ;; if loaded, run the inference.
+              ;; If loaded, run the inference.
               (try
                 (loop [i 0
                        states (as->
@@ -146,12 +149,12 @@ Options:
                                        (warmup program)
                                        (:algorithm-options options))
                                 states
-                                ;; Burn samples
+                                ;; Burn samples.
                                 (drop (:burn options) states)
-                                ;; Thin samples
+                                ;; Thin samples.
                                 (map first
-                                  (partition
-                                    1 (:thin options) states)))]
+                                     (partition
+                                       1 (:thin options) states)))]
                   (when-not (= i (:number-of-samples options))
                     (when (seq states)
                       (let [state (first states)]
@@ -164,7 +167,7 @@ Options:
                   (when (:debug options)
                     (.printStackTrace e)))))
 
-            ;; otherwise, could not load the program
+            ;; Otherwise, could not load the program.
             (catch Exception e
               (binding [*out* *err*]
                 (println
@@ -173,18 +176,13 @@ Options:
                 (when (:debug options)
                   (.printStackTrace e))))))))))
 
-(defn -cmd
-  "auxiliary commands"
-  [& args]
-  (assert (>= (count args) 1) "Usage: :cmd command [argument ...]")
-  (case (keyword (first args))
-    :freqs (freqs)
-    :meansd (meansd)
-    :diff (apply diff (rest args))
-    (binding [*out* *err*]
-      (println "Unrecognized command: %s" (first args)))))
-
 (defmacro m!
-  "invoking -main from the REPL"
+  "invoking main from the REPL"
   [& args]
-  `(-main ~@(map str args)))
+  ` (main ~@(map str args)))
+
+(defn -main
+  "invoking main from the command line"
+  [& args]
+  (apply main args)
+  (shutdown-agents))
