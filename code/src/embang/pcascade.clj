@@ -10,11 +10,12 @@
 
 ;;; Initial state
 
-(def initial-state
+(defn make-initial-state
   "initial state for Parallel Cascade"
+  [max-count]
   (into embang.state/initial-state
         {;; Algorithm parameter --- maximum number of running threads 
-         ::max-count nil
+         ::max-count max-count
 
          ;;; Shared state
          ;; Number of running threads
@@ -23,7 +24,7 @@
          ::queue (atom clojure.lang.PersistentQueue/EMPTY)
          ;; Table of average weights and hit counts
          ::average-weights (atom {})
-         
+
          ;; Number of particles exceeding max-count
          ;; if created
          ::multiplier 1}))
@@ -88,30 +89,34 @@
               ;; Launch new thread.
               (swap! (state ::count) inc)
               (swap! (state ::queue)
-                     #(conj % (future ((:cont obs) nil state))))
+                     #(conj % (future (exec ::algorithm
+                                            (:cont obs) nil state))))
               (recur (dec multiplier)))))))))
 
-(defmethod checkpoint [::algoruthm embang.trap.observe] [_ res]
+(defmethod checkpoint [::algorithm embang.trap.result] [_ res]
   (swap! ((:state res) ::count) dec)
   res)
 
 (defmethod infer :pcascade [_ prog & {:keys [number-of-threads]
                                       :or {number-of-threads 2}}]
-  (let [initial-state (assoc initial-state ::max-count
-                             number-of-threads)]
+  (let [initial-state (make-initial-state number-of-threads)]
     (letfn
       [(sample-seq []
+         #_ 
+         (binding [*out* *err*]
+           (println @(initial-state ::count) (count @(initial-state ::queue))))
          (lazy-seq
            (if (empty? @(initial-state ::queue))
              ;; All existing particles died, launch new particles.
              (do
                (swap! (initial-state ::count) #(+ % number-of-threads))
                (swap! (initial-state ::queue)
-                      #(into % (repeat
+                      #(into % (repeatedly
                                  number-of-threads
-                                 (future
-                                   (exec ::algorithm
-                                         prog nil initial-state)))))
+                                 (fn []
+                                   (future
+                                     (exec ::algorithm
+                                           prog nil initial-state))))))
                (sample-seq))
 
              ;; Retrieve first particle in the queue.
@@ -121,8 +126,10 @@
                  ;; The particle has lived through to the result.
                  ;; Multiply the weight by the multiplier.
                  (let [state (add-log-weight
-                               (:state res) (Math/log
-                                              ((:state res) ::multiplier)))]
+                               (:state res) 
+                               (Math/log
+                                 (double
+                                   ((:state res) ::multiplier))))]
                    ;; Add the state to the output sequence.
                    (cons state (sample-seq)))
                  ;; The particle died midway, retrieve the next one.
