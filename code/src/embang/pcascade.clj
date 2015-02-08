@@ -11,10 +11,11 @@
 ;;; Initial state
 
 (defn make-initial-state
-  "initial state for Parallel Cascade"
+  "initial state constructor for Parallel Cascade, parameterized
+  by the maximum number of running threads"
   [max-count]
   (into embang.state/initial-state
-        {;; Algorithm parameter --- maximum number of running threads 
+        {;; maximum number of running threads
          ::max-count max-count
 
          ;;; Shared state
@@ -25,8 +26,7 @@
          ;; Table of average weights and hit counts
          ::average-weights (atom {})
 
-         ;; Number of particles exceeding max-count
-         ;; if created
+         ;; Number of collapsed particles
          ::multiplier 1}))
 
 (defn average-weight!
@@ -40,7 +40,7 @@
   (let [[average-weight _]
         (swap! (@(state ::average-weights) id)
                (fn [[average-weight count]]
-                 [(/ (+ (* count average-weight) 
+                 [(/ (+ (* count average-weight)
                         (* weight (double (state ::multiplier))))
                      (double (+ count (state ::multiplier))))
                   (double (+ count (state ::multiplier)))]))]
@@ -63,7 +63,7 @@
         ceil-ratio (+ 1. floor-ratio)
         [multiplier new-weight]
         (if (< (- weight-ratio floor-ratio) (rand))
-          [(int floor-ratio) (/ weight floor-ratio)] 
+          [(int floor-ratio) (/ weight floor-ratio)]
           [(int ceil-ratio) (/ weight ceil-ratio)])
         new-log-weight (Math/log new-weight)]
 
@@ -75,12 +75,12 @@
       (let [state (set-log-weight state new-log-weight)]
         (loop [multiplier multiplier]
           (cond
-            (= multiplier 1) 
+            (= multiplier 1)
             ;; Last particle to add, continue in the current thread
             #((:cont obs) nil state)
 
             (>= @(state ::count) (state ::max-count))
-            ;; No place to add more particles, multiply the 
+            ;; No place to add more particles, multiply the
             ;; current particle.
             #((:cont obs) nil (update-in state [::multiplier]
                                          (fn [m] (* m multiplier))))
@@ -102,7 +102,7 @@
   (let [initial-state (make-initial-state number-of-threads)]
     (letfn
       [(sample-seq []
-         #_ 
+         #_
          (binding [*out* *err*]
            (println @(initial-state ::count) (count @(initial-state ::queue))))
          (lazy-seq
@@ -126,7 +126,7 @@
                  ;; The particle has lived through to the result.
                  ;; Multiply the weight by the multiplier.
                  (let [state (add-log-weight
-                               (:state res) 
+                               (:state res)
                                (Math/log
                                  (double
                                    ((:state res) ::multiplier))))]
