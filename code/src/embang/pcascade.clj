@@ -36,6 +36,7 @@
     ;; First particle arriving at this id ---
     ;; initialize the average weight.
     (swap! (state ::average-weights) #(assoc % id (atom [0. 0]))))
+
   ;; The id is in the table, update the average weight.
   (let [[average-weight _]
         (swap! (@(state ::average-weights) id)
@@ -59,8 +60,8 @@
                        1.)
 
         ;; Compute multiplier and new weight.
-        floor-ratio (Math/floor weight-ratio)
-        ceil-ratio (+ 1. floor-ratio)
+        ceil-ratio (Math/ceil weight-ratio)
+        floor-ratio (- ceil-ratio 1.)
         [multiplier new-weight]
         (if (< (- weight-ratio floor-ratio) (rand))
           [(int floor-ratio) (/ weight floor-ratio)]
