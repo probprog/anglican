@@ -86,11 +86,10 @@
                                          (fn [m] (* m multiplier))))
             :else
             ;; Launch new thread.
-            (do
+            (let [new-thread (future (exec ::algorithm
+                                            (:cont obs) nil state))]
               (swap! (state ::count) inc)
-              (swap! (state ::queue)
-                     #(conj % (future (exec ::algorithm
-                                            (:cont obs) nil state))))
+              (swap! (state ::queue) #(conj % new-thread))
               (recur (dec multiplier)))))))))
 
 (defmethod checkpoint [::algorithm embang.trap.result] [_ res]
@@ -102,22 +101,17 @@
   (let [initial-state (make-initial-state number-of-threads)]
     (letfn
       [(sample-seq []
-         #_
-         (binding [*out* *err*]
-           (println @(initial-state ::count) (count @(initial-state ::queue))))
          (lazy-seq
            (if (empty? @(initial-state ::queue))
              ;; All existing particles died, launch new particles.
-             (do
-               (swap! (initial-state ::count) #(+ % number-of-threads))
-               (swap! (initial-state ::queue)
-                      #(into % (repeatedly
+             (let [new-threads (repeatedly
                                  number-of-threads
-                                 (fn []
-                                   (future
-                                     (exec ::algorithm
-                                           prog nil initial-state))))))
-               (sample-seq))
+                                 #(future
+                                    (exec ::algorithm
+                                          prog nil initial-state)))]
+                 (swap! (initial-state ::count) #(+ % number-of-threads))
+                 (swap! (initial-state ::queue) #(into % new-threads))
+                 (sample-seq))
 
              ;; Retrieve first particle in the queue.
              (let [res @(peek @(initial-state ::queue))]
