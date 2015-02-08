@@ -21,7 +21,7 @@
         palmh.clj       --- Parallel Adaptive Lightweight Metropolis-Hastings
         smc.clj        --- Particle Filter
         gibbs.clj      --- Particle Gibbs
-		pcascade.clj   --- Parallel Particle Cascade
+        pcascade.clj   --- Parallel Particle Cascade
         siman.clj      --- MAP estimation via simulated annealing
 
         # Code transformations
@@ -29,9 +29,9 @@
         trap.clj       --- Clojure to CPS
         emit.clj       --- Compiling CPS 
 
-		# Java
-		MTMersenneTwister.java --- thread-safe synchronized version
-		                           of cern.jet.random.engine.MersenneTwister
+        # Java
+        MTMersenneTwister.java --- thread-safe synchronized version
+                                   of cern.jet.random.engine.MersenneTwister
 
       angsrc/
         # Anglican source code modules
