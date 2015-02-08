@@ -15,10 +15,13 @@
         ## Algorithms
         importance.clj --- Importance sampling
         lmh.clj        --- Lightweight Metropolis-Hastings
+        plmh.clj       --- Parallel Lightweight Metropolis-Hastings
         rdb.clj        --- Alias for lmh
         almh.clj       --- Adaptive Lightweight Metropolis-Hastings
+        palmh.clj       --- Parallel Adaptive Lightweight Metropolis-Hastings
         smc.clj        --- Particle Filter
-        pgibbs.clj     --- Particle Gibbs
+        gibbs.clj      --- Particle Gibbs
+		pcascade.clj   --- Parallel Particle Cascade
         siman.clj      --- MAP estimation via simulated annealing
 
         # Code transformations
