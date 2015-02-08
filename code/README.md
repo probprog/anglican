@@ -98,10 +98,10 @@ in the REPL, where 'namespace' is the namespace containing the
 embedded Anglican program to run, for example:
 
     bash$ lein run branching -a gibbs -n 100 \
-                -o ":number-of-particles 50"
+               -o ":number-of-particles 50"
 
     embang.core=> (m! branching -a gibbs -n 100
-               -o ":number-of-particles 50")
+                      -o ":number-of-particles 50")
                
 'program' is the first argument of 'defanglican'. The namespace
 may contain multiple programs. If 'program' is omitted, it defaults
