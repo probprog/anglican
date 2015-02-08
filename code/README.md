@@ -30,7 +30,7 @@ to compile a program. The translation is performed by
 the program text as the macro body. Hence, an __m!__ program
 would look like in the following example:
 
-    (ns angsrc.example
+    (ns example
       (:use [embang emit runtime])
 
     (defanglican example
@@ -42,8 +42,9 @@ Multiple programs may reside within the same namespace.  By
 convention, the default program (whatever this means) has the
 same name as the last component in the namespace name.  Place
 the program in an appopriate location in Clojure directory
-layout; the example above should go into [`src/angsrc`](src/angsrc/)
-subdirectory of __m!__ tree.
+layout; the example above should go into [`../examples`](../examples/)
+subdirectory of __m!__ tree, referenced from `project.clj` as
+a resource path.
 
 The language is essentially compatible with Anglican, with 
 the following 'restrictions', or enhancements, depending on the
@@ -77,7 +78,7 @@ The last stored value is retrieved.
 
 Functions can be defined outside Anglican programs, and
 implemented either in Clojure or in Anglican. See 
-[`src/angsrc/branching.clj`](src/angsrc/branching.clj)
+[`../examples/branching.clj`](../examples/branching.clj)
 for examples.
 
 ### Running programs
@@ -96,11 +97,11 @@ from the command line, or:
 in the REPL, where 'namespace' is the namespace containing the
 embedded Anglican program to run, for example:
 
-    bash$ lein run angsrc.branching -a pgibbs -n 100 \
-                -o ":number-of-particles 50"
+    bash$ lein run branching -a gibbs -n 100 \
+               -o ":number-of-particles 50"
 
-    embang.core=> (m! angsrc.branching -a pgibbs -n 100
-               -o ":number-of-particles 50")
+    embang.core=> (m! branching -a gibbs -n 100
+                      -o ":number-of-particles 50")
                
 'program' is the first argument of 'defanglican'. The namespace
 may contain multiple programs. If 'program' is omitted, it defaults
@@ -121,22 +122,22 @@ logi for anglican.logi).
 
 ## Examples
 
-Some program examples are in [`src/angsrc`](src/angsrc/).
+Some program examples are in [`../examples`](../examples/).
 If you want to run programs from the repl:
 
     (m! --help)
 
 will print the command-line options.
 
-    (m! -a pgibbs angsrc.branching -n 10000
+    (m! -a gibbs branching -n 10000
         -o "number-of-particles 100")
 
 will run the inference on the 'simple branching' example. The
-example itself is in 'src/angsrc/branching.clj'. You can also
+example itself is in '../examples/branching.clj'. You can also
 run the same example from the command line:
 
-    lein run -- -a pgibbs -n 10000 \\
-         -o ":number-of-particles 100" angsrc.hmm
+    lein run -- -a gibbs -n 10000 \\
+         -o ":number-of-particles 100" hmm
 
 ## License
 

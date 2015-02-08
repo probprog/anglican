@@ -63,25 +63,30 @@
 
 (defn usage [summary]
   (str "Usage:
-       lein run namespace [program] [option ...]
-       from the command line, or:
-       (m! namespace [program] [\"option\" ...])
-       in the REPL, where `namespace' is the namespace containing the
-       embedded Anglican program to run, for example:
 
-       bash$ lein run angsrc.branching -a pgibbs -n 500 \\
-       -o \":number-of-particles 50\"
+    lein run namespace [program] [option ...]
 
-       embang.core=> (m! -a pgibbs -n 500 -o \":number-of-particles 50\"
-       angsrc.branching)
+from the command line, or:
 
-       `program' is the first argument of `defanglican'. The namespace
-       may contain multiple programs. If `program' is omitted, it defaults
-       to the last component of the namespace (hmm for anglican.hmm,
-       logi for anglican.logi).
+    (m! namespace [program] [\"option\" ...])
 
-       Options:
-       " summary))
+in the REPL, where `namespace' is the namespace containing the
+embedded Anglican program to run, for example:
+
+    bash$ lein run angsrc.branching -a gibbs -n 500 \\
+               -o \":number-of-particles 50\"
+
+    embang.core=> (m! -a gibbs -n 500 -o \":number-of-particles 50\"
+                      angsrc.branching)
+
+`program' is the first argument of `defanglican'. The namespace
+may contain multiple programs. If `program' is omitted, it defaults
+to the last component of the namespace (hmm for anglican.hmm,
+logi for anglican.logi).
+
+Options:
+
+" summary))
 
 (defn error-msg [errors]
   (str/join "\n\t" (cons "ERROR parsing the command line:" errors)))

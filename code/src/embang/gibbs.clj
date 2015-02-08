@@ -1,4 +1,4 @@
-(ns embang.pgibbs
+(ns embang.gibbs
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require embang.smc) ; observe checkpoint inherited
   (:use [embang.state :exclude [initial-state]]
@@ -6,14 +6,14 @@
         [embang.smc :only [resample]]
         [embang.runtime :only [observe sample]]))
 
-;;;; PGibbs
+;;;; Particle Gibbs
 
 (derive ::algorithm :embang.smc/algorithm)
 
 ;;; Initial state
 
 (def initial-state
-  "initial state for PGibbs"
+  "initial state for Particle Gibbs"
   (into embang.state/initial-state
         ;; the state is extended by two sequences,
         ;;   ::future-samples used by retained particle
@@ -55,7 +55,7 @@
   [state value]
   (update-in state [::past-samples] conj value))
 
-;; sample checkpoint for pgibbs --- sample the value,
+;; sample checkpoint for gibbs --- sample the value,
 ;; except for retained particle, and store in past-particles
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
@@ -68,8 +68,8 @@
 
 ;;; Inference loop
 
-(defn pgibbs-sweep
-  "a single PGibbs sweep"
+(defn gibbs-sweep
+  "a single Particle Gibbs sweep"
   [prog retained-state number-of-particles]
   (loop [particles 
          (conj
@@ -102,13 +102,13 @@
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
-(defmethod infer :pgibbs [_ prog & {:keys [number-of-particles]
+(defmethod infer :gibbs [_ prog & {:keys [number-of-particles]
                                     :or {number-of-particles 2}}]
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
   (letfn [(sample-seq [retained-state]
             (lazy-seq
-              (let [particles (pgibbs-sweep
+              (let [particles (gibbs-sweep
                                 prog retained-state number-of-particles)
                     retained-state (retained-initial-state
                                      (rand-nth particles))]

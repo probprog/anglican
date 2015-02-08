@@ -146,15 +146,15 @@
                   (update-in [label :weight] (fnil + 0.) weight)
                   (update-in [label :sum] (fnil + 0.) weighted-value)
                   (update-in [label :sum2] (fnil + 0.) 
-                             (* weighted-value weighted-value))))
+                             (* value weighted-value))))
             sums)))
 
       (doseq [label (sort-by str (keys sums))]
         (let [mean (/ (get-in sums [label :sum])
                       (get-in sums [label :weight]))
-              sd (Math/sqrt (-(/ (get-in sums [label :sum2])
-                                 (get-in sums [label :weight]))
-                                 (* mean mean)))]
+              sd (Math/sqrt (- (/ (get-in sums [label :sum2])
+                                  (get-in sums [label :weight]))
+                               (* mean mean)))]
           (println (format "%s, %6g, %6g" label mean sd)))))))
 
 ;;;; Sample distance metrics

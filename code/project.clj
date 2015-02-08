@@ -1,4 +1,4 @@
-(defproject embang "0.3.1-SNAPSHOT"
+(defproject embang "0.3.2-SNAPSHOT"
   :description "MAP inference in anglican programs"
   :url "http://bitbucket.org/dtolpin/mappp"
   :license {:name "Eclipse Public License"
@@ -14,6 +14,7 @@
                  [net.mikera/vectorz-clj "0.28.0"]]
   :main ^:skip-aot embang.core
   :target-path "target/%s"
+  :java-source-paths ["src"]
   :resource-paths ["../examples"]
   :profiles {:uberjar { ;; Prevent compilation of Anglican source code,
                         ;; generation class names are too long for 
