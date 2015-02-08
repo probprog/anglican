@@ -13,7 +13,7 @@
 ;;; Initial state
 
 (def initial-state
-  "initial state for PGibbs"
+  "initial state for Particle Gibbs"
   (into embang.state/initial-state
         ;; the state is extended by two sequences,
         ;;   ::future-samples used by retained particle
@@ -69,7 +69,7 @@
 ;;; Inference loop
 
 (defn gibbs-sweep
-  "a single PGibbs sweep"
+  "a single Particle Gibbs sweep"
   [prog retained-state number-of-particles]
   (loop [particles 
          (conj
