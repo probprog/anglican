@@ -27,7 +27,7 @@
     ;; (assumed to be a 2-D rotation, periodic over 100 time points)
     ;; [assume omega (* (/ (* 2. Math/PI) T) 
     ;;                  (sample (poisson 6.)))]
-    [assume omega (* (sample (gamma 10. 2.5))
+    [assume omega (* (sample (gamma 5. 2.5))
                      (/ Math/PI T))]
     [assume A (vector (vector (cos omega) (- (sin omega)))
                       (vector (sin omega) (cos omega)))]
@@ -50,7 +50,7 @@
             () data)
 
     ;; predict parameters
-    (predict-angles x)
+    ;; (predict-angles x)
     [predict w]
     [predict omega]))
 
