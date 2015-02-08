@@ -96,10 +96,10 @@ from the command line, or:
 in the REPL, where 'namespace' is the namespace containing the
 embedded Anglican program to run, for example:
 
-    bash$ lein run angsrc.branching -a pgibbs -n 100 \
+    bash$ lein run angsrc.branching -a gibbs -n 100 \
                 -o ":number-of-particles 50"
 
-    embang.core=> (m! angsrc.branching -a pgibbs -n 100
+    embang.core=> (m! angsrc.branching -a gibbs -n 100
                -o ":number-of-particles 50")
                
 'program' is the first argument of 'defanglican'. The namespace
@@ -128,14 +128,14 @@ If you want to run programs from the repl:
 
 will print the command-line options.
 
-    (m! -a pgibbs angsrc.branching -n 10000
+    (m! -a gibbs angsrc.branching -n 10000
         -o "number-of-particles 100")
 
 will run the inference on the 'simple branching' example. The
 example itself is in 'src/angsrc/branching.clj'. You can also
 run the same example from the command line:
 
-    lein run -- -a pgibbs -n 10000 \\
+    lein run -- -a gibbs -n 10000 \\
          -o ":number-of-particles 100" angsrc.hmm
 
 ## License
