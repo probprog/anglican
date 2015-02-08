@@ -82,8 +82,8 @@
             (>= @(state ::count) (state ::max-count))
             ;; No place to add more particles, collapse remaining
             ;; particles into the current particle.
-            #((:cont obs) nil (update-in state [::multiplier]
-                                         (fn [m] (* m multiplier))))
+            #((:cont obs) nil (update-in state [::multiplier] * multiplier))
+
             :else
             ;; Launch new thread.
             (let [new-thread (future (exec ::algorithm
