@@ -76,17 +76,17 @@
         (loop [multiplier multiplier]
           (cond
             (= multiplier 1)
-            ;; Last particle to add, continue in the current thread
+            ;; Last particle to add, continue in the current thread.
             #((:cont obs) nil state)
 
             (>= @(state ::count) (state ::max-count))
-            ;; No place to add more particles, multiply the
-            ;; current particle.
+            ;; No place to add more particles, collapse remaining
+            ;; particles into the current particle.
             #((:cont obs) nil (update-in state [::multiplier]
                                          (fn [m] (* m multiplier))))
             :else
+            ;; Launch new thread.
             (do
-              ;; Launch new thread.
               (swap! (state ::count) inc)
               (swap! (state ::queue)
                      #(conj % (future (exec ::algorithm
