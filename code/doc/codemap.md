@@ -15,16 +15,23 @@
         ## Algorithms
         importance.clj --- Importance sampling
         lmh.clj        --- Lightweight Metropolis-Hastings
+        plmh.clj       --- Parallel Lightweight Metropolis-Hastings
         rdb.clj        --- Alias for lmh
         almh.clj       --- Adaptive Lightweight Metropolis-Hastings
+        palmh.clj       --- Parallel Adaptive Lightweight Metropolis-Hastings
         smc.clj        --- Particle Filter
-        pgibbs.clj     --- Particle Gibbs
+        gibbs.clj      --- Particle Gibbs
+		pcascade.clj   --- Parallel Particle Cascade
         siman.clj      --- MAP estimation via simulated annealing
 
         # Code transformations
         xlat.clj       --- Anglican to Clojure
         trap.clj       --- Clojure to CPS
         emit.clj       --- Compiling CPS 
+
+		# Java
+		MTMersenneTwister.java --- thread-safe synchronized version
+		                           of cern.jet.random.engine.MersenneTwister
 
       angsrc/
         # Anglican source code modules
