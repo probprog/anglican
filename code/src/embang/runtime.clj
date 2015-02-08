@@ -67,8 +67,7 @@
 (def ^:private RNG
   "random number generator"
   ;; delayed to avoid creation at load time
-  (delay (cern.jet.random.engine.MersenneTwister.
-           (java.util.Date.))))
+  (delay (embang.MTMersenneTwister. (java.util.Date.))))
 
 (defmacro from-colt
   "wraps incanter distribution"
