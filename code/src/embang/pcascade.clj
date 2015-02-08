@@ -13,11 +13,15 @@
 (def initial-state
   "initial state for Parallel Cascade"
   (into embang.state/initial-state
-        {;; Algorithm parameter --- maximum size of thread queue
+        {;; Algorithm parameter --- maximum number of running threads 
          ::max-count nil
 
-         ;; Shared state
+         ;;; Shared state
+         ;; Number of running threads
+         ::count (atom 0)
+         ;; Queue of running threads (futures)
          ::queue (atom clojure.lang.PersistentQueue/EMPTY)
+         ;; Table of average weights and hit counts
          ::average-weights (atom {})
          
          ;; Number of particles exceeding max-count
@@ -27,32 +31,27 @@
 (defn average-weight!
   "updates and returns updated average weight for given id"
   [state id weight]
-  (if (contains? @(state ::average-weights) id)
-    ;; The id is in the table, update the average weight.
-    (let [[average-weight _]
-          (swap! ((state ::average-weights) id)
-                 (fn [[average-weight count]]
-                   [(/ (+ (* count average-weight) 
-                          (* weight (double (state ::multiplier))))
-                       (double (+ count (state ::multiplier))))
-                    (double (+ count (state ::multiplier)))]))]
-      average-weight)
-
+  (when-not (contains? @(state ::average-weights) id)
     ;; First particle arriving at this id ---
     ;; initialize the average weight.
-    (average-weight!
-      (update-in state [::average-weights]
-                 (fn [average-weights]
-                   (assoc average-weights id (atom [0. 0]))))
-      id weight)))
+    (swap! (state ::average-weights) #(assoc % id (atom [0. 0]))))
+  ;; The id is in the table, update the average weight.
+  (let [[average-weight _]
+        (swap! (@(state ::average-weights) id)
+               (fn [[average-weight count]]
+                 [(/ (+ (* count average-weight) 
+                        (* weight (double (state ::multiplier))))
+                     (double (+ count (state ::multiplier))))
+                  (double (+ count (state ::multiplier)))]))]
+    average-weight))
 
 (defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   (let [;; Incorporate new observation
         state (add-log-weight (:state obs)
                               (observe (:dist obs) (:value obs)))
-        
+
         ;; Update average weight for this barrier.
-        weight (Math/exp (get-log-weight (:state obs)))
+        weight (Math/exp (get-log-weight state))
         average-weight (average-weight! state (:id obs) weight)
         weight-ratio (if (pos? average-weight)
                        (/ weight average-weight)
@@ -68,7 +67,10 @@
         new-log-weight (Math/log new-weight)]
 
     ;; If the multiplier is zero, die and return nil.
-    (when (pos? multiplier)
+    (if (zero? multiplier)
+      (do (swap! (state ::count) dec) nil)
+      ;; Otherwise, continue the thread as well as add
+      ;; more threads if the multiplier is greater than 1.
       (let [state (set-log-weight state new-log-weight)]
         (loop [multiplier multiplier]
           (cond
@@ -76,17 +78,53 @@
             ;; Last particle to add, continue in the current thread
             #((:cont obs) nil state)
 
-            (>= (count @(state ::queue)) (state ::max-count))
+            (>= @(state ::count) (state ::max-count))
             ;; No place to add more particles, multiply the 
             ;; current particle.
-            #((:cont obs) nil (update-in state ::multiplier 
+            #((:cont obs) nil (update-in state [::multiplier]
                                          (fn [m] (* m multiplier))))
-
             :else
             (do
               ;; Launch new thread.
+              (swap! (state ::count) inc)
               (swap! (state ::queue)
                      #(conj % (future ((:cont obs) nil state))))
               (recur (dec multiplier)))))))))
 
+(defmethod checkpoint [::algoruthm embang.trap.observe] [_ res]
+  (swap! ((:state res) ::count) dec)
+  res)
 
+(defmethod infer :pcascade [_ prog & {:keys [number-of-threads]
+                                      :or {number-of-threads 2}}]
+  (let [initial-state (assoc initial-state ::max-count
+                             number-of-threads)]
+    (letfn
+      [(sample-seq []
+         (lazy-seq
+           (if (empty? @(initial-state ::queue))
+             ;; All existing particles died, launch new particles.
+             (do
+               (swap! (initial-state ::count) #(+ % number-of-threads))
+               (swap! (initial-state ::queue)
+                      #(into % (repeat
+                                 number-of-threads
+                                 (future
+                                   (exec ::algorithm
+                                         prog nil initial-state)))))
+               (sample-seq))
+
+             ;; Retrieve first particle in the queue.
+             (let [res @(peek @(initial-state ::queue))]
+               (swap! (initial-state ::queue) pop)
+               (if (some? res)
+                 ;; The particle has lived through to the result.
+                 ;; Multiply the weight by the multiplier.
+                 (let [state (add-log-weight
+                               (:state res) (Math/log
+                                              ((:state res) ::multiplier)))]
+                   ;; Add the state to the output sequence.
+                   (cons state (sample-seq)))
+                 ;; The particle died midway, retrieve the next one.
+                 (sample-seq))))))]
+      (sample-seq))))
