@@ -53,39 +53,23 @@
                   (double (+ count (state ::multiplier)))]))]
     average-weight))
 
+(defn observe-id
+  "returns unique idenditifer for observe"
+  [obs state]
+  (checkpoint-id obs state ::observe-counts))
+
 (defn record-observe
   "records observe in the state"
   [state observe-id]
-  (let [id (first observe-id)]
-    (-> state
-        (update-in [::observe-counts id]
-                   ;; If the count is positive but the last sample-id
-                   ;; is different, pad the count to decrease
-                   ;; the probability of address derailing.
-                   (fn [count]
-                     (inc (cond
-                            (nil? count) 0
-                            (not= (state ::observe-last-id)
-                                  id) (bit-or count 15)
-                            :else count))))
-        (assoc-in [::observe-last-id] id))))
-
-;; observe-id is a tuple
-;;  [id number-of-previous-occurences]
-;; so that different observes get different ids.
-
-(defn observe-id
-  "returns choice id for the sample checkpoint"
-  [obs state]
-  [(:id obs) ((state ::observe-counts) (:id obs) 0)])
-
+  (record-checkpoint state observe-id
+                     ::observe-counts ::observe-last-id))
 
 (defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   (let [;; Incorporate new observation
         state (add-log-weight (:state obs)
                               (observe (:dist obs) (:value obs)))
         ;; Compute unique observe-id of this observe,
-        ;; important for non-global observes.
+        ;; required for non-global observes.
         observe-id (observe-id obs state)
         state (record-observe state observe-id)
 

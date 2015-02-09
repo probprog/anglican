@@ -38,6 +38,31 @@
 (defmethod checkpoint [::algorithm embang.trap.result] [_ res]
   res)
 
+;;; Identifying checkpoints uniquely.
+
+(defn checkpoint-id
+  "returns checkpoint identifier"
+  [cpt state checkpoint-counts]
+  [(:id cpt) ((state checkpoint-counts) (:id cpt) 0)])
+
+(defn record-checkpoint 
+  "records checkpoint in the state,
+  used to generate unique dynamic identifier"
+  [state checkpoint-id checkpoint-counts checkpoint-last-id]
+  (let [id (first checkpoint-id)]
+    (-> state
+        (update-in [checkpoint-counts id]
+                   ;; If the count is positive but the last sample-id
+                   ;; is different, pad the count to decrease
+                   ;; the probability of address derailing.
+                   (fn [count]
+                     (inc (cond
+                            (nil? count) 0
+                            (not= (state checkpoint-last-id)
+                                  id) (bit-or count 15)
+                            :else count))))
+        (assoc-in [checkpoint-last-id] id))))
+
 ;;; Running a single particle until checkpoint
 
 (defn exec

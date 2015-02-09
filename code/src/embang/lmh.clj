@@ -39,33 +39,19 @@
 
 (defrecord entry [choice-id value log-p cont])
 
+(defn choice-id
+  "returns unique idenditifer for sample checkpoint"
+  [obs state]
+  (checkpoint-id obs state ::choice-counts))
+
 (defn record-choice
   "records random choice in the state"
   [state choice-id value log-p cont]
-  (let [id (first choice-id)]
-    (-> state
-        (update-in [::trace]
-                   conj (->entry choice-id value log-p cont))
-        (update-in [::choice-counts id]
-                   ;; If the count is positive but the last id
-                   ;; is different, pad the count to decrease
-                   ;; the probability of address derailing.
-                   (fn [count]
-                     (inc (cond
-                            (nil? count) 0
-                            (not= (state ::choice-last-id)
-                                  id) (bit-or count 15)
-                            :else count))))
-        (assoc-in [::choice-last-id] id))))
-
-;; choice-id is a tuple
-;;  [id number-of-previous-occurences]
-;; so that different random choices get different ids.
-
-(defn choice-id
-  "returns choice id for the sample checkpoint"
-  [smp state]
-  [(:id smp) ((state ::choice-counts) (:id smp) 0)])
+  (-> state
+      (update-in [::trace]
+                 conj (->entry choice-id value log-p cont))
+      (record-checkpoint choice-id
+                         ::choice-counts ::choice-last-id)))
 
 ;;; Random database (RDB)
 
