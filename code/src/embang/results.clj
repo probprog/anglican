@@ -399,7 +399,7 @@
 
 (defn usage [summary]
   (str "Usage:
-     lein run conf.edn [option ...] < results > distances
+     lein run :diff conf.edn [option ...] < results > distances
 
 Options:
 " summary))
