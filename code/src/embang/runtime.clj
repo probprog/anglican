@@ -66,8 +66,7 @@
 
 (def ^:private RNG
   "random number generator"
-  ;; delayed to avoid creation at load time
-  (delay (embang.MTMersenneTwister. (java.util.Date.))))
+  (embang.MTMersenneTwister. (java.util.Date.)))
 
 (defmacro from-colt
   "wraps incanter distribution"
@@ -77,7 +76,7 @@
    `(defn ~(with-meta  name {:doc (str name " distribution")})
       ~args
       (let [~'dist (~(symbol (format "cern.jet.random.%s." colt-name))
-                             ~@colt-args @RNG)]
+                             ~@colt-args RNG)]
         (~'reify ~'distribution
           (~'sample [~'this] (~(symbol (format ".next%s"
                                                (str/capitalize vtype)))
@@ -107,7 +106,7 @@
         
   (let [weights (mapv double weights)
         total-weight (reduce + weights)
-        dist (cern.jet.random.Uniform. 0. total-weight @RNG)]
+        dist (cern.jet.random.Uniform. 0. total-weight RNG)]
     (reify distribution
       (sample [this] 
         (let [x (.nextDouble dist)]
@@ -152,7 +151,7 @@
 (defn flip
   "flip (bernoulli) distribution"
   [p]
-  (let [dist (cern.jet.random.Uniform. @RNG)]
+  (let [dist (cern.jet.random.Uniform. RNG)]
     (reify distribution
       (sample [this] (< (.nextDouble dist) p))
       (observe [this value]

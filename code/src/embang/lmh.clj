@@ -17,10 +17,10 @@
         ;; the vector of current random choices,
         ;; and the random database --- random choices
         ;; from the previous particle.
-        {::trace []       ; current random choices
-         ::rdb {}         ; stored random choices
-         ::counts {}      ; counts of occurences of each `sample'
-         ::last-id nil})) ; last sample id
+        {::trace []               ; current random choices
+         ::rdb {}                 ; stored random choices
+         ::choice-counts {}       ; counts of occurences of each `sample'
+         ::choice-last-id nil}))  ; last sample id
 
 ;;; Trace
 
@@ -39,33 +39,19 @@
 
 (defrecord entry [choice-id value log-p cont])
 
-(defn record-random-choice
+(defn choice-id
+  "returns unique idenditifer for sample checkpoint"
+  [obs state]
+  (checkpoint-id obs state ::choice-counts))
+
+(defn record-choice
   "records random choice in the state"
   [state choice-id value log-p cont]
-  (let [sample-id (first choice-id)]
-    (-> state
-        (update-in [::trace]
-                   conj (->entry choice-id value log-p cont))
-        (update-in [::counts sample-id]
-                   ;; If the count is positive but the last sample-id
-                   ;; is different, pad the count to decrease
-                   ;; the probability of address derailing.
-                   (fn [count]
-                     (inc (cond
-                            (nil? count) 0
-                            (not= sample-id
-                                  (state ::last-id)) (bit-or count 15)
-                            :else count))))
-        (assoc-in [::last-id] sample-id))))
-
-;; choice-id is a tuple
-;;  [sample-id number-of-previous-occurences]
-;; so that different random choices get different ids.
-
-(defn choice-id
-  "returns choice id for the sample checkpoint"
-  [smp state]
-  [(:id smp) ((state ::counts) (:id smp) 0)])
+  (-> state
+      (update-in [::trace]
+                 conj (->entry choice-id value log-p cont))
+      (record-checkpoint choice-id
+                         ::choice-counts ::choice-last-id)))
 
 ;;; Random database (RDB)
 
@@ -104,7 +90,7 @@
                           ;; Update fields override state fields.
                           (fn [state]
                             (merge-with #(or %2 %1) state update))))
-        state (record-random-choice state
+        state (record-choice state
                                     choice-id value log-p cont)]
     #((:cont smp) value state)))
 
