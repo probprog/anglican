@@ -15,24 +15,18 @@
   by the maximum number of running threads"
   [max-count]
   (into embang.state/initial-state
-        {;; maximum number of running threads
-         ::max-count max-count
+        {::max-count max-count       ; max number of running threads
 
          ;;; Shared state
-         ;; Number of running threads
-         ::particle-count (atom 0)
-         ;; Queue of running threads (futures)
-         ::particle-queue (atom clojure.lang.PersistentQueue/EMPTY)
-         ;; Table of average weights and hit counts
-         ::average-weights (atom {})
+         ::particle-count (atom 0)   ; number of running particles
+         ::particle-queue            ; queue of launched particles
+         (atom clojure.lang.PersistentQueue/EMPTY)
+         ::average-weights (atom {}) ; average weights and counts
 
-         ;; Number of collapsed particles
-         ::multiplier 1
+         ::multiplier 1              ; number of collapsed particles
          
-         ;;; Maintaining observe addresses
-         ;; counts of occurences of each observe
+         ;;; Maintaining observe identifiers.
          ::observe-counts {}
-         ;; last observe id
          ::observe-last-id nil}))
 
 (defn average-weight!
@@ -54,15 +48,9 @@
     average-weight))
 
 (defn observe-id
-  "returns unique idenditifer for observe"
+  "returns unique idenditifer for observe and the updated state"
   [obs state]
-  (checkpoint-id obs state ::observe-counts))
-
-(defn record-observe
-  "records observe in the state"
-  [state observe-id]
-  (record-checkpoint state observe-id
-                     ::observe-counts ::observe-last-id))
+  (checkpoint-id obs state ::observe-counts ::observe-last-id))
 
 (defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   (let [;; Incorporate new observation
@@ -70,8 +58,7 @@
                               (observe (:dist obs) (:value obs)))
         ;; Compute unique observe-id of this observe,
         ;; required for non-global observes.
-        observe-id (observe-id obs state)
-        state (record-observe state observe-id)
+        [observe-id state] (observe-id obs state)
 
         ;; Update average weight for this barrier.
         weight (Math/exp (get-log-weight state))
@@ -104,7 +91,8 @@
             (>= @(state ::particle-count) (state ::max-count))
             ;; No place to add more particles, collapse remaining
             ;; particles into the current particle.
-            #((:cont obs) nil (update-in state [::multiplier] * multiplier))
+            #((:cont obs) nil (update-in state [::multiplier]
+                                         * multiplier))
 
             :else
             ;; Launch new thread.

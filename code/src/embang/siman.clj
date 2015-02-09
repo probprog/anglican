@@ -33,18 +33,16 @@
 (defrecord entry [choice-id value cont])
 
 (defn choice-id
-  "returns unique idenditifer for sample checkpoint"
+  "returns unique idenditifer for sample checkpoint
+  and the updated state"
   [obs state]
-  (checkpoint-id obs state ::choice-counts))
+  (checkpoint-id obs state ::choice-counts ::choice-last-id))
 
 (defn record-choice
   "records random choice in the state"
   [state choice-id value cont]
-  (-> state
-      (update-in [::trace]
-                 conj (->entry choice-id value cont))
-      (record-checkpoint choice-id
-                         ::choice-counts ::choice-last-id)))
+  (update-in state [::trace]
+             conj (->entry choice-id value cont)))
 
 ;;; Random database (RDB)
 
@@ -60,8 +58,7 @@
 ;;; Inference
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
-  (let [state (:state smp)
-        choice-id (choice-id smp state)
+  (let [[choice-id state] (choice-id smp (:state smp))
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
