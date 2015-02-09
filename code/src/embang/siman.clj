@@ -33,7 +33,7 @@
 (defrecord entry [choice-id value cont])
 
 (defn choice-id
-  "returns unique idenditifer for sample checkpoint
+  "returns an unique idenditifer for sample checkpoint
   and the updated state"
   [obs state]
   (checkpoint-id obs state ::choice-counts ::choice-last-id))
@@ -103,8 +103,10 @@
                '$trace (map :value (::trace state))))
 
 (defmethod infer :siman [_ prog & {:keys [cooling-rate
+                                          predict-trace
                                           number-of-samples]
-                                   :or {cooling-rate 0.99}}]
+                                   :or {cooling-rate 0.99
+                                        predict-trace false}}]
   ;; The MAP inference consists of two chained transformations,
   ;; `sample-seq', followed by `map-seq'.
   (letfn
@@ -121,19 +123,23 @@
                                  T)
                               (Math/log (rand)))
                          next-state
+                         state)
+                 state (if predict-trace
+                         (add-trace-predict state)
                          state)]
-             (cons (add-trace-predict state)
-                  (sample-seq state (* T cooling-rate))))
+             (cons state
+                   (sample-seq state (* T cooling-rate))))
 
            ;; Deterministic program, the only output is the mode.
-           (list (add-trace-predict state)))))
+           (repeat (add-trace-predict state)))))
 
      (map-seq [sample-seq max-log-weight]
        ;; Filters MAP estimates by increasing weight.
        (lazy-seq
-         (when-let [[map & sample-seq] sample-seq]
-           (if (> (get-log-weight map) max-log-weight)
-             (cons map (map-seq sample-seq (get-log-weight map)))
+         (when-let [[sample & sample-seq] (seq sample-seq)]
+           (if (> (get-log-weight sample) max-log-weight)
+             (cons sample
+                   (map-seq sample-seq (get-log-weight sample)))
              (map-seq sample-seq max-log-weight)))))]
 
     (let [sample-seq (sample-seq

@@ -48,7 +48,7 @@
     average-weight))
 
 (defn observe-id
-  "returns unique idenditifer for observe and the updated state"
+  "returns an unique idenditifer for observe and the updated state"
   [obs state]
   (checkpoint-id obs state ::observe-counts ::observe-last-id))
 
