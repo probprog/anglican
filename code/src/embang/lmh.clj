@@ -25,7 +25,6 @@
 ;;; Trace
 
 ;; ALMH need access to the trace, expose it via an accessor function.
-
 (defn get-trace "returns trace" [state] (state ::trace))
 
 ;; The trace is a vector of entries
@@ -42,16 +41,13 @@
 (defn choice-id
   "returns unique idenditifer for sample checkpoint"
   [obs state]
-  (checkpoint-id obs state ::choice-counts))
+  (checkpoint-id obs state ::choice-counts ::choice-last-id))
 
 (defn record-choice
   "records random choice in the state"
   [state choice-id value log-p cont]
-  (-> state
-      (update-in [::trace]
-                 conj (->entry choice-id value log-p cont))
-      (record-checkpoint choice-id
-                         ::choice-counts ::choice-last-id)))
+  (update-in state [::trace]
+             conj (->entry choice-id value log-p cont)))
 
 ;;; Random database (RDB)
 
@@ -67,8 +63,7 @@
 ;;; Inference
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
-  (let [state (:state smp)
-        choice-id (choice-id smp state)
+  (let [[choice-id state] (choice-id smp (:state smp))
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
@@ -90,8 +85,7 @@
                           ;; Update fields override state fields.
                           (fn [state]
                             (merge-with #(or %2 %1) state update))))
-        state (record-choice state
-                                    choice-id value log-p cont)]
+        state (record-choice state choice-id value log-p cont)]
     #((:cont smp) value state)))
 
 ;;; State transition

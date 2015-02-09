@@ -22,11 +22,10 @@
  depending on the inference algorithm"
  (fn [alg cpt] [alg (type cpt)]))
 
-;; default checkpoint handling --- return the checkpoint
-
+;; Default checkpoint handling --- return the checkpoint.
 (defmethod checkpoint :default [_ cpt] cpt)
 
-;; fallback method implementations
+;; Fallback method implementations.
 
 (defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   #((:cont obs) nil (add-log-weight (:state obs)
@@ -40,28 +39,33 @@
 
 ;;; Identifying checkpoints uniquely.
 
-(defn checkpoint-id
-  "returns checkpoint identifier"
-  [cpt state checkpoint-counts]
-  [(:id cpt) ((state checkpoint-counts) (:id cpt) 0)])
+;; Checkpoint identifier is a tuple
+;;   [id number-of-previous-occurences]
+;; so that different checkpoints and different occurences
+;; of the same checkpoint during a single run get different
+;; identifiers.
 
-(defn record-checkpoint 
-  "records checkpoint in the state,
-  used to generate unique dynamic identifier"
-  [state checkpoint-id checkpoint-counts checkpoint-last-id]
-  (let [id (first checkpoint-id)]
-    (-> state
-        (update-in [checkpoint-counts id]
-                   ;; If the count is positive but the last sample-id
-                   ;; is different, pad the count to decrease
-                   ;; the probability of address derailing.
-                   (fn [count]
-                     (inc (cond
-                            (nil? count) 0
-                            (not= (state checkpoint-last-id)
-                                  id) (bit-or count 15)
-                            :else count))))
-        (assoc-in [checkpoint-last-id] id))))
+(defn checkpoint-id
+  "returns checkpoint identifier and updated state;
+  `checkpoint-counts' and `checkpoint-last-id' should be
+  keys in the state"
+  [cpt state checkpoint-counts checkpoint-last-id]
+  (let [checkpoint-id [(:id cpt)
+                       ((state checkpoint-counts) (:id cpt) 0)]
+        state (-> state
+                  (update-in 
+                    [checkpoint-counts (:id cpt)]
+                    ;; If the count is positive but the last
+                    ;; sample-id is different, pad the count
+                    ;; to decrease the probability of derailing.
+                    (fn [count]
+                      (inc (cond
+                             (nil? count) 0
+                             (not= (state checkpoint-last-id)
+                                   (:id cpt)) (bit-or count 15)
+                             :else count))))
+                  (assoc-in [checkpoint-last-id] (:id cpt)))]
+    [checkpoint-id state]))
 
 ;;; Running a single particle until checkpoint
 
