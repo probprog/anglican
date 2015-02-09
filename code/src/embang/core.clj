@@ -63,11 +63,9 @@
 
 (defn usage [summary]
   (str "Usage:
-
     lein run namespace [program] [option ...]
 
 from the command line, or:
-
     (m! namespace [program] [\"option\" ...])
 
 in the REPL, where `namespace' is the namespace containing the
@@ -85,7 +83,6 @@ to the last component of the namespace (hmm for anglican.hmm,
 logi for anglican.logi).
 
 Options:
-
 " summary))
 
 (defn error-msg [errors]
