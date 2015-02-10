@@ -13,10 +13,9 @@
 (defn make-initial-state
   "initial state constructor for Parallel Cascade, parameterized
   by the maximum number of running threads"
-  [max-particle-count]
+  [particle-cap]
   (into embang.state/initial-state
-        {::max-particle-count        ; max number of running threads
-         max-particle-count       
+        {::particle-cap particle-cap ; max number of running threads
 
          ;;; Shared state
          ::particle-count (atom 0)   ; number of running particles
@@ -91,13 +90,11 @@
             ;; Last particle to add, continue in the current thread.
             #((:cont obs) nil state)
 
-            (>= @(state ::particle-count)
-                (state ::max-particle-count))
+            (>= @(state ::particle-count) (state ::particle-cap))
             ;; No place to add more particles, collapse remaining
             ;; particles into the current particle.
             #((:cont obs) nil (update-in state [::multiplier]
                                          * multiplier))
-
             :else
             ;; Launch new thread.
             (let [new-thread (future (exec ::algorithm
