@@ -1,7 +1,12 @@
 (ns embang.runtime
   (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
-            [clojure.core.matrix.linear :as ml]))
+            [clojure.core.matrix.linear :as ml]
+            ;; Vectorz library is required explicitly to avoid
+            ;; loading it on demand at the beginning of a
+            ;; probabilistic programs. In Particle Cascade this
+            ;; causes transient failures to find :vectorz.
+            mikera.vectorz.core))
 
 ;; matrix library uses vectorz for protocol implementations
 (m/set-current-implementation :vectorz)
