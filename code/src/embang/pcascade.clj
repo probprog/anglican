@@ -56,59 +56,55 @@
 (defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   (let [;; Incorporate new observation
         state (add-log-weight (:state obs)
-                              (observe (:dist obs) (:value obs)))]
+                              (observe (:dist obs) (:value obs)))
 
-    ;; If the log-weight is negative infinity, die and return nil.
-    (if-not (< (/ -1. 0.) (get-log-weight state) (/ 1. 0.))
+        ;; Compute unique observe-id of this observe,
+        ;; required for non-global observes.
+        [observe-id state] (observe-id obs state)
+
+        ;; Update average weight for this barrier.
+        log-weight (get-log-weight state)
+        weight (Math/exp log-weight)
+        average-weight (average-weight! state observe-id weight)
+        weight-ratio (if (pos? average-weight)
+                       (/ weight average-weight)
+                       1.)
+
+        ;; Compute multiplier and new weight.
+        ceil-ratio (Math/ceil weight-ratio)
+        floor-ratio (- ceil-ratio 1.)
+        [multiplier new-log-weight]
+        (if (> (- ceil-ratio weight-ratio) (rand))
+          [(bigint floor-ratio) (- log-weight
+                                   (Math/log floor-ratio))]
+          [(bigint ceil-ratio) (- log-weight
+                                  (Math/log ceil-ratio))])]
+
+    (if (zero? multiplier)
       (do (swap! (state ::particle-count) dec) nil)
+      ;; Continue the thread as well as add
+      ;; more threads if the multiplier is greater than 1.
+      (let [state (set-log-weight state new-log-weight)]
+        (loop [multiplier multiplier]
+          (cond
+            (= multiplier 1)
+            ;; Last particle to add, continue in the current thread.
+            #((:cont obs) nil state)
 
-      (let [;; Compute unique observe-id of this observe,
-            ;; required for non-global observes.
-            [observe-id state] (observe-id obs state)
+            (>= @(state ::particle-count)
+                (state ::max-particle-count))
+            ;; No place to add more particles, collapse remaining
+            ;; particles into the current particle.
+            #((:cont obs) nil (update-in state [::multiplier]
+                                         * multiplier))
 
-            ;; Update average weight for this barrier.
-            log-weight (get-log-weight state)
-            weight (Math/exp log-weight)
-            average-weight (average-weight! state observe-id weight)
-            weight-ratio (min (state ::max-particle-count)
-                              (if (pos? average-weight)
-                                (/ weight average-weight)
-                                1.))
-
-            ;; Compute multiplier and new weight.
-            ceil-ratio (Math/ceil weight-ratio)
-            ;; Never die on zero multiplier, dying introduces bias.
-            floor-ratio (max (- ceil-ratio 1.) 1.)
-            [multiplier new-log-weight]
-            (if (> (- ceil-ratio weight-ratio) (rand))
-              [(bigint floor-ratio) (- log-weight
-                                       (Math/log floor-ratio))]
-              [(bigint ceil-ratio) (- log-weight
-                                      (Math/log ceil-ratio))])]
-
-        ;; Continue the thread as well as add
-        ;; more threads if the multiplier is greater than 1.
-        (let [state (set-log-weight state new-log-weight)]
-          (loop [multiplier multiplier]
-            (cond
-              (= multiplier 1)
-              ;; Last particle to add, continue in the current thread.
-              #((:cont obs) nil state)
-
-              (>= @(state ::particle-count)
-                  (state ::max-particle-count))
-              ;; No place to add more particles, collapse remaining
-              ;; particles into the current particle.
-              #((:cont obs) nil (update-in state [::multiplier]
-                                           * multiplier))
-
-              :else
-              ;; Launch new thread.
-              (let [new-thread (future (exec ::algorithm
-                                             (:cont obs) nil state))]
-                (swap! (state ::particle-count) inc)
-                (swap! (state ::particle-queue) #(conj % new-thread))
-                (recur (dec multiplier))))))))))
+            :else
+            ;; Launch new thread.
+            (let [new-thread (future (exec ::algorithm
+                                           (:cont obs) nil state))]
+              (swap! (state ::particle-count) inc)
+              (swap! (state ::particle-queue) #(conj % new-thread))
+              (recur (dec multiplier)))))))))
 
 (defmethod checkpoint [::algorithm embang.trap.result] [_ res]
   (swap! ((:state res) ::particle-count) dec)
