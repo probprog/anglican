@@ -10,6 +10,9 @@
 
 (derive ::algorithm :embang.inference/algorithm)
 
+(derive ::conservative ::algorithm)
+(derive ::exploratory ::algorithm)
+
 ;;;; Particle state
 
 (def initial-state
@@ -17,7 +20,7 @@
   (into embang.state/initial-state
         {::bandits {}            ; multi-armed bandits
          ::trace []              ; random choices
-         ::bandit-counts {}      ; counts of occurences of `sample' checkpoints
+         ::bandit-counts {}      ; counts of occurences of `sample's
          ::bandit-last-id nil})) ; last sample id
 
 ;;;; Bayesian updating, for randomized probability matching
@@ -93,9 +96,13 @@
   [value]
   (= value +not-a-value+))
 
-(defn select-value
-  "selects the value of an arm with the best score"
-  [bandit]
+(defmulti select-value
+  "selects the value of the most likely arm
+  with the best score"
+  (fn [algorithm bandit likelihood] algorithm))
+
+(defmethod select-value ::conservative
+  [_ bandit likelihood]
   ;; If the best arm happens to be a new arm,
   ;; return nil. checkpoint [::algorithm sample]
   ;; accounts for this and samples a new value
@@ -104,14 +111,45 @@
     ;; Select a new arm with the probability
     ;; that the arm has the highest mean reward.
     (loop [arms (:arms bandit)
-           best-score (/ -1. 0.)
+           best-reward (/ -1. 0.)
            best-value +not-a-value+]
       (if-let [[[value belief] & arms] (seq arms)]
-        (let [score (bb-sample belief)]
-          (if (>= score best-score)
-            (recur arms score value)
-            (recur arms best-score best-value)))
+        (let [reward (+ (likelihood value) (bb-sample belief))]
+          (if (>= reward best-reward)
+            (recur arms reward value)
+            (recur arms best-reward best-value)))
         best-value))))
+
+(defmethod select-value ::exploratory
+  [_ bandit likelihood]
+  ;; If the best arm happens to be a new arm,
+  ;; return nil. checkpoint [::algorithm sample]
+  ;; accounts for this and samples a new value
+  ;; from the prior.
+  (if (empty? (seq (:arms bandit))) +not-a-value+
+    (loop [arms (:arms bandit)
+           best-reward (/ -1. 0.)
+           best-value +not-a-value+
+           best-belief nil]
+      (if-let [[[value belief] & arms] (seq arms)]
+        (let [reward (+ (likelihood value)
+                        (bb-sample belief))]
+          (if (>= reward best-reward)
+            (recur arms reward value belief)
+            (recur arms best-reward best-value best-belief)))
+        ;; Select a new arm with the probability
+        ;; that the arm has the highest mean reward.
+        (loop [arms (:arms bandit)
+               best-reward (+ (likelihood best-value)
+                              (bb-sample best-belief))
+               best-value +not-a-value+]
+          (if-let [[[value belief] & arms] (seq arms)]
+            (let [reward (+ (likelihood value)
+                            (bb-sample belief))]
+              (if (>= reward best-reward)
+                (recur arms reward value)
+                (recur arms best-reward best-value)))
+            best-value))))))
 
 (defn update-bandit
   "updates bandit's belief"
@@ -121,7 +159,7 @@
                  ;; coincide with an existing arm.
                  (-> bandit 
                    (update-in [:new-arm-belief] bb-update reward)
-                   (update-in [:new-arm-count] / 0.99))
+                   (update-in [:new-arm-count] + 1))
                  bandit)]
     ;; Update the belief about the mean reward of the sampled arm.
     (update-in bandit [:arms value]
@@ -153,13 +191,13 @@
 
 ;;;; MAP inference
 
-(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
+(defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
   (let [state (:state smp)
         [bandit-id state] (bandit-id smp state)
         bandit ((state ::bandits) bandit-id fresh-bandit)
 
         ;; Select a value as a bandit arm.
-        value (select-value bandit)
+        value (select-value algorithm bandit #(observe (:dist smp) %))
         ;; Remember whether a new arm was drawn;
         ;; new arm belief is updated during back-propagation.
         bandit (assoc bandit :new-arm-drawn (not-a-value? value))
@@ -224,40 +262,39 @@
 
 ;;; Inference method
 
-(defmethod infer :bgrad [_ prog & {:keys [predict-trace
+(defmethod infer :bgrad [_ prog & {:keys [algorithm
+                                          predict-trace
                                           number-of-samples]
-                                   :or {predict-trace false}}]
-  ;; The MAP inference consists of two chained transformations,
-  ;; `sample-seq', followed by `map-seq'.
-  (letfn
-    [(sample-seq [state]
-       (lazy-seq
-         (let [next-state (:state (exec ::algorithm prog nil 
-                                        (backpropagate state)))
-               state (if (> (- (get-log-weight next-state)
-                                (get-log-weight state))
-                            (Math/log (rand)))
-                       next-state
-                       state)
-               state (if predict-trace
-                       (add-trace-predict state)
-                       state)]
-           (cons state
-                 (sample-seq state)))))
+                                   :or {algorithm :exploratory
+                                        predict-trace false}}]
+  (let [algorithm (keyword (namespace ::algorithm) (name algorithm))]
+    (prn algorithm)
+    ;; The MAP inference consists of two chained transformations,
+    ;; `sample-seq', followed by `map-seq'.
+    (letfn
+      [(sample-seq [state]
+         (lazy-seq
+           (let [state (:state (exec algorithm prog nil 
+                                     (backpropagate state)))
+                 state (if predict-trace
+                         (add-trace-predict state)
+                         state)]
+             (cons state
+                   (sample-seq state)))))
 
-     (map-seq [sample-seq max-log-weight]
-       ;; Filters MAP estimates by increasing weight.
-       (lazy-seq
-         (when-let [[sample & sample-seq] (seq sample-seq)]
-           (if (> (get-log-weight sample) max-log-weight)
-             (cons sample
-                   (map-seq sample-seq (get-log-weight sample)))
-             (map-seq sample-seq max-log-weight)))))]
+       (map-seq [sample-seq max-log-weight]
+         ;; Filters MAP estimates by increasing weight.
+         (lazy-seq
+           (when-let [[sample & sample-seq] (seq sample-seq)]
+             (if (> (get-log-weight sample) max-log-weight)
+               (cons sample
+                     (map-seq sample-seq (get-log-weight sample)))
+               (map-seq sample-seq max-log-weight)))))]
 
-    (let [sample-seq (sample-seq
-                       (:state
-                         (exec ::algorithm prog nil initial-state)))
-          sample-seq (if number-of-samples
-                       (take number-of-samples sample-seq)
-                       sample-seq)]
-      (map-seq sample-seq (Math/log 0.)))))
+      (let [sample-seq (sample-seq
+                         (:state
+                           (exec algorithm prog nil initial-state)))
+            sample-seq (if number-of-samples
+                         (take number-of-samples sample-seq)
+                         sample-seq)]
+        (map-seq sample-seq (Math/log 0.))))))
