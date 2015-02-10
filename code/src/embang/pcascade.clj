@@ -109,7 +109,8 @@
 
 (defmethod checkpoint [::algorithm embang.trap.result] [_ res]
   (swap! ((:state res) ::particle-count) dec)
-  res)
+  (if (< (/ -1. 0.) (get-log-weight (:state res)) (/ .1 .0))
+    res nil))
 
 (defmethod infer :pcascade [_ prog & {:keys [number-of-threads]
                                       :or {number-of-threads 2}}]
