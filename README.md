@@ -1,4 +1,4 @@
-# Embedded Anglican #
+# Embedded Anglican
 
 I have re-implemented Anglican as an embedded language. An
 Anglican program is translated into Clojure through a Clojure
@@ -10,7 +10,9 @@ returning continuation, along with auxiliary information.
 The implementation, documentation, and examples are in the
 leiningen project tree rooted at [`code`](https://bitbucket.org/dtolpin/embang/src/HEAD/code/).
 
-## LICENSE ##
+## License
+
+Copyright © 2014, 2015 Wood group
 
 This file is part of Anglican, a probabilistic programming system.
 
@@ -24,4 +26,6 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the [GNU General Public License](gpl-3.0.txt) along with Anglican.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses/).
+You should have received a copy of the [GNU General Public
+License](gpl-3.0.txt) along with Anglican.  If not, see
+[http://www.gnu.org/licenses/](http://www.gnu.org/licenses/).
