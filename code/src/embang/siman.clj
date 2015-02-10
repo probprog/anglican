@@ -16,10 +16,10 @@
         ;; the state is extended by two sequences,
         ;;   ::future-samples used by retained particle
         ;;   ::past-samples updated by allparticles
-        {::trace []       ; current random choices
-         ::rdb {}         ; stored random choices
-         ::counts {}      ; counts of occurences of each `sample'
-         ::last-id nil})) ; last sample id
+        {::trace []              ; current random choices
+         ::rdb {}                ; stored random choices
+         ::choice-counts {}      ; counts of occurences of each `sample'
+         ::choice-last-id nil})) ; last sample id
 
 ;;; Trace
 
@@ -32,33 +32,17 @@
 
 (defrecord entry [choice-id value cont])
 
-(defn record-random-choice
+(defn choice-id
+  "returns an unique idenditifer for sample checkpoint
+  and the updated state"
+  [obs state]
+  (checkpoint-id obs state ::choice-counts ::choice-last-id))
+
+(defn record-choice
   "records random choice in the state"
   [state choice-id value cont]
-  (let [sample-id (first choice-id)]
-    (-> state
-        (update-in [::trace]
-                   conj (->entry choice-id value cont))
-        (update-in [::counts sample-id]
-                   ;; If the count is positive but the last sample-id
-                   ;; is different, pad the count to decrease
-                   ;; the probability of address derailing.
-                   (fn [count]
-                     (inc (cond
-                            (nil? count) 0
-                            (not= sample-id
-                                  (state ::last-id)) (bit-or count 15)
-                            :else count))))
-        (assoc-in [::last-id] sample-id))))
-
-;; choice-id is a tuple
-;;  [sample-id number-of-previous-occurences]
-;; so that different random choices get different ids.
-
-(defn choice-id
-  "returns choice id for the sample checkpoint"
-  [smp state]
-  [(:id smp) ((state ::counts) (:id smp) 0)])
+  (update-in state [::trace]
+             conj (->entry choice-id value cont)))
 
 ;;; Random database (RDB)
 
@@ -74,8 +58,7 @@
 ;;; Inference
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
-  (let [state (:state smp)
-        choice-id (choice-id smp state)
+  (let [[choice-id state] (choice-id smp (:state smp))
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
@@ -97,7 +80,7 @@
                             (merge-with #(or %2 %1) state update))))
         state (-> state
                   (add-log-weight log-p)
-                  (record-random-choice choice-id value cont))]
+                  (record-choice choice-id value cont))]
     #((:cont smp) value state)))
 
 ;;; State transition
@@ -120,8 +103,10 @@
                '$trace (map :value (::trace state))))
 
 (defmethod infer :siman [_ prog & {:keys [cooling-rate
+                                          predict-trace
                                           number-of-samples]
-                                   :or {cooling-rate 0.99}}]
+                                   :or {cooling-rate 0.99
+                                        predict-trace false}}]
   ;; The MAP inference consists of two chained transformations,
   ;; `sample-seq', followed by `map-seq'.
   (letfn
@@ -138,19 +123,23 @@
                                  T)
                               (Math/log (rand)))
                          next-state
+                         state)
+                 state (if predict-trace
+                         (add-trace-predict state)
                          state)]
-             (cons (add-trace-predict state)
-                  (sample-seq state (* T cooling-rate))))
+             (cons state
+                   (sample-seq state (* T cooling-rate))))
 
            ;; Deterministic program, the only output is the mode.
-           (list (add-trace-predict state)))))
+           (repeat (add-trace-predict state)))))
 
      (map-seq [sample-seq max-log-weight]
        ;; Filters MAP estimates by increasing weight.
        (lazy-seq
-         (when-let [[map & sample-seq] sample-seq]
-           (if (> (get-log-weight map) max-log-weight)
-             (cons map (map-seq sample-seq (get-log-weight map)))
+         (when-let [[sample & sample-seq] (seq sample-seq)]
+           (if (> (get-log-weight sample) max-log-weight)
+             (cons sample
+                   (map-seq sample-seq (get-log-weight sample)))
              (map-seq sample-seq max-log-weight)))))]
 
     (let [sample-seq (sample-seq

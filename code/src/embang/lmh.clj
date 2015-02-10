@@ -17,15 +17,14 @@
         ;; the vector of current random choices,
         ;; and the random database --- random choices
         ;; from the previous particle.
-        {::trace []       ; current random choices
-         ::rdb {}         ; stored random choices
-         ::counts {}      ; counts of occurences of each `sample'
-         ::last-id nil})) ; last sample id
+        {::trace []               ; current random choices
+         ::rdb {}                 ; stored random choices
+         ::choice-counts {}       ; counts of occurences of each `sample'
+         ::choice-last-id nil}))  ; last sample id
 
 ;;; Trace
 
 ;; ALMH need access to the trace, expose it via an accessor function.
-
 (defn get-trace "returns trace" [state] (state ::trace))
 
 ;; The trace is a vector of entries
@@ -39,33 +38,17 @@
 
 (defrecord entry [choice-id value log-p cont])
 
-(defn record-random-choice
+(defn choice-id
+  "returns and unique idenditifer for sample checkpoint
+  and the updated state"
+  [obs state]
+  (checkpoint-id obs state ::choice-counts ::choice-last-id))
+
+(defn record-choice
   "records random choice in the state"
   [state choice-id value log-p cont]
-  (let [sample-id (first choice-id)]
-    (-> state
-        (update-in [::trace]
-                   conj (->entry choice-id value log-p cont))
-        (update-in [::counts sample-id]
-                   ;; If the count is positive but the last sample-id
-                   ;; is different, pad the count to decrease
-                   ;; the probability of address derailing.
-                   (fn [count]
-                     (inc (cond
-                            (nil? count) 0
-                            (not= sample-id
-                                  (state ::last-id)) (bit-or count 15)
-                            :else count))))
-        (assoc-in [::last-id] sample-id))))
-
-;; choice-id is a tuple
-;;  [sample-id number-of-previous-occurences]
-;; so that different random choices get different ids.
-
-(defn choice-id
-  "returns choice id for the sample checkpoint"
-  [smp state]
-  [(:id smp) ((state ::counts) (:id smp) 0)])
+  (update-in state [::trace]
+             conj (->entry choice-id value log-p cont)))
 
 ;;; Random database (RDB)
 
@@ -81,8 +64,7 @@
 ;;; Inference
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
-  (let [state (:state smp)
-        choice-id (choice-id smp state)
+  (let [[choice-id state] (choice-id smp (:state smp))
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)
                 (sample (:dist smp)))
@@ -104,8 +86,7 @@
                           ;; Update fields override state fields.
                           (fn [state]
                             (merge-with #(or %2 %1) state update))))
-        state (record-random-choice state
-                                    choice-id value log-p cont)]
+        state (record-choice state choice-id value log-p cont)]
     #((:cont smp) value state)))
 
 ;;; State transition
