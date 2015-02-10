@@ -80,8 +80,10 @@
                                   (Math/log ceil-ratio))])]
 
     (if (zero? multiplier)
-      (do (swap! (state ::particle-count) dec) nil)
-      ;; Continue the thread as well as add
+      ;; If the multiplier is 0, stop the thread and return nil.
+      (do (swap! (state ::particle-count) dec)
+          nil)
+      ;; Otherwise, continue the thread as well as add
       ;; more threads if the multiplier is greater than 1.
       (let [state (set-log-weight state new-log-weight)]
         (loop [multiplier multiplier]
