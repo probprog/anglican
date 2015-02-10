@@ -13,9 +13,10 @@
 (defn make-initial-state
   "initial state constructor for Parallel Cascade, parameterized
   by the maximum number of running threads"
-  [max-count]
+  [max-particle-count]
   (into embang.state/initial-state
-        {::max-count max-count       ; max number of running threads
+        {::max-particle-count        ; max number of running threads
+         max-particle-count       
 
          ;;; Shared state
          ::particle-count (atom 0)   ; number of running particles
@@ -57,7 +58,7 @@
         state (add-log-weight (:state obs)
                               (observe (:dist obs) (:value obs)))]
 
-    ;; If the log-weight is not well-defined, die and return nil.
+    ;; If the log-weight is negative infinity, die and return nil.
     (if-not (< (/ -1. 0.) (get-log-weight state) (/ 1. 0.))
       (do (swap! (state ::particle-count) dec) nil)
 
@@ -69,9 +70,10 @@
             log-weight (get-log-weight state)
             weight (Math/exp log-weight)
             average-weight (average-weight! state observe-id weight)
-            weight-ratio (if (pos? average-weight)
-                           (/ weight average-weight)
-                           1.)
+            weight-ratio (min (state ::max-particle-count)
+                              (if (pos? average-weight)
+                                (/ weight average-weight)
+                                1.))
 
             ;; Compute multiplier and new weight.
             ceil-ratio (Math/ceil weight-ratio)
@@ -93,7 +95,8 @@
               ;; Last particle to add, continue in the current thread.
               #((:cont obs) nil state)
 
-              (>= @(state ::particle-count) (state ::max-count))
+              (>= @(state ::particle-count)
+                  (state ::max-particle-count))
               ;; No place to add more particles, collapse remaining
               ;; particles into the current particle.
               #((:cont obs) nil (update-in state [::multiplier]
@@ -109,8 +112,7 @@
 
 (defmethod checkpoint [::algorithm embang.trap.result] [_ res]
   (swap! ((:state res) ::particle-count) dec)
-  (if (< (/ -1. 0.) (get-log-weight (:state res)) (/ 1. 0.))
-    res nil))
+  res)
 
 (defmethod infer :pcascade [_ prog & {:keys [number-of-threads]
                                       :or {number-of-threads 2}}]
