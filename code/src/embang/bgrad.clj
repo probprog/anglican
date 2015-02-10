@@ -60,10 +60,7 @@
         (sample @dist))
       (bb-as-prior [mr]
         ;; The current belief is converted to a prior belief
-        ;; by setting the sample count to 1 (another small value
-        ;; may give better results, and the best value can be
-        ;; allegedly derived; however, this is beyond the scope
-        ;; of this research).
+        ;; by setting the sample count to 1.
         (if (<= cnt 1) mr
           (mean-reward-belief (/ sum cnt) (/ sum2 cnt) 1.))))))
 
