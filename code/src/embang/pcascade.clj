@@ -57,9 +57,8 @@
         state (add-log-weight (:state obs)
                               (observe (:dist obs) (:value obs)))]
 
-    ;; If the new log-weight is negative infinity,
-    ;; die and return nil.
-    (if (= (/ -1. 0.) (get-log-weight state))
+    ;; If the log-weight is not well-defined, die and return nil.
+    (if-not (< (/ -1. 0.) (get-log-weight state) (/ 1. 0.))
       (do (swap! (state ::particle-count) dec) nil)
 
       (let [;; Compute unique observe-id of this observe,
@@ -80,8 +79,10 @@
             floor-ratio (max (- ceil-ratio 1.) 1.)
             [multiplier new-log-weight]
             (if (> (- ceil-ratio weight-ratio) (rand))
-              [(bigint floor-ratio) (- log-weight (Math/log floor-ratio))]
-              [(bigint ceil-ratio) (- log-weight (Math/log ceil-ratio))])]
+              [(bigint floor-ratio) (- log-weight
+                                       (Math/log floor-ratio))]
+              [(bigint ceil-ratio) (- log-weight
+                                      (Math/log ceil-ratio))])]
 
         ;; Continue the thread as well as add
         ;; more threads if the multiplier is greater than 1.
