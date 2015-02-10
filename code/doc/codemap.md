@@ -22,6 +22,7 @@
         smc.clj        --- Particle Filter
         gibbs.clj      --- Particle Gibbs
         pcascade.clj   --- Parallel Particle Cascade
+		bgrad.clj      --- MAP estimation via bayesian gradient ascent
         siman.clj      --- MAP estimation via simulated annealing
 
         # Code transformations
