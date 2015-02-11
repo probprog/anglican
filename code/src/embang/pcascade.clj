@@ -23,7 +23,7 @@
          (atom clojure.lang.PersistentQueue/EMPTY)
          ::average-weights (atom {}) ; average weights
 
-         ::multiplier 1              ; number of collapsed particles
+         ::multiplier 1N             ; number of collapsed particles
          
          ;;; Maintaining observe identifiers.
          ::observe-counts {}
@@ -45,12 +45,12 @@
   "updates average weight for observe-id and returns weight-ratio"
   [state observe-id log-weight mplier]
   (when-not (contains? @(state ::average-weights) observe-id)
-    ;; First particle arriving at this id ---
+    ;; First particle arriving at this observe-id ---
     ;; initialize the average weight.
     (swap! (state ::average-weights)
            #(assoc % observe-id (atom [(/ -1. 0.) 0]))))
 
-  ;; The id is in the table, update the average weight.
+  ;; The observe-id is in the table, update the average weight.
   (let [[log-total cnt]
         (swap! (@(state ::average-weights) observe-id)
                (fn [[log-total cnt]]
@@ -73,7 +73,7 @@
         ;; required for non-global observes.
         [observe-id state] (observe-id obs state)
 
-        ;; Update average weight for this barrier.
+        ;; Compute weight ratio.
         log-weight (get-log-weight state)
         multiplier (state ::multiplier)
         weight-ratio (weight-ratio! state observe-id
@@ -81,11 +81,10 @@
 
         ;; Compute log weight and multiplier.
         ceil-ratio (Math/ceil weight-ratio)
-        floor-ratio (- ceil-ratio 1.)
-        [log-weight multiplier]
-        (if (< (- weight-ratio floor-ratio) (rand))
-          [(- log-weight (Math/log floor-ratio)) (bigint floor-ratio)]
-          [(- log-weight (Math/log ceil-ratio)) (bigint ceil-ratio)]) ]
+        ratio (if (< (- ceil-ratio weight-ratio) (rand))
+                ceil-ratio (- ceil-ratio 1.))
+        log-weight (- log-weight ratio)
+        multiplier (bigint ratio)]
 
     (if (zero? multiplier)
       (do (swap! (state ::particle-count) dec) nil)
