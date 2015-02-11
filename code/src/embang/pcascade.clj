@@ -109,14 +109,16 @@
   (swap! ((:state res) ::particle-count) dec)
   res)
 
-(defmethod infer :pcascade [_ prog & {:keys [number-of-threads]
-                                      :or {number-of-threads 2}}]
+(defmethod infer :pcascade [_ prog & {:keys [number-of-threads
+                                             predict-count]
+                                      :or {number-of-threads 16
+                                           predict-count false}}]
   (let [initial-state (make-initial-state number-of-threads)]
     (letfn
       [(sample-seq []
          (lazy-seq
-           (when (zero? @(initial-state ::particle-count))
-             ;; All existing particles finished, launch new particles.
+           (if (empty? @(initial-state ::particle-queue))
+             ;; All particles died, launch new particles.
              (let [new-threads (repeatedly
                                  number-of-threads
                                  #(future
@@ -125,13 +127,8 @@
                  (swap! (initial-state ::particle-count)
                         #(+ % number-of-threads))
                  (swap! (initial-state ::particle-queue)
-                        #(into % new-threads))))
-
-           (if (empty? @(initial-state ::particle-queue))
-             ;; The queue is empty, all of the particles
-             ;; we have just added died midway. Add more
-             ;; on the next round.
-             (sample-seq)
+                        #(into % new-threads))
+                 (sample-seq))
 
              ;; Retrieve first particle in the queue.
              (let [res @(peek @(initial-state ::particle-queue))]
@@ -143,7 +140,11 @@
                                (:state res)
                                (Math/log
                                  (double
-                                   ((:state res) ::multiplier))))]
+                                   ((:state res) ::multiplier))))
+                       state (if predict-count
+                               (add-predict state '$particle-count
+                                            @(state ::particle-count))
+                               state)]
                    ;; Add the state to the output sequence.
                    (cons state (sample-seq)))
                  ;; The particle died midway, retrieve the next one.
