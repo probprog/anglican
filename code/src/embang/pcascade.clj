@@ -21,7 +21,7 @@
          ::particle-count (atom 0)   ; number of running particles
          ::particle-queue            ; queue of launched particles
          (atom clojure.lang.PersistentQueue/EMPTY)
-         ::average-weights (atom {}) ; average weights and counts
+         ::average-weights (atom {}) ; average weights
 
          ::multiplier 1              ; number of collapsed particles
          
@@ -29,23 +29,35 @@
          ::observe-counts {}
          ::observe-last-id nil}))
 
-(defn average-weight!
-  "updates and returns updated average weight for given id"
-  [state id weight]
-  (when-not (contains? @(state ::average-weights) id)
+;; Average weights are stored as tuples [log-total-weight count].
+
+(defn ^:private log-sum
+  "computes (log (+ (exp x) (exp y))) safely"
+  [log-x log-y]
+  (let [log-max (max log-x log-y)]
+    (if (< (/ -1. 0.) log-max (/ 1. 0.))
+      (+ log-max
+         (Math/log (+ (Math/exp (- log-x log-max))
+                      (Math/exp (- log-y log-max)))))
+      log-max)))
+
+(defn weight-ratio!
+  "updates average weight for observe-id and returns weight-ratio"
+  [state observe-id log-weight mplier]
+  (when-not (contains? @(state ::average-weights) observe-id)
     ;; First particle arriving at this id ---
     ;; initialize the average weight.
-    (swap! (state ::average-weights) #(assoc % id (atom [0. 0]))))
+    (swap! (state ::average-weights)
+           #(assoc % observe-id (atom [(/ -1. 0.) 0]))))
 
   ;; The id is in the table, update the average weight.
-  (let [[average-weight _]
-        (swap! (@(state ::average-weights) id)
-               (fn [[average-weight count]]
-                 [(/ (+ (* count average-weight)
-                        (* weight (double (state ::multiplier))))
-                     (double (+ count (state ::multiplier))))
-                  (double (+ count (state ::multiplier)))]))]
-    average-weight))
+  (let [[log-total cnt]
+        (swap! (@(state ::average-weights) observe-id)
+               (fn [[log-total cnt]]
+                 [(log-sum log-total (+ log-weight (Math/log mplier)))
+                  (+ cnt mplier)]))]
+    (if (= log-total (/ -1. 0.)) 1.    ; all particles had 0 weight
+      (Math/exp (- log-weight (- log-total (Math/log cnt)))))))
 
 (defn observe-id
   "returns an unique idenditifer for observe and the updated state"
@@ -63,27 +75,23 @@
 
         ;; Update average weight for this barrier.
         log-weight (get-log-weight state)
-        weight (Math/exp log-weight)
-        average-weight (average-weight! state observe-id weight)
-        weight-ratio (if (pos? average-weight)
-                       (/ weight average-weight)
-                       1.)
+        multiplier (state ::multiplier)
+        weight-ratio (weight-ratio! state observe-id
+                                    log-weight multiplier)
 
-        ;; Compute multiplier and new weight.
+        ;; Compute log weight and multiplier.
         ceil-ratio (Math/ceil weight-ratio)
         floor-ratio (- ceil-ratio 1.)
-        [multiplier new-log-weight]
-        (if (> (- ceil-ratio weight-ratio) (rand))
-          [(bigint floor-ratio) (- log-weight
-                                   (Math/log floor-ratio))]
-          [(bigint ceil-ratio) (- log-weight
-                                  (Math/log ceil-ratio))])]
+        [log-weight multiplier]
+        (if (< (- weight-ratio floor-ratio) (rand))
+          [(- log-weight (Math/log floor-ratio)) (bigint floor-ratio)]
+          [(- log-weight (Math/log ceil-ratio)) (bigint ceil-ratio)]) ]
 
     (if (zero? multiplier)
       (do (swap! (state ::particle-count) dec) nil)
       ;; Continue the thread as well as add
       ;; more threads if the multiplier is greater than 1.
-      (let [state (set-log-weight state new-log-weight)]
+      (let [state (set-log-weight state log-weight)]
         (loop [multiplier multiplier]
           (cond
             (= multiplier 1)
@@ -107,10 +115,19 @@
   (swap! ((:state res) ::particle-count) dec)
   res)
 
+(defn add-cascade-predicts
+  "adds internal cascade statistics as predicts"
+  [state]
+  (-> state 
+      (add-predict '$particle-count @(state ::particle-count))
+      (add-predict '$multiplier (state ::multiplier))
+      (add-predict '$particle-queue-length
+                   (count @(state ::particle-queue)))))
+
 (defmethod infer :pcascade [_ prog & {:keys [number-of-threads
-                                             predict-count]
+                                             predict-cascade]
                                       :or {number-of-threads 16
-                                           predict-count false}}]
+                                           predict-cascade false}}]
   (let [initial-state (make-initial-state number-of-threads)]
     (letfn
       [(sample-seq []
@@ -118,12 +135,14 @@
            (if (empty? @(initial-state ::particle-queue))
              ;; All particles died, launch new particles.
              (let [new-threads (repeatedly
-                                 number-of-threads
+                                 ;; Leave space for spawned particles.
+                                 (int (Math/ceil
+                                        (/ number-of-threads 2)))
                                  #(future
                                     (exec ::algorithm
                                           prog nil initial-state)))]
                  (swap! (initial-state ::particle-count)
-                        #(+ % number-of-threads))
+                        #(+ % (count new-threads)))
                  (swap! (initial-state ::particle-queue)
                         #(into % new-threads))
                  (sample-seq))
@@ -139,9 +158,8 @@
                                (Math/log
                                  (double
                                    ((:state res) ::multiplier))))
-                       state (if predict-count
-                               (add-predict state '$particle-count
-                                            @(state ::particle-count))
+                       state (if predict-cascade
+                               (add-cascade-predicts state)
                                state)]
                    ;; Add the state to the output sequence.
                    (cons state (sample-seq)))
