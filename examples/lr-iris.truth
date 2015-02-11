@@ -1,4 +1,2 @@
-(is-setosa (features test-not-setosa)), false, 1.
-(is-setosa (features test-not-setosa)), true, 0.
-(is-setosa (features test-setosa)), false, 0.
-(is-setosa (features test-setosa)), true, 1.
+(is-setosa (features test-not-setosa)), false, 0.
+(is-setosa (features test-setosa)), true, 0.
