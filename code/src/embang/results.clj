@@ -46,25 +46,25 @@
 
 (defmulti parse-line 
   "parses output line and returns [label value height]"
-  (fn [line format] format))
+  (fn [format line] format))
 
-(defmethod parse-line :anglican [line format]
+(defmethod parse-line :anglican [_ line] 
   (let [fields (str/split line #" *, *")
-        [label value weight] (map edn/read-string
-                                  (take-last 3 fields))]
-    [label value (or weight 1.)]))
+        [label value log-weight] (map edn/read-string
+                                      (take-last 3 fields))]
+    [label value (or log-weight 0.)]))
 
-(defmethod parse-line :clojure [line format]
+(defmethod parse-line :clojure [_ line]
   (edn/read-string line))
 
-(defmethod parse-line :json [line format]
+(defmethod parse-line :json [_ line]
   (json/read-str line))
 
 ;; The default method is consistent with the default
 ;; for print-predict and compatible with original Anglican.
 
-(defmethod parse-line :default [line format]
-  (parse-line line :anglican))
+(defmethod parse-line :default [_ line]
+  (parse-line :anglican line))
 
 (defn parsed-line-seq
   "parses line sequence"
@@ -78,7 +78,7 @@
                                  line)]
            (recur lines (keyword (format-option 1)))
            (recur lines format))
-         (cons (parse-line line format)
+         (cons (parse-line format line)
                (lazy-seq (parsed-line-seq lines format)))))))
 
 ;;; Summary statistics on inference results
@@ -91,12 +91,13 @@
   for every value of every discrete-valued predict"
   []
   (reduce
-    (fn [weights [label value weight]]
+    (fn [weights [label value log-weight]]
       (if (or (integer? value)
               (symbol? value) (keyword? value)
               (contains? #{true false nil} value))
         ;; The value looks like a discrete value.
-        (update-in weights [label value] (fnil + 0.) weight)
+        (update-in weights [label value]
+                   (fnil + 0.) (Math/exp log-weight))
         weights))
     {} (parsed-line-seq (line-seq (io/reader *in*)))))
 
@@ -135,13 +136,14 @@
   (loop [lines (parsed-line-seq (line-seq (io/reader *in*)))
          sums {}]
     (if (seq lines)
-      (let [[[label value weight] & lines] lines]
+      (let [[[label value log-weight] & lines] lines]
         (recur 
           lines
           (if (number? value)
             ;; The value is a numeric value for which mean
             ;; and standard deviation can be computed.
-            (let [weighted-value (* value weight)]
+            (let [weight (Math/exp log-weight)
+                  weighted-value (* value weight)]
               (-> sums
                   (update-in [label :weight] (fnil + 0.) weight)
                   (update-in [label :sum] (fnil + 0.) weighted-value)
@@ -263,7 +265,8 @@
     [(freq-seq* [lines nlines weights]
        (lazy-seq
          (if (empty? lines) nil
-           (let [[[label value weight] & lines] (seq lines)
+           (let [[[label value log-weight] & lines] (seq lines)
+                 weight (Math/exp log-weight)
                  weights (if (included? only exclude label)
                            (update-in weights [label value]
                                       (fnil + 0.) weight)
@@ -301,6 +304,7 @@
   "reads results from stdin and returns a map label -> sequence
   of samples, skipping first `skip' predict lines and
   then processing one entry per label each `step' predict lines"
+  ;; Ignores sample weights.
   [& {:keys [skip step only exclude]
       :or {skip 0
            step 1

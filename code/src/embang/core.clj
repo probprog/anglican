@@ -41,7 +41,7 @@
     :default false
     :flag true]
 
-   ["-f" "--output-format FORMAT" "output format"
+   ["-f" "--output-format FORMAT" "Output format"
     :default :anglican
     :parse-fn keyword
     :validate [#{:anglican :clojure :json}
@@ -59,7 +59,7 @@
     :default 1
     :parse-fn #(Integer/parseInt %)]
 
-   ["-h" "--help" "print usage summary and exit"]])
+   ["-h" "--help" "Print usage summary and exit"]])
 
 (defn usage [summary]
   (str "Usage:
