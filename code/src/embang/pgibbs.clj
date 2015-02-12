@@ -1,9 +1,8 @@
 (ns embang.pgibbs
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require embang.smc) ; observe checkpoint inherited
   (:use [embang.state :exclude [initial-state]]
         embang.inference
-        [embang.smc :only [resample]]
+        embang.smc
         [embang.runtime :only [observe sample]]))
 
 ;;;; Particle Gibbs
@@ -69,7 +68,6 @@
 ;;; Inference loop
 
 (defmethod sweep ::algorithm
-  "a single Particle Gibbs sweep"
   [algorithm prog number-of-particles retained-state]
   (loop [particles 
          (conj
