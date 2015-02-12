@@ -51,7 +51,7 @@
 
 ;; Expanded version
 (defanglican fred
-  (assume guilty (sample (uniform-discrete 0 99)))
+  (assume guilty (sample (uniform-discrete 0 100)))
   (is-guilty-fred? guilty))
 
 ;; Counting version
