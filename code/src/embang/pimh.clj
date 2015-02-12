@@ -15,16 +15,15 @@
   (update-in obs [:state]
              add-log-weight (observe (:dist obs) (:value obs))))
 
-(defn pimh-sweep
-  "a single SMC sweep"
-  [prog number-of-particles]
+(defmethod sweep ::algorithm
+  [algorithm prog number-of-particles]
   (loop [particles (repeatedly number-of-particles
-                               #(exec ::algorithm
+                               #(exec algorithm
                                       prog nil initial-state))
          log-Z 0.]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
-     (recur (map #(exec ::algorithm (:cont %) nil (:state %))
+     (recur (map #(exec algorithm (:cont %) nil (:state %))
                  (resample particles))
             (- (+ log-Z (reduce + (recover-weights
                                     (map (comp get-log-weight :state)
@@ -33,7 +32,7 @@
 
      (every? #(instance? embang.trap.result %) particles)
      [particles log-Z]
-     
+
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
@@ -46,11 +45,14 @@
                     (sample-seq particles log-Z)))
           (sample-seq [particles log-Z]
             (lazy-seq
+              ;; Run a new sweep.
               (let [[new-particles new-log-Z]
-                    (pimh-sweep prog number-of-particles)]
+                    (sweep ::algorithm prog number-of-particles)]
+                ;; And accept with MH probability.
                 (if (> (- new-log-Z log-Z) (Math/log (rand)))
                   (add-particles new-particles new-log-Z)
                   (add-particles particles log-Z)))))]
     ;; Run the first sweep to initialize the process.
-    (let [[particles log-Z] (pimh-sweep prog number-of-particles)]
+    (let [[particles log-Z]
+          (sweep ::algorithm prog number-of-particles)]
       (sample-seq particles log-Z))))

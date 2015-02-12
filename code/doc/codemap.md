@@ -20,7 +20,8 @@
         almh.clj       --- Adaptive Lightweight Metropolis-Hastings
         palmh.clj       --- Parallel Adaptive Lightweight Metropolis-Hastings
         smc.clj        --- Particle Filter
-        gibbs.clj      --- Particle Gibbs
+        pimh.clj       --- Particle Independent Metropolis-Hastings
+        pgibbs.clj     --- Particle Gibbs
         pcascade.clj   --- Parallel Particle Cascade
         siman.clj      --- MAP estimation via simulated annealing
 

@@ -16,15 +16,18 @@
 
 (declare resample)
 
-(defn smc-sweep
-  "a single SMC sweep"
-  [prog number-of-particles]
+(defmulti sweep
+  "a single sweep of SMC and friends"
+  (fn [algorithm prog number-of-particles & _] algorithm))
+    
+(defmethod sweep ::algorithm
+  [algorithm prog number-of-particles]
   (loop [particles (repeatedly number-of-particles
-                               #(exec ::algorithm
+                               #(exec algorithm
                                       prog nil initial-state))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
-     (recur (map #(exec ::algorithm (:cont %) nil (:state %))
+     (recur (map #(exec algorithm (:cont %) nil (:state %))
                  (resample particles)))
 
      (every? #(instance? embang.trap.result %) particles)
@@ -39,7 +42,8 @@
           ":number-of-particles must be at least 1")
   (letfn [(sample-seq []
             (lazy-seq
-              (let [particles (smc-sweep prog number-of-particles)]
+              (let [particles (sweep ::algorithm
+                                     prog number-of-particles)]
                 (concat (map :state particles) (sample-seq)))))]
     (sample-seq)))
 
