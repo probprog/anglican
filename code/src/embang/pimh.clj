@@ -5,7 +5,7 @@
         [embang.runtime :only [observe]]
         embang.smc))
 
-;;; SMC
+;;; Particle Independent Metropolis-Hastings (PIMH)
 
 (derive ::algorithm :embang.smc/algorithm)
 
