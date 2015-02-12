@@ -1,0 +1,3 @@
+(is-fred? guilty), false, -0.112217
+(is-fred? guilty), true, -2.24290
+
