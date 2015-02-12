@@ -43,12 +43,12 @@
                 (concat (map :state particles) (sample-seq)))))]
     (sample-seq)))
 
-  ;;; Resampling particles
+;;; Resampling particles
 
 ;; Systematic resampling is used. The particles are assigned
 ;; unit weight after resampling.
 
-(defn ^:private recover-weights
+(defn recover-weights
   "recovers weights from log-weights"
   [log-weights]
   (let [max-log-weight (reduce max log-weights)]
