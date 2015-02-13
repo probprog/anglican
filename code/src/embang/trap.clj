@@ -61,8 +61,14 @@
       quote true
       fn false
       (begin
-       if cond
+       if cond 
        and or do) (every? simple? (rest expr))
+      case (if (even? (count expr))
+             ;; No default clause.
+             (every? simple? (take-nth 2 expr))
+             ;; Default clause is a single expression.
+             (and (every? simple? (take-nth 2 expr))
+                  (simple? (last expr))))
       let (let [[_ bindings & body] expr]
             (and (every? simple?
                          (take-nth 2 (rest bindings)))
@@ -202,6 +208,25 @@
     (let [[cnd thn & clauses] clauses]
       (cps-of-if [cnd thn `(~'cond ~@clauses)] cont))
     (cps-of-expression nil cont)))
+
+(defn-with-named-cont
+  cps-of-case
+  "transforms case to CPS"
+  [args cont]
+  (let [[key & clauses] args]
+    (prn key clauses)
+    (if (opaque? key)
+      `(~'case ~(opaque-cps key)
+         ~@(mapcat (fn [[tag expr :as clause]]
+                     (if (= (count clause) 2)
+                       [tag ~(cps-of-expression expr cont)]
+                       [~(cps-of-expression expr cont)]))
+                   clauses))
+      (cps-of-expression
+        key
+        (let [key (*gensym* "K")]
+          `(~'fn [~key ~'$state]
+             (~'case ~key ~@args)))))))
 
 (defn-with-named-cont
   cps-of-and
@@ -390,6 +415,7 @@
                 let       (cps-of-let args cont)
                 if        (cps-of-if args cont)
                 cond      (cps-of-cond args cont)
+                case      (cps-of-case args cont)
                 and       (cps-of-and args cont)
                 or        (cps-of-or args cont)
                 do        (cps-of-do args cont)

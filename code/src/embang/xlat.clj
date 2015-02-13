@@ -64,8 +64,8 @@
 
 (defn acase
   "translates case"
-  [[expr & clauses]]
-  `(~'case ~(expression expr)
+  [[key & clauses]]
+  `(~'case ~(expression key)
      ~@(mapcat (fn [[tag expr :as clause]]
                  (if (= tag 'else) (rest clause) clause))
                clauses)))
