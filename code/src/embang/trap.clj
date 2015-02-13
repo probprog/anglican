@@ -65,9 +65,9 @@
        and or do) (every? simple? (rest expr))
       case (if (even? (count expr))
              ;; No default clause.
-             (every? simple? (take-nth 2 expr))
+             (every? simple? (take-nth 2 (rest expr)))
              ;; Default clause is a single expression.
-             (and (every? simple? (take-nth 2 expr))
+             (and (every? simple? (take-nth 2 (rest expr)))
                   (simple? (last expr))))
       let (let [[_ bindings & body] expr]
             (and (every? simple?
@@ -214,19 +214,19 @@
   "transforms case to CPS"
   [args cont]
   (let [[key & clauses] args]
-    (prn key clauses)
     (if (opaque? key)
       `(~'case ~(opaque-cps key)
          ~@(mapcat (fn [[tag expr :as clause]]
                      (if (= (count clause) 2)
-                       [tag ~(cps-of-expression expr cont)]
-                       [~(cps-of-expression expr cont)]))
-                   clauses))
+                       [tag (cps-of-expression expr cont)]
+                       [(cps-of-expression expr cont)]))
+                   (partition 2 clauses)))
       (cps-of-expression
         key
         (let [key (*gensym* "K")]
           `(~'fn [~key ~'$state]
-             (~'case ~key ~@args)))))))
+             ~(cps-of-expression
+                `(~'case ~key ~@clauses) cont)))))))
 
 (defn-with-named-cont
   cps-of-and
