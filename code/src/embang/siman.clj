@@ -121,10 +121,12 @@
 (defmethod infer :siman [_ prog & {:keys [cooling-rate
                                           cooling-schedule
                                           predict-trace
+                                          predict-candidates
                                           number-of-samples]
                                    :or {cooling-rate 0.99
                                         cooling-schedule :exponential
-                                        predict-trace false}}]
+                                        predict-trace false
+                                        predict-candidates false}}]
   ;; The MAP inference consists of two chained transformations,
   ;; `sample-seq', followed by `map-seq'.
   (letfn
@@ -157,7 +159,8 @@
        ;; Filters MAP estimates by increasing weight.
        (lazy-seq
          (when-let [[sample & sample-seq] (seq sample-seq)]
-           (if (> (get-log-weight sample) max-log-weight)
+           (if (or predict-candidates
+                   (> (get-log-weight sample) max-log-weight))
              (cons sample
                    (map-seq sample-seq (get-log-weight sample)))
              (map-seq sample-seq max-log-weight)))))]

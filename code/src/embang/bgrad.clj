@@ -261,9 +261,11 @@
 
 (defmethod infer :bgrad [_ prog & {:keys [algorithm
                                           predict-trace
+                                          predict-candidates
                                           number-of-samples]
                                    :or {algorithm :exploratory
-                                        predict-trace false}}]
+                                        predict-trace false
+                                        predict-candidates false}}]
   (let [algorithm (keyword (namespace ::algorithm) (name algorithm))]
     (prn algorithm)
     ;; The MAP inference consists of two chained transformations,
@@ -283,7 +285,8 @@
          ;; Filters MAP estimates by increasing weight.
          (lazy-seq
            (when-let [[sample & sample-seq] (seq sample-seq)]
-             (if (> (get-log-weight sample) max-log-weight)
+             (if (or predict-candidates
+                     (> (get-log-weight sample) max-log-weight))
                (cons sample
                      (map-seq sample-seq (get-log-weight sample)))
                (map-seq sample-seq max-log-weight)))))]
