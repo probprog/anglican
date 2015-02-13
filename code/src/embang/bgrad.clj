@@ -98,12 +98,14 @@
   with the best score"
   (fn [algorithm bandit likelihood] algorithm))
 
+;; If the best arm happens to be a new arm, return nil. checkpoint
+;; [::algorithm sample] accounts for this and samples a new value
+;; from the prior.
+
 (defmethod select-value ::conservative
   [_ bandit likelihood]
-  ;; If the best arm happens to be a new arm,
-  ;; return nil. checkpoint [::algorithm sample]
-  ;; accounts for this and samples a new value
-  ;; from the prior.
+  ;; Select a new arm with the probability that the arm
+  ;; is like a uniformly selected existing arm.
   (if (< (rand (:new-arm-count bandit)) 1.0) +not-a-value+
     ;; Select a new arm with the probability
     ;; that the arm has the highest mean reward.
@@ -119,10 +121,8 @@
 
 (defmethod select-value ::exploratory
   [_ bandit likelihood]
-  ;; If the best arm happens to be a new arm,
-  ;; return nil. checkpoint [::algorithm sample]
-  ;; accounts for this and samples a new value
-  ;; from the prior.
+  ;; Select a new arm with the probability that the arm
+  ;; is like the best existing arm.
   (if (empty? (seq (:arms bandit))) +not-a-value+
     (loop [arms (:arms bandit)
            best-reward (/ -1. 0.)
@@ -267,7 +267,6 @@
                                         predict-trace false
                                         predict-candidates false}}]
   (let [algorithm (keyword (namespace ::algorithm) (name algorithm))]
-    (prn algorithm)
     ;; The MAP inference consists of two chained transformations,
     ;; `sample-seq', followed by `map-seq'.
     (letfn
