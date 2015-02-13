@@ -67,7 +67,9 @@
   [[key & clauses]]
   `(~'case ~(expression key)
      ~@(mapcat (fn [[tag expr :as clause]]
-                 (if (= tag 'else) (rest clause) clause))
+                 (if (= tag 'else) 
+                   (expression (rest clause))
+                   (expression clause)))
                clauses)))
 
 (defn abegin
