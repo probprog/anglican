@@ -62,6 +62,14 @@
                         (expression expr)])
                      clauses)))
 
+(defn acase
+  "translates case"
+  [[expr & clauses]]
+  `(~'case ~(expression expr)
+     ~@(mapcat (fn [[tag expr :as clause]]
+                 (if (= tag 'else) (rest clause) clause))
+               clauses)))
+
 (defn abegin
   "translates begin to do"
   [exprs]
@@ -92,6 +100,7 @@
         loop   (aloop args)
         mem    (amem name args)
         cond   (acond args)
+        case   (acase args)
         begin  (abegin args)
         predict (apredict args)
         ;; other forms (if, and, or, application)
