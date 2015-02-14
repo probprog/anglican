@@ -1,7 +1,11 @@
 (ns kalman-filter
   (:require [clojure.core.matrix
              :refer [identity-matrix mmul]
-             :rename {identity-matrix eye}])
+             :rename {identity-matrix eye}]
+            ;; Vectorz library is required explicitly to avoid loading
+            ;; it on demand during inference. In Particle Cascade this
+            ;; causes transient failures to find :vectorz.
+            mikera.vectorz.core)
   (:use [embang runtime emit]))
   
 ;; generative model
