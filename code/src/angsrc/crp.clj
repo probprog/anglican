@@ -16,9 +16,7 @@
 ;; draws a value obtained from the base measure.
 
 (defun dp (alpha H)
-  (let ((name (gensym "dp")))
+  (let ((C (crp alpha))
+        (G (mem (lambda (s) (H)))))
     (lambda ()
-      (let ((p (or (retrieve name) (CRP alpha)))
-            (s (sample (produce p))))
-        (store name (absorb p s))
-        ((mem (lambda (s) (H))) s)))))
+      (G (C)))))
