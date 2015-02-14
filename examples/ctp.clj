@@ -1,5 +1,7 @@
 (ns ctp
-  (use [embang runtime emit]))
+  (use [embang runtime emit]
+       ctp-data))
+  
 
 ;;; Canadian Traveller Program
 
@@ -28,6 +30,7 @@
 ;; Stochastic policy is represented by vector of
 ;; probabilities of selecting each edge, and should be
 ;; easier to infer.
+
 
 (defanglican stochastic)
 
