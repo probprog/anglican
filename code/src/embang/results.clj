@@ -92,9 +92,13 @@
   []
   (reduce
     (fn [weights [label value log-weight]]
-      (if (or (integer? value)
-              (symbol? value) (keyword? value)
-              (contains? #{true false nil} value))
+      (if (and
+            (every?
+              #(or (integer? %)
+                   (symbol? %) (keyword? %)
+                   (contains? #{true false nil} %))
+              (flatten (list value)))
+            (number? log-weight))
         ;; The value looks like a discrete value.
         (update-in weights [label value]
                    (fnil + 0.) (Math/exp log-weight))
@@ -120,7 +124,7 @@
   []
   (let [total-freqs (normalize-weights (total-weights))]
     (doseq [label (sort-by str (keys total-freqs))]
-      (doseq [value (sort (keys (total-freqs label)))]
+      (doseq [value (sort-by str (keys (total-freqs label)))]
         (let [count (get-in total-freqs [label value])]
           (println
             (format "%s, %s, %6g, %6g"
