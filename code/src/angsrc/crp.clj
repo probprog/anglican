@@ -21,4 +21,4 @@
       (let ((p (or (retrieve name) (CRP alpha)))
             (s (sample (produce p))))
         (store name (absorb p s))
-        ((mem (lambda (name s) (H))) s)))))
+        ((mem (lambda (s) (H))) s)))))
