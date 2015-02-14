@@ -1,9 +1,8 @@
-(ns embang.gibbs
+(ns embang.pgibbs
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require embang.smc) ; observe checkpoint inherited
   (:use [embang.state :exclude [initial-state]]
         embang.inference
-        [embang.smc :only [resample]]
+        embang.smc
         [embang.runtime :only [observe sample]]))
 
 ;;;; Particle Gibbs
@@ -55,7 +54,7 @@
   [state value]
   (update-in state [::past-samples] conj value))
 
-;; sample checkpoint for gibbs --- sample the value,
+;; sample checkpoint for pgibbs --- sample the value,
 ;; except for retained particle, and store in past-particles
 
 (defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
@@ -68,17 +67,16 @@
 
 ;;; Inference loop
 
-(defn gibbs-sweep
-  "a single Particle Gibbs sweep"
-  [prog retained-state number-of-particles]
+(defmethod sweep ::algorithm
+  [algorithm prog number-of-particles retained-state]
   (loop [particles 
          (conj
           (repeatedly (- number-of-particles 1)
-                      #(exec ::algorithm prog nil initial-state))
-          (exec ::algorithm prog nil retained-state))]
+                      #(exec algorithm prog nil initial-state))
+          (exec algorithm prog nil retained-state))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
-     (recur (map #(exec ::algorithm (:cont %) nil (:state %))
+     (recur (map #(exec algorithm (:cont %) nil (:state %))
                  (conj 
                  
                   ;; Resample all but one from all particles
@@ -102,14 +100,15 @@
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
-(defmethod infer :gibbs [_ prog & {:keys [number-of-particles]
+(defmethod infer :pgibbs [_ prog & {:keys [number-of-particles]
                                     :or {number-of-particles 2}}]
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
   (letfn [(sample-seq [retained-state]
             (lazy-seq
-              (let [particles (gibbs-sweep
-                                prog retained-state number-of-particles)
+              (let [particles (sweep ::algorithm
+                                prog number-of-particles
+                                retained-state)
                     retained-state (retained-initial-state
                                      (rand-nth particles))]
                 (concat (map :state particles)

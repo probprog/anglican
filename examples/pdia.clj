@@ -1,6 +1,6 @@
 (ns pdia
   (:use [embang emit runtime])
-  (:use [angsrc crp dp-mem]))
+  (:use [angsrc crp]))
 
 (defanglican pdia
   [assume vocabulary '(A B)]
@@ -8,7 +8,7 @@
   [assume top-level (crp 10.0)]
 
   [assume symbol->state-distribution
-    (mem (lambda (symbol) (DPmem 10.0 top-level)))]
+    (mem (lambda (symbol) (dp 10.0 top-level)))]
 
   [assume state-symbol->next-state
     (mem (lambda (state symbol) ((symbol->state-distribution symbol))))]

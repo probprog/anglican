@@ -93,32 +93,8 @@
   [value]
   (= value +not-a-value+))
 
-(defmulti select-value
-  "selects the value of the most likely arm
-  with the best score"
-  (fn [algorithm bandit likelihood] algorithm))
-
-(defmethod select-value ::conservative
-  [_ bandit likelihood]
-  ;; If the best arm happens to be a new arm,
-  ;; return nil. checkpoint [::algorithm sample]
-  ;; accounts for this and samples a new value
-  ;; from the prior.
-  (if (< (rand (:new-arm-count bandit)) 1.0) +not-a-value+
-    ;; Select a new arm with the probability
-    ;; that the arm has the highest mean reward.
-    (loop [arms (:arms bandit)
-           best-reward (/ -1. 0.)
-           best-value +not-a-value+]
-      (if-let [[[value belief] & arms] (seq arms)]
-        (let [reward (+ (likelihood value) (bb-sample belief))]
-          (if (>= reward best-reward)
-            (recur arms reward value)
-            (recur arms best-reward best-value)))
-        best-value))))
-
-(defmethod select-value ::exploratory
-  [_ bandit likelihood]
+(defn select-value
+  [bandit log-p]
   ;; If the best arm happens to be a new arm,
   ;; return nil. checkpoint [::algorithm sample]
   ;; accounts for this and samples a new value
@@ -128,25 +104,34 @@
            best-reward (/ -1. 0.)
            best-value +not-a-value+
            best-belief nil]
-      (if-let [[[value belief] & arms] (seq arms)]
-        (let [reward (+ (likelihood value)
-                        (bb-sample belief))]
+      (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
+        (let [reward (+ (log-p value) 
+                        (reduce max
+                                (repeatedly
+                                  count #(bb-sample belief))))]
           (if (>= reward best-reward)
             (recur arms reward value belief)
             (recur arms best-reward best-value best-belief)))
         ;; Select a new arm with the probability
         ;; that the arm has the highest mean reward.
         (loop [arms (:arms bandit)
-               best-reward (+ (likelihood best-value)
+               best-reward (+ (log-p best-value)
                               (bb-sample best-belief))
                best-value +not-a-value+]
-          (if-let [[[value belief] & arms] (seq arms)]
-            (let [reward (+ (likelihood value)
-                            (bb-sample belief))]
+          (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
+            (let [reward (+ (log-p value)
+                            (reduce max
+                                    (repeatedly
+                                      count #(bb-sample belief))))]
               (if (>= reward best-reward)
                 (recur arms reward value)
                 (recur arms best-reward best-value)))
             best-value))))))
+
+(defn update-arm
+  "updates arm with the new reward"
+  [[belief cnt] reward]
+  [(bb-update belief reward) (inc cnt)])
 
 (defn update-bandit
   "updates bandit's belief"
@@ -155,15 +140,16 @@
                  ;; A new arm was drawn, which may or may not
                  ;; coincide with an existing arm.
                  (-> bandit 
-                   (update-in [:new-arm-belief] bb-update reward)
-                   (update-in [:new-arm-count] + 1))
+                     (update-in [:new-arm-belief] bb-update reward)
+                     (update-in [:new-arm-count] inc)
+                     (update-in [:arms value :count]
+                                (fnil inc 0)))
                  bandit)]
     ;; Update the belief about the mean reward of the sampled arm.
-    (update-in bandit [:arms value]
+    (update-in bandit [:arms value :belief]
                (fnil bb-update
-                     ;; If the arm is new, derive the belief
-                     ;; from the belief about a randomly
-                     ;; drawn arm.
+                     ;; If the arm is new, derive the belief from
+                     ;; the belief about a randomly drawn arm.
                      (bb-as-prior (:new-arm-belief bandit)))
                reward)))
 
@@ -194,7 +180,7 @@
         bandit ((state ::bandits) bandit-id fresh-bandit)
 
         ;; Select a value as a bandit arm.
-        value (select-value algorithm bandit #(observe (:dist smp) %))
+        value (select-value bandit #(observe (:dist smp) %))
         ;; Remember whether a new arm was drawn;
         ;; new arm belief is updated during back-propagation.
         bandit (assoc bandit :new-arm-drawn (not-a-value? value))
@@ -261,11 +247,12 @@
 
 (defmethod infer :bgrad [_ prog & {:keys [algorithm
                                           predict-trace
+                                          predict-candidates
                                           number-of-samples]
                                    :or {algorithm :exploratory
-                                        predict-trace false}}]
+                                        predict-trace false
+                                        predict-candidates false}}]
   (let [algorithm (keyword (namespace ::algorithm) (name algorithm))]
-    (prn algorithm)
     ;; The MAP inference consists of two chained transformations,
     ;; `sample-seq', followed by `map-seq'.
     (letfn
@@ -283,7 +270,8 @@
          ;; Filters MAP estimates by increasing weight.
          (lazy-seq
            (when-let [[sample & sample-seq] (seq sample-seq)]
-             (if (> (get-log-weight sample) max-log-weight)
+             (if (or predict-candidates
+                     (> (get-log-weight sample) max-log-weight))
                (cons sample
                      (map-seq sample-seq (get-log-weight sample)))
                (map-seq sample-seq max-log-weight)))))]
