@@ -102,11 +102,31 @@
   (add-predict state
                '$trace (map :value (::trace state))))
 
+(defmulti next-temperature 
+  "returns decreased temperature"
+  (fn [schedule temperature rate] schedule))
+
+(defmethod next-temperature :exponential
+  ;; T'=bT, mostly works.
+  [_ temperature rate]
+  (* temperature rate))
+
+(defmethod next-temperature :lundy-mees
+  ;; T' = T/(1+(1-b)T), see [M Lundy and A Mees. 1986. Convergence of
+  ;; an annealing algorithm. Math. Program. 34, 1 (January 1986),
+  ;; 111-124] for details.
+  [_ temperature rate] 
+  (/ temperature (+ 1. (* (- 1. rate) temperature))))
+
 (defmethod infer :siman [_ prog & {:keys [cooling-rate
+                                          cooling-schedule
                                           predict-trace
+                                          predict-candidates
                                           number-of-samples]
                                    :or {cooling-rate 0.99
-                                        predict-trace false}}]
+                                        cooling-schedule :exponential
+                                        predict-trace false
+                                        predict-candidates false}}]
   ;; The MAP inference consists of two chained transformations,
   ;; `sample-seq', followed by `map-seq'.
   (letfn
@@ -128,7 +148,9 @@
                          (add-trace-predict state)
                          state)]
              (cons state
-                   (sample-seq state (* T cooling-rate))))
+                   (sample-seq
+                     state (next-temperature cooling-schedule
+                                             T cooling-rate))))
 
            ;; Deterministic program, the only output is the mode.
            (repeat (add-trace-predict state)))))
@@ -137,7 +159,8 @@
        ;; Filters MAP estimates by increasing weight.
        (lazy-seq
          (when-let [[sample & sample-seq] (seq sample-seq)]
-           (if (> (get-log-weight sample) max-log-weight)
+           (if (or predict-candidates
+                   (> (get-log-weight sample) max-log-weight))
              (cons sample
                    (map-seq sample-seq (get-log-weight sample)))
              (map-seq sample-seq max-log-weight)))))]

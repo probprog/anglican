@@ -11,6 +11,14 @@
     (is (not (simple? '(a b c))) "application")
     (is (not (simple? '(cond a 1 (b) 2)))
         "cond with compound subexpression")
+    (is (simple? '(case x (foo bar)  3 4 5))
+        "simple case without else")
+    (is (simple? '(case x (foo bar) 3 5))
+        "simple case with else")
+    (is (not (simple? '(case x 3 (foo bar) 4 5)))
+        "compound case without else")
+    (is (not (simple? '(case x 1 3 (foo bar))))
+        "compound case with else")
     (is (not (simple? '(fn [] 1))) "fn is never simple")))
 
 (deftest test-primitive-procedure
@@ -85,6 +93,17 @@
              '(if 1 (ret 2 $state)
                 (ret (cond 3 4) $state)))
           "cond via if"))
+
+    (testing "cps-of-case"
+      (is (= (cps-of-case '(x 1 (foo 2)) 'ret)
+             '(case x 1 (fn [] (foo ret $state 2))))
+          "opaque key")
+      (is (= (cps-of-case '((foo x) 1 2) 'ret)
+             '(fn []
+                (foo (fn [K $state]
+                       (ret (case K 1 2) $state))
+                     $state x)))
+          "translucent key"))
 
     (testing "cps-of-and"
       (is (= (cps-of-and nil 'ret)
@@ -165,42 +184,45 @@
   (binding [*gensym* symbol]
     (testing "cps-of-mem"
       (is (= (cps-of-mem '((fn [x] x)) 'ret)
-             '(ret (fn [C $state & P]
-                     (if (embang.state/in-mem? $state 'M P)
-                       (C (embang.state/get-mem $state 'M P) $state)
-                       (fn []
-                         (clojure.core/apply
-                          (fn [C $state x] (C x $state))
-                          (fn [V $state]
-                            (C V (embang.state/set-mem $state 'M P V)))
-                          $state
-                          P))))
+             '(ret (let [M (gensym "M")]
+                     (fn [C $state & P]
+                       (if (embang.state/in-mem? $state M P)
+                         (C (embang.state/get-mem $state M P) $state)
+                         (fn []
+                           (clojure.core/apply
+                             (fn [C $state x] (C x $state))
+                             (fn [V $state]
+                               (C V (embang.state/set-mem $state M P V)))
+                             $state
+                             P)))))
                    $state))
           "mem of compound function")
       (is (= (cps-of-mem '((fn foo [x] x)) 'ret)
-             '(ret (fn foo [C $state & P]
-                     (if (embang.state/in-mem? $state 'M P)
-                       (C (embang.state/get-mem $state 'M P) $state)
-                       (fn []
-                         (clojure.core/apply
-                          (fn [C $state x] (C x $state))
-                          (fn [V $state]
-                            (C V (embang.state/set-mem $state 'M P V)))
-                          $state
-                          P))))
+             '(ret (let [M (gensym "M")]
+                     (fn foo [C $state & P]
+                       (if (embang.state/in-mem? $state M P)
+                         (C (embang.state/get-mem $state M P) $state)
+                         (fn []
+                           (clojure.core/apply
+                             (fn [C $state x] (C x $state))
+                             (fn [V $state]
+                               (C V (embang.state/set-mem $state M P V)))
+                             $state
+                             P)))))
                    $state))
           "mem of named compound function")
       (is (= (cps-of-mem '(foo) 'ret)
-             '(ret (fn [C $state & P]
-                     (if (embang.state/in-mem? $state 'M P)
-                       (C (embang.state/get-mem $state 'M P) $state)
-                       (fn []
-                         (clojure.core/apply
-                          foo
-                          (fn [V $state]
-                            (C V (embang.state/set-mem $state 'M P V)))
-                          $state
-                          P))))
+             '(ret (let [M (gensym "M")]
+                     (fn [C $state & P]
+                       (if (embang.state/in-mem? $state M P)
+                         (C (embang.state/get-mem $state M P) $state)
+                         (fn []
+                           (clojure.core/apply
+                             foo
+                             (fn [V $state]
+                               (C V (embang.state/set-mem $state M P V)))
+                             $state
+                             P)))))
                    $state))
           "mem of variable"))))
 

@@ -130,25 +130,25 @@
 (defmulti print-predict
   "prints a predict, accepts label, value, weight, and
   output format"
-  (fn [_ _ _ format] format))
+  (fn [format _ _ _] format))
 
-(defmethod print-predict :anglican [label value weight format]
-  (println (str/join "," (map pr-str [label value weight]))))
+(defmethod print-predict :anglican [_ label value log-weight]
+  (println (str/join "," (map pr-str [label value log-weight]))))
 
-(defmethod print-predict :clojure [label value weight format]
-  (prn [label value weight]))
+(defmethod print-predict :clojure [_ label value log-weight]
+  (prn [label value log-weight]))
 
-(defmethod print-predict :json [label value weight format]
-  (json/write [(str label) value weight] *out*)
-  (prn))
+(defmethod print-predict :json [_ label value log-weight]
+  (json/write [(str label) value log-weight] *out*)
+  (println))
 
-(defmethod print-predict :default [label value weight format]
-  (print-predict label value weight :anglican))
+(defmethod print-predict :default [_ label value log-weight]
+  (print-predict label value log-weight :anglican))
 
 (defn print-predicts
   "print predicts as returned by a probabilistic program
   in the specified format"
-  [state output-format]
+  [state format]
   (let [log-weight (get-log-weight state)]
     (doseq [[name value] (get-predicts state)]
-      (print-predict name value (Math/exp log-weight) output-format))))
+      (print-predict format name value log-weight))))

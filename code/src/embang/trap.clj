@@ -61,8 +61,14 @@
       quote true
       fn false
       (begin
-       if cond
+       if cond 
        and or do) (every? simple? (rest expr))
+      case (if (even? (count expr))
+             ;; No default clause.
+             (every? simple? (take-nth 2 (rest expr)))
+             ;; Default clause is a single expression.
+             (and (every? simple? (take-nth 2 (rest expr)))
+                  (simple? (last expr))))
       let (let [[_ bindings & body] expr]
             (and (every? simple?
                          (take-nth 2 (rest bindings)))
@@ -204,6 +210,25 @@
     (cps-of-expression nil cont)))
 
 (defn-with-named-cont
+  cps-of-case
+  "transforms case to CPS"
+  [args cont]
+  (let [[key & clauses] args]
+    (if (opaque? key)
+      `(~'case ~(opaque-cps key)
+         ~@(mapcat (fn [[tag expr :as clause]]
+                     (if (= (count clause) 2)
+                       [tag (cps-of-expression expr cont)]
+                       [(cps-of-expression expr cont)]))
+                   (partition 2 clauses)))
+      (cps-of-expression
+        key
+        (let [key (*gensym* "K")]
+          `(~'fn [~key ~'$state]
+             ~(cps-of-expression
+                `(~'case ~key ~@clauses) cont)))))))
+
+(defn-with-named-cont
   cps-of-and
   "transforms and to CPS"
   [args cont]
@@ -312,20 +337,21 @@
                       [(second arg) `(~'fn ~@(nnext arg))]
                       [nil arg])]
 
-    `(~cont (~'fn ~@(when name [name])
-              [~mcont ~'$state & ~mparms]
-              (~'if (in-mem? ~'$state '~id ~mparms)
-                ;; continue with stored value
-                (~mcont (get-mem ~'$state '~id ~mparms) ~'$state)
-                ;; apply the function to the arguments with
-                ;; continuation that intercepts the value
-                ;; and updates the state
-                ~(cps-of-expression
-                  `(~'apply ~expr ~mparms)
-                  `(~'fn [~value ~'$state]
-                     (~mcont ~value
-                             (set-mem ~'$state
-                                      '~id ~mparms ~value))))))
+    `(~cont (~'let [~id (~'gensym "M")]
+              (~'fn ~@(when name [name])
+                [~mcont ~'$state & ~mparms]
+                (~'if (in-mem? ~'$state ~id ~mparms)
+                  ;; continue with stored value
+                  (~mcont (get-mem ~'$state ~id ~mparms) ~'$state)
+                  ;; apply the function to the arguments with
+                  ;; continuation that intercepts the value
+                  ;; and updates the state
+                  ~(cps-of-expression
+                     `(~'apply ~expr ~mparms)
+                     `(~'fn [~value ~'$state]
+                        (~mcont ~value
+                                (set-mem ~'$state
+                                         ~id ~mparms ~value)))))))
             ~'$state)))
 
 (defn cps-of-store
@@ -390,6 +416,7 @@
                 let       (cps-of-let args cont)
                 if        (cps-of-if args cont)
                 cond      (cps-of-cond args cont)
+                case      (cps-of-case args cont)
                 and       (cps-of-and args cont)
                 or        (cps-of-or args cont)
                 do        (cps-of-do args cont)
