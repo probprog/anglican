@@ -62,6 +62,12 @@
   (observe [this value]
     "return the probability [density] of the value"))
 
+;; `sample' is both a protocol method and a special form in
+;; Anglican. To generate random values without exposing the random
+;; choice as a checkpoint, use `sample*'.
+
+(def sample* "draws a sample from the distribution" sample)
+
 ;; distributions, in alphabetical order
 
 (def ^:private RNG

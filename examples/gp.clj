@@ -58,15 +58,17 @@
   [assume b (sample belief)]
   [assume c (sample belief)]
   [assume d (sample positive-belief)]
-  [assume e (sample positive-belief)]
   [assume f (sample positive-belief)]
+  [assume g (sample positive-belief)]
   
+  ;; the mean function: ax²+bx+c
   [assume m (lambda (x)
               (+ c (* x (+ b (* x a)))))]
+  ;; the kernel function: d·exp(-(x-y)²/2f)+δg
   [assume k (lambda (x y)
               (let ((dx (- x y)))
-                (+ (* d (exp (- (/ (* dx dx) 2. e))))
-                   (if (= dx 0.) f 0.))))]
+                (+ (* d (exp (- (/ (* dx dx) 2. f))))
+                   (if (= dx 0.) g 0.))))]
 
   [assume gp
    (reduce (lambda (gp point)

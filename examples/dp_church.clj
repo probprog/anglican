@@ -12,14 +12,6 @@
 ;; even in a separate module. Here, it is kept inside to retain
 ;; the structure of the original example.
 
-(defun draw (dist)
-  ;; Sampling unconditionally, otherwise LMH is useless with
-  ;; the code below. A more logical way is to just predict
-  ;; the distribution parameters.
-  (let ((draw sample))
-    ;; Use sample, but hide it from the transformation.
-    (draw dist)))
-
 (defanglican dp-church
   ;; sample-stick-index is a procedure that samples an index from
   ;; a potentially infinite dimensional discrete distribution 
@@ -65,7 +57,7 @@
                                o))
                     nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))]
 
-  [predict (draw (apply normal (gaussian-mixture-model-parameters)))])
+  [predict (sample* (apply normal (gaussian-mixture-model-parameters)))])
 
 ;; The same example, but without re-definition of DPmem. DPmem is 
 ;; defined in a separate module, angsrc.dp-mem, and imported in
@@ -83,7 +75,7 @@
                                o))
                     nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))]
 
-  [predict (draw (apply normal (gaussian-mixture-model-parameters)))])
+  [predict (sample* (apply normal (gaussian-mixture-model-parameters)))])
 
 ;; The same example in the new streamlined syntax. 
 
@@ -101,24 +93,22 @@
                            o))
           nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))
 
-  (predict (draw (apply normal (gaussian-mixture-model-parameters)))))
+  (predict (sample* (apply normal (gaussian-mixture-model-parameters)))))
 
-;; Use crp-based  DP
+;; CRP-based DP instead of stick-breaking
 (defanglican dp-crp
-  ;; Square brackets are interchangable with parentheses
   (assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
                               (list (sample (normal 0 (sqrt (* 10 v)))) (sqrt v)))))
 
-  ;; `define' can be used instead of `assume'
   (define gaussian-mixture-model-parameters (dp 1.72 H))
 
-  ;; any top-level Anglican expressions are allowed
   (reduce (lambda (_ o)
                   (observe (apply normal (gaussian-mixture-model-parameters))
                            o))
           nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))
 
-  (predict (draw (apply normal (gaussian-mixture-model-parameters)))))
+
+  (predict (sample* (apply normal (gaussian-mixture-model-parameters)))))
 
 ;; predict mean and sd 
 (defanglican mean-sd
@@ -155,4 +145,4 @@
         (sd (second params)))
     (predict mean)
     (predict sd)
-    (predict (draw (normal mean sd)))))
+    (predict (sample* (normal mean sd)))))
