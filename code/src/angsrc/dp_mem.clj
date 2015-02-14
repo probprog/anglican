@@ -25,7 +25,8 @@
                  (apply base args))))
   (define get-stick-picking-procedure-from-cache
     (mem (lambda (args) 
-                 (make-sethuraman-stick-picking-procedure concentration))))
+                 (make-sethuraman-stick-picking-procedure
+                   concentration))))
 
   (lambda varargs
           ;; when the returned function is called, the first thing it does is get

@@ -1,6 +1,6 @@
 (ns dp-church
   (:use [embang emit runtime])
-  (:use [angsrc dp-mem]))
+  (:use [angsrc dp-mem crp]))
 
 ;; An example from 
 ;;   http://www.robots.ox.ac.uk/~fwood/anglican/examples/dp_mixture_model/index.html
@@ -94,6 +94,23 @@
 
   ;; `define' can be used instead of `assume'
   (define gaussian-mixture-model-parameters (DPmem 1.72 H))
+
+  ;; any top-level Anglican expressions are allowed
+  (reduce (lambda (_ o)
+                  (observe (apply normal (gaussian-mixture-model-parameters))
+                           o))
+          nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))
+
+  (predict (draw (apply normal (gaussian-mixture-model-parameters)))))
+
+;; Use crp-based  DP
+(defanglican dp-crp
+  ;; Square brackets are interchangable with parentheses
+  (assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
+                              (list (sample (normal 0 (sqrt (* 10 v)))) (sqrt v)))))
+
+  ;; `define' can be used instead of `assume'
+  (define gaussian-mixture-model-parameters (dp 1.72 H))
 
   ;; any top-level Anglican expressions are allowed
   (reduce (lambda (_ o)

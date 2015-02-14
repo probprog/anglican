@@ -184,42 +184,45 @@
   (binding [*gensym* symbol]
     (testing "cps-of-mem"
       (is (= (cps-of-mem '((fn [x] x)) 'ret)
-             '(ret (fn [C $state & P]
-                     (if (embang.state/in-mem? $state 'M P)
-                       (C (embang.state/get-mem $state 'M P) $state)
-                       (fn []
-                         (clojure.core/apply
-                          (fn [C $state x] (C x $state))
-                          (fn [V $state]
-                            (C V (embang.state/set-mem $state 'M P V)))
-                          $state
-                          P))))
+             '(ret (let [M (gensym "M")]
+                     (fn [C $state & P]
+                       (if (embang.state/in-mem? $state M P)
+                         (C (embang.state/get-mem $state M P) $state)
+                         (fn []
+                           (clojure.core/apply
+                             (fn [C $state x] (C x $state))
+                             (fn [V $state]
+                               (C V (embang.state/set-mem $state M P V)))
+                             $state
+                             P)))))
                    $state))
           "mem of compound function")
       (is (= (cps-of-mem '((fn foo [x] x)) 'ret)
-             '(ret (fn foo [C $state & P]
-                     (if (embang.state/in-mem? $state 'M P)
-                       (C (embang.state/get-mem $state 'M P) $state)
-                       (fn []
-                         (clojure.core/apply
-                          (fn [C $state x] (C x $state))
-                          (fn [V $state]
-                            (C V (embang.state/set-mem $state 'M P V)))
-                          $state
-                          P))))
+             '(ret (let [M (gensym "M")]
+                     (fn foo [C $state & P]
+                       (if (embang.state/in-mem? $state M P)
+                         (C (embang.state/get-mem $state M P) $state)
+                         (fn []
+                           (clojure.core/apply
+                             (fn [C $state x] (C x $state))
+                             (fn [V $state]
+                               (C V (embang.state/set-mem $state M P V)))
+                             $state
+                             P)))))
                    $state))
           "mem of named compound function")
       (is (= (cps-of-mem '(foo) 'ret)
-             '(ret (fn [C $state & P]
-                     (if (embang.state/in-mem? $state 'M P)
-                       (C (embang.state/get-mem $state 'M P) $state)
-                       (fn []
-                         (clojure.core/apply
-                          foo
-                          (fn [V $state]
-                            (C V (embang.state/set-mem $state 'M P V)))
-                          $state
-                          P))))
+             '(ret (let [M (gensym "M")]
+                     (fn [C $state & P]
+                       (if (embang.state/in-mem? $state M P)
+                         (C (embang.state/get-mem $state M P) $state)
+                         (fn []
+                           (clojure.core/apply
+                             foo
+                             (fn [V $state]
+                               (C V (embang.state/set-mem $state M P V)))
+                             $state
+                             P)))))
                    $state))
           "mem of variable"))))
 

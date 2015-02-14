@@ -337,20 +337,21 @@
                       [(second arg) `(~'fn ~@(nnext arg))]
                       [nil arg])]
 
-    `(~cont (~'fn ~@(when name [name])
-              [~mcont ~'$state & ~mparms]
-              (~'if (in-mem? ~'$state '~id ~mparms)
-                ;; continue with stored value
-                (~mcont (get-mem ~'$state '~id ~mparms) ~'$state)
-                ;; apply the function to the arguments with
-                ;; continuation that intercepts the value
-                ;; and updates the state
-                ~(cps-of-expression
-                  `(~'apply ~expr ~mparms)
-                  `(~'fn [~value ~'$state]
-                     (~mcont ~value
-                             (set-mem ~'$state
-                                      '~id ~mparms ~value))))))
+    `(~cont (~'let [~id (~'gensym "M")]
+              (~'fn ~@(when name [name])
+                [~mcont ~'$state & ~mparms]
+                (~'if (in-mem? ~'$state ~id ~mparms)
+                  ;; continue with stored value
+                  (~mcont (get-mem ~'$state ~id ~mparms) ~'$state)
+                  ;; apply the function to the arguments with
+                  ;; continuation that intercepts the value
+                  ;; and updates the state
+                  ~(cps-of-expression
+                     `(~'apply ~expr ~mparms)
+                     `(~'fn [~value ~'$state]
+                        (~mcont ~value
+                                (set-mem ~'$state
+                                         ~id ~mparms ~value)))))))
             ~'$state)))
 
 (defn cps-of-store
