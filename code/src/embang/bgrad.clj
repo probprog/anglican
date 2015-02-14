@@ -80,7 +80,10 @@
   (map->multiarmed-bandit
    {:arms {}
     :new-arm-belief initial-mean-reward-belief
-    :new-arm-count 1.0}))
+    :new-arm-count 0}))
+
+;; An arm has two fields, :belief and :count. :count is the number
+;; of times the arm was randomly selected from the prior as new.
 
 ;; Selects arms using open randomized probability matching.
 
@@ -127,11 +130,6 @@
                 (recur arms reward value)
                 (recur arms best-reward best-value)))
             best-value))))))
-
-(defn update-arm
-  "updates arm with the new reward"
-  [[belief cnt] reward]
-  [(bb-update belief reward) (inc cnt)])
 
 (defn update-bandit
   "updates bandit's belief"
@@ -240,18 +238,36 @@
 (defn add-trace-predict
   "adds trace as a predict"
   [state]
-  (add-predict state
-               '$trace (map :value (::trace state))))
+  (add-predict state '$trace
+               (map :value (::trace state))))
+
+;;; Reporting the internal statistics
+
+(defn add-bandit-predict
+  "add bandit arms and counts as a predict"
+  [state]
+  (add-predict state '$bandits
+               (sort-by
+                 first
+                 (map (fn [[bandit-id {:keys [arms new-arm-count]}]]
+                        ;; For each bandit, report the number of
+                        ;; arts and the number of times a new arm
+                        ;; was chosen.
+                        [bandit-id {:arm-count (count arms)
+                                    :new-arm-count new-arm-count}])
+                      (state ::bandits)))))
 
 ;;; Inference method
 
 (defmethod infer :bgrad [_ prog & {:keys [algorithm
                                           predict-trace
                                           predict-candidates
+                                          predict-bandits
                                           number-of-samples]
                                    :or {algorithm :exploratory
                                         predict-trace false
-                                        predict-candidates false}}]
+                                        predict-candidates false
+                                        predict-bandits false}}]
   (let [algorithm (keyword (namespace ::algorithm) (name algorithm))]
     ;; The MAP inference consists of two chained transformations,
     ;; `sample-seq', followed by `map-seq'.
@@ -262,6 +278,9 @@
                                      (backpropagate state)))
                  state (if predict-trace
                          (add-trace-predict state)
+                         state)
+                 state (if predict-bandits
+                         (add-bandit-predict state)
                          state)]
              (cons state
                    (sample-seq state)))))
