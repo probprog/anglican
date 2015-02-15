@@ -126,7 +126,7 @@
                             (reduce max
                                     (repeatedly
                                       count #(bb-sample belief))))]
-              (if (>= reward best-reward)
+              (if (> reward best-reward)
                 (recur arms reward value)
                 (recur arms best-reward best-value)))
             best-value))))))
