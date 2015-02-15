@@ -83,8 +83,13 @@
   ;; symbolic expression and value. This is necessary to
   ;; display predicted expressions in Anglican rather than
   ;; Clojure syntax.
-  [[expr]]
-  `(~'predict '~expr ~(expression expr)))
+  [args]
+  (let [[label expr]
+        (if (= (count args) 2)
+          [(first args) (second args)]
+          [`'~(first args) (first args)])]
+    (prn label expr)
+    `(~'predict ~label ~(expression expr))))
         
 (defn aform
   "translates compatible forms and function applications"

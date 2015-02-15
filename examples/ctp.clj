@@ -98,11 +98,11 @@
       (travel graph-10 (first s-t-10) (second s-t-10)
               p-open)))
 
-  (def p-open 0.5)
-
-  (defanglican ctp
-    (predict (connected? p-open)))
+  (defanglican ctp "are s and t connected?" p-open
+    (let ((p-open (if (nil? p-open) 0.5 p-open)))
+      (predict (list 'connected? p-open) (connected? p-open))))
   
-  (defanglican path-cost
-    (observe (flip 1.) (connected? p-open))
-    (predict true)))
+  (defanglican path-cost "expected path cost" p-open
+    (let ((p-open (if (nil? p-open) 0.5 p-open)))
+      (observe (flip 1.) (connected? p-open))
+      (predict p-open))))
