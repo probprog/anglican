@@ -59,6 +59,10 @@
     :default 1
     :parse-fn #(Integer/parseInt %)]
 
+   ["-v" "--value V" "Initial value to pass to the program"
+    :default nil
+    :parse-fn read-string]
+
    ["-h" "--help" "Print usage summary and exit"]])
 
 (defn usage [summary]
@@ -150,7 +154,8 @@ Options:
                        states (as->
                                 (apply infer
                                        (:inference-algorithm options)
-                                       (warmup program)
+                                       (warmup program (:value options))
+                                       nil
                                        (:algorithm-options options))
                                 states
                                 ;; Burn samples.

@@ -118,15 +118,16 @@
   [_ temperature rate] 
   (/ temperature (+ 1. (* (- 1. rate) temperature))))
 
-(defmethod infer :siman [_ prog & {:keys [cooling-rate
-                                          cooling-schedule
-                                          predict-trace
-                                          predict-candidates
-                                          number-of-samples]
-                                   :or {cooling-rate 0.99
-                                        cooling-schedule :exponential
-                                        predict-trace false
-                                        predict-candidates false}}]
+(defmethod infer :siman [_ prog value 
+                         & {:keys [cooling-rate
+                                   cooling-schedule
+                                   predict-trace
+                                   predict-candidates
+                                   number-of-samples]
+                            :or {cooling-rate 0.99
+                                 cooling-schedule :exponential
+                                 predict-trace false
+                                 predict-candidates false}}]
   ;; The MAP inference consists of two chained transformations,
   ;; `sample-seq', followed by `map-seq'.
   (letfn
@@ -167,7 +168,7 @@
 
     (let [sample-seq (sample-seq
                        (:state (exec ::algorithm
-                                     prog nil initial-state)) 1.)
+                                     prog value initial-state)) 1.)
           sample-seq (if number-of-samples
                        (take number-of-samples sample-seq)
                        sample-seq)]

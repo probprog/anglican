@@ -263,8 +263,8 @@
                    (reduce + (map second
                                   (state ::choice-counts))))))
 
-(defmethod infer :almh [_ prog & {:keys [predict-choices]
-                                  :or {predict-choices false}}]
+(defmethod infer :almh [_ prog value & {:keys [predict-choices]
+                                        :or {predict-choices false}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
@@ -303,7 +303,7 @@
            (cons sample (sample-seq state)))))]
 
     (let [;; Run the first particle.
-          state (:state (exec ::algorithm prog nil initial-state))
+          state (:state (exec ::algorithm prog value initial-state))
           ;; Initialize the predict table.
           state (initialize-last-predicts state)]
       (if (seq (get-trace state))

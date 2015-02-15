@@ -10,9 +10,6 @@
 
 (derive ::algorithm :embang.inference/algorithm)
 
-(derive ::conservative ::algorithm)
-(derive ::exploratory ::algorithm)
-
 ;;;; Particle state
 
 (def initial-state
@@ -259,46 +256,44 @@
 
 ;;; Inference method
 
-(defmethod infer :bgrad [_ prog & {:keys [algorithm
-                                          predict-trace
-                                          predict-candidates
-                                          predict-bandits
-                                          number-of-samples]
-                                   :or {algorithm :exploratory
-                                        predict-trace false
-                                        predict-candidates false
-                                        predict-bandits false}}]
-  (let [algorithm (keyword (namespace ::algorithm) (name algorithm))]
-    ;; The MAP inference consists of two chained transformations,
-    ;; `sample-seq', followed by `map-seq'.
-    (letfn
-      [(sample-seq [state]
-         (lazy-seq
-           (let [state (:state (exec algorithm prog nil 
-                                     (backpropagate state)))
-                 state (if predict-trace
-                         (add-trace-predict state)
-                         state)
-                 state (if predict-bandits
-                         (add-bandit-predict state)
-                         state)]
-             (cons state
-                   (sample-seq state)))))
+(defmethod infer :bgrad [_ prog value
+                         & {:keys [predict-trace
+                                   predict-candidates
+                                   predict-bandits
+                                   number-of-samples]
+                            :or {predict-trace false
+                                 predict-candidates false
+                                 predict-bandits false}}]
+  ;; The MAP inference consists of two chained transformations,
+  ;; `sample-seq', followed by `map-seq'.
+  (letfn
+    [(sample-seq [state]
+       (lazy-seq
+         (let [state (:state (exec ::algorithm prog value 
+                                   (backpropagate state)))
+               state (if predict-trace
+                       (add-trace-predict state)
+                       state)
+               state (if predict-bandits
+                       (add-bandit-predict state)
+                       state)]
+           (cons state
+                 (sample-seq state)))))
 
-       (map-seq [sample-seq max-log-weight]
-         ;; Filters MAP estimates by increasing weight.
-         (lazy-seq
-           (when-let [[sample & sample-seq] (seq sample-seq)]
-             (if (or predict-candidates
-                     (> (get-log-weight sample) max-log-weight))
-               (cons sample
-                     (map-seq sample-seq (get-log-weight sample)))
-               (map-seq sample-seq max-log-weight)))))]
+     (map-seq [sample-seq max-log-weight]
+       ;; Filters MAP estimates by increasing weight.
+       (lazy-seq
+         (when-let [[sample & sample-seq] (seq sample-seq)]
+           (if (or predict-candidates
+                   (> (get-log-weight sample) max-log-weight))
+             (cons sample
+                   (map-seq sample-seq (get-log-weight sample)))
+             (map-seq sample-seq max-log-weight)))))]
 
-      (let [sample-seq (sample-seq
-                         (:state
-                           (exec algorithm prog nil initial-state)))
-            sample-seq (if number-of-samples
-                         (take number-of-samples sample-seq)
-                         sample-seq)]
-        (map-seq sample-seq (Math/log 0.))))))
+    (let [sample-seq (sample-seq
+                       (:state
+                         (exec ::algorithm prog value initial-state)))
+          sample-seq (if number-of-samples
+                       (take number-of-samples sample-seq)
+                       sample-seq)]
+      (map-seq sample-seq (Math/log 0.)))))

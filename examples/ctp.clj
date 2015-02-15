@@ -47,58 +47,62 @@
 
 (with-primitive-procedures [dirichlet-uniform]
   (defun travel (graph s t p-open)
-    (let (;; All edges are open or blocked with the same probability.
-             ;; The results are conditioned on this random choice, hence
-             ;; the choice is hidden (*) from the inference algorithm.
-             (open? (mem (lambda (u v) (sample* (flip p-open)))))
-             ;; Policy is conditioned on the parent node p and
-             ;; current node u.
-             (policy (mem (lambda (p u)
-                            ;; I want to see the path cost in map
-                            ;; estimation output, but dirichlet has
-                            ;; pdf which depends on dimensionality.
-                            (let ((children (map first (nth graph u))))
-                              (map list
-                                   children
-                                   (sample
-                                     (dirichlet-uniform 
-                                       (count children))))))))
+    ;; All edges are open or blocked with the same probability.
+    ;; The results are conditioned on this random choice, hence
+    ;; the choice is hidden (*) from the inference algorithm.
+    (let ((open? (mem (lambda (u v) (sample* (flip p-open)))))
+          ;; Policy is conditioned on the parent node p and
+          ;; current node u.
+          (policy (mem (lambda (p u)
+                         ;; I want to see the path cost in map
+                         ;; estimation output, but dirichlet has
+                         ;; pdf which depends on dimensionality.
+                         (let ((children (map first (nth graph u))))
+                           (map list
+                                children
+                                (sample
+                                  (dirichlet-uniform 
+                                    (count children))))))))
 
-             ;; Probability distribution that the traveller
-             ;; `likes' the edge.
-             (likes (lambda (u v)
-                      (loop ((children (nth graph u)))
-                        (let ((child (first children)))
-                          (if (= (first child) v)
-                            (flip (exp (- (second child))))
-                            (begin (assert (seq (rest children)))
-                                   (recur (rest children))))))))
+          ;; Probability distribution that the traveller
+          ;; `likes' the edge.
+          (likes (lambda (u v)
+                   (loop ((children (nth graph u)))
+                     (let ((child (first children)))
+                       (if (= (first child) v)
+                         (flip (exp (- (second child))))
+                         (begin (assert (seq (rest children)))
+                                (recur (rest children))))))))
 
-             ;; True when t is reachable from u  in at most n steps;
-             ;; u was entered from p.
-             (reachable? 
-               (lambda (p u t n)
-                 (cond
-                   ((= u t) true)
-                   ((= n 0) false)
-                   (else
-                     (let ((policy-p-u (filter (lambda (choice)
-                                                 (open? u (first choice)))
-                                               (policy p u))))
-                       (if (seq policy-p-u)
-                         (let ((dist (categorical policy-p-u))
-                               (v (sample dist)))
-                           (observe (likes u v) true)
-                           (reachable? u v t (dec n))))))))))
+          ;; True when t is reachable from u  in at most n steps;
+          ;; u was entered from p.
+          (reachable? 
+            (lambda (p u t n)
+              (cond
+                ((= u t) true)
+                ((= n 0) false)
+                (else
+                  (let ((policy-p-u (filter (lambda (choice)
+                                              (open? u (first choice)))
+                                            (policy p u))))
+                    (if (seq policy-p-u)
+                      (let ((dist (categorical policy-p-u))
+                            (v (sample dist)))
+                        (observe (likes u v) true)
+                        (reachable? u v t (dec n))))))))))
 
-      (reachable? nil s t (* 10 (count graph)))))
+      (reachable? nil s t (* 50 (count graph)))))
+
+  (defun connected? (p-open)
+    (some?
+      (travel graph-10 (first s-t-10) (second s-t-10)
+              p-open)))
+
+  (def p-open 0.5)
 
   (defanglican ctp
-    (let ((connected?
-            (lambda (p-open)
-              (some?
-                (travel graph-10 (first s-t-10) (second s-t-10)
-                        p-open)))))
-      (predict (connected? 0.85)))))
-
-  ;; TODO: separate program for estimating optimal path cost
+    (predict (connected? p-open)))
+  
+  (defanglican path-cost
+    (observe (flip 1.) (connected? p-open))
+    (predict true)))

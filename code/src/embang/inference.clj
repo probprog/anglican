@@ -13,7 +13,7 @@
 (defmulti infer
   "main inference procedure, accepts algorithm, program, and
   options; returns a lazy sequence of states"
-  (fn [algorithm & _] algorithm))
+  (fn [algorithm prog value & _] algorithm))
 
 ;;; Checkpoints
 
@@ -87,13 +87,14 @@
 (defn warmup
   "runs until the first checkpoint and returns
   a continuation that starts with that checkpoint"
-  [prog]
-  (let [cpt (exec ::warmup prog nil initial-state)]
-    (fn [value initial-state]
-      (update-in cpt [:state]
-                 ;; Predict sequence in state overrides
-                 ;; predict sequence in initial-state.
-                 (fn [state] (merge initial-state state))))))
+  ([prog] (warmup nil))
+  ([prog value]
+   (let [cpt (exec ::warmup prog value initial-state)]
+     (fn [value initial-state]
+       (update-in cpt [:state]
+                  ;; Predict sequence in state overrides
+                  ;; predict sequence in initial-state.
+                  (fn [state] (merge initial-state state)))))))
 
 ;;; Random functions for inference algorithms
 
