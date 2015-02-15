@@ -64,8 +64,8 @@
                                      (dirichlet-uniform 
                                        (count children))))))))
 
-             ;; Probability distribution that the traveller `likes'
-             ;; the edge.
+             ;; Probability distribution that the traveller
+             ;; `likes' the edge.
              (likes (lambda (u v)
                       (loop ((children (nth graph u)))
                         (let ((child (first children)))
