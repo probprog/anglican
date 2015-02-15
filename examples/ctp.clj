@@ -35,55 +35,70 @@
 
 ;;; Bounded horizon random walk
 
-(defun travel (graph s t p-open)
-  
-  (let (;; All edges are open or blocked with the same probability.
-        ;; The results are conditioned on this random choice, hence
-        ;; the choice is hidden (*) from the inference algorithm.
-        (open? (mem (lambda (u v) (sample* (flip p-open)))))
-        ;; Policy is conditioned on the parent node p and
-        ;; current node u.
-        (policy (mem (lambda (p u)
-                       (let ((children (map first (nth graph u))))
-                         (map list
-                              children
-                              (sample (dirichlet
-                                        (repeat (count children)
-                                                1.))))))))
+(defn dirichlet-uniform
+  "Uniform diriclhet distribution with pdf == 1"
+  [n]
+  (reify distribution
+    (sample [this]
+      (let [g (repeatedly n #(sample (gamma 1 1)))
+            t (reduce + g)]
+        (map #(/ % t) g)))
+    (observe [this value] 0.)))
 
-        ;; Probability distribution that the traveller `likes'
-        ;; the edge.
-        (likes (lambda (u v)
-                 (loop ((children (nth graph u)))
-                   (let ((child (first children)))
-                     (if (= (first child) v)
-                       (flip (exp (- (second child))))
-                       (begin (assert (seq (rest children)))
-                              (recur (rest children))))))))
+(with-primitive-procedures [dirichlet-uniform]
+  (defun travel (graph s t p-open)
+    (let (;; All edges are open or blocked with the same probability.
+             ;; The results are conditioned on this random choice, hence
+             ;; the choice is hidden (*) from the inference algorithm.
+             (open? (mem (lambda (u v) (sample* (flip p-open)))))
+             ;; Policy is conditioned on the parent node p and
+             ;; current node u.
+             (policy (mem (lambda (p u)
+                            ;; I want to see the path cost in map
+                            ;; estimation output, but dirichlet has
+                            ;; pdf which depends on dimensionality.
+                            (let ((children (map first (nth graph u))))
+                              (map list
+                                   children
+                                   (sample
+                                     (dirichlet-uniform 
+                                       (count children))))))))
 
-        ;; True when t is reachable from u  in at most n steps;
-        ;; u was entered from p.
-        (reachable? 
-          (lambda (p u t n)
-            (cond
-              ((= u t) true)
-              ((= n 0) false)
-              (else
-                (let ((policy-p-u (filter (lambda (choice)
-                                            (open? u (first choice)))
-                                          (policy p u))))
-                  (if (seq policy-p-u)
-                    (let ((dist (categorical policy-p-u))
-                          (v (sample dist)))
-                      (observe (likes u v) true)
-                      (reachable? u v t (dec n))))))))))
-    
-    (reachable? nil s t (* 10 (count graph)))))
+             ;; Probability distribution that the traveller `likes'
+             ;; the edge.
+             (likes (lambda (u v)
+                      (loop ((children (nth graph u)))
+                        (let ((child (first children)))
+                          (if (= (first child) v)
+                            (flip (exp (- (second child))))
+                            (begin (assert (seq (rest children)))
+                                   (recur (rest children))))))))
 
-(defanglican ctp
-  (let ((connected?
-          (lambda (p-open)
-            (some?
-              (travel graph-10 (first s-t-10) (second s-t-10)
-                      p-open)))))
-    (predict (connected? 0.6))))
+             ;; True when t is reachable from u  in at most n steps;
+             ;; u was entered from p.
+             (reachable? 
+               (lambda (p u t n)
+                 (cond
+                   ((= u t) true)
+                   ((= n 0) false)
+                   (else
+                     (let ((policy-p-u (filter (lambda (choice)
+                                                 (open? u (first choice)))
+                                               (policy p u))))
+                       (if (seq policy-p-u)
+                         (let ((dist (categorical policy-p-u))
+                               (v (sample dist)))
+                           (observe (likes u v) true)
+                           (reachable? u v t (dec n))))))))))
+
+      (reachable? nil s t (* 10 (count graph)))))
+
+  (defanglican ctp
+    (let ((connected?
+            (lambda (p-open)
+              (some?
+                (travel graph-10 (first s-t-10) (second s-t-10)
+                        p-open)))))
+      (predict (connected? 0.85)))))
+
+  ;; TODO: separate program for estimating optimal path cost
