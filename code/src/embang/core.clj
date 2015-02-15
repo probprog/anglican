@@ -130,11 +130,13 @@ Options:
           (println
             (format (str ";; Program: %s/%s\n"
                          ";; Inference algorithm: %s\n"
+                         ";; Initial value: %s\n"
                          ";; Number of samples: %s (*%s+%s) \n"
                          ";; Output format: %s\n"
                          ";; Algorithm options: %s")
                     nsname progname
                     (:inference-algorithm options)
+                    (:value options)
                     (:number-of-samples options)
                     (:thin options)
                     (:burn options)
@@ -167,8 +169,7 @@ Options:
                   (when-not (= i (:number-of-samples options))
                     (when (seq states)
                       (let [state (first states)]
-                        (print-predicts state
-                                        (:output-format options))
+                        (print-predicts (:output-format options) state)
                         (recur (inc i) (rest states))))))
                 (catch Exception e
                   (binding [*out* *err*]

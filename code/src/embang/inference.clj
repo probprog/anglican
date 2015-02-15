@@ -149,7 +149,7 @@
 (defn print-predicts
   "print predicts as returned by a probabilistic program
   in the specified format"
-  [state format]
+  [format state]
   (let [log-weight (get-log-weight state)]
     (doseq [[name value] (get-predicts state)]
       (print-predict format name value log-weight))))

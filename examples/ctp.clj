@@ -1,4 +1,5 @@
 (ns ctp
+  (require embang.state)
   (use [embang runtime emit]
        ctp-data))
 
@@ -33,76 +34,76 @@
 ;; A policy specified for each directed edge: i j -> choose
 ;; node.
 
-;;; Bounded horizon random walk
+;; DFS
 
-(defn dirichlet-uniform
-  "Uniform diriclhet distribution with pdf == 1"
-  [n]
-  (reify distribution
-    (sample [this]
-      (let [g (repeatedly n #(sample (gamma 1 1)))
-            t (reduce + g)]
-        (map #(/ % t) g)))
-    (observe [this value] 0.)))
+(defun travel (graph s t p-open)
+  ;; All edges are open or blocked with the same probability.
+  ;; The results are conditioned on this random choice, hence
+  ;; the choice is hidden (*) from the inference algorithm.
+  (let ((visited (gensym "ctp"))
+        (open? (mem (lambda (u v) (sample* (flip p-open)))))
+        ;; Policy is conditioned on the parent node p and
+        ;; current node u.
+        (policy (mem (lambda (p u)
+                       (let ((children (map first (nth graph u))))
+                         (map list
+                              children
+                              (sample (dirichlet
+                                        (repeat (count children)
+                                                1.))))))))
 
-(with-primitive-procedures [dirichlet-uniform]
-  (defun travel (graph s t p-open)
-    ;; All edges are open or blocked with the same probability.
-    ;; The results are conditioned on this random choice, hence
-    ;; the choice is hidden (*) from the inference algorithm.
-    (let ((open? (mem (lambda (u v) (sample* (flip p-open)))))
-          ;; Policy is conditioned on the parent node p and
-          ;; current node u.
-          (policy (mem (lambda (p u)
-                         ;; I want to see the path cost in map
-                         ;; estimation output, but dirichlet has
-                         ;; pdf which depends on dimensionality.
-                         (let ((children (map first (nth graph u))))
-                           (map list
-                                children
-                                (sample
-                                  (dirichlet-uniform 
-                                    (count children))))))))
+        ;; Probability distribution that the traveller
+        ;; `likes' the edge.
+        (likes (lambda (u v)
+                 (loop ((children (nth graph u)))
+                   (let ((child (first children)))
+                     (if (= (first child) v)
+                       (flip (exp (- (second child))))
+                       (begin (assert (seq (rest children)))
+                              (recur (rest children))))))))
 
-          ;; Probability distribution that the traveller
-          ;; `likes' the edge.
-          (likes (lambda (u v)
-                   (loop ((children (nth graph u)))
-                     (let ((child (first children)))
-                       (if (= (first child) v)
-                         (flip (exp (- (second child))))
-                         (begin (assert (seq (rest children)))
-                                (recur (rest children))))))))
+        ;; True when t is reachable from u.
+        (dfs (lambda (p u t)
+               (or (= u t)
+                   (loop ((policy (filter
+                                    (lambda (choice)
+                                      (open? u (first choice)))
+                                    (policy p u))))
 
-          ;; True when t is reachable from u  in at most n steps;
-          ;; u was entered from p.
-          (reachable? 
-            (lambda (p u t n)
-              (cond
-                ((= u t) true)
-                ((= n 0) false)
-                (else
-                  (let ((policy-p-u (filter (lambda (choice)
-                                              (open? u (first choice)))
-                                            (policy p u))))
-                    (if (seq policy-p-u)
-                      (let ((dist (categorical policy-p-u))
-                            (v (sample dist)))
-                        (observe (likes u v) true)
-                        (reachable? u v t (dec n))))))))))
+                     (let ((policy (filter
+                                     (lambda (choice)
+                                       (not (contains?
+                                              (retrieve visited)
+                                              (sort (list u (first choice))))))
+                                     policy)))
 
-      (reachable? nil s t (* 50 (count graph)))))
+                       (and (seq policy)
+                            (let ((dist (categorical policy))
+                                  (v (sample dist)))
+                              ;; left through [u v]
+                              (store visited
+                                     (conj (retrieve visited)
+                                           (sort (list u v))))
+                              (observe (likes u v) true) 
+                              (or (dfs u v t)
+                                  (begin
+                                    ;; came back through [v u]
+                                    (observe (likes v u)  true)
+                                    (recur policy)))))))))))
 
-  (defun connected? (p-open)
-    (some?
-      (travel graph-10 (first s-t-10) (second s-t-10)
-              p-open)))
+    (store visited (set ()))
+    (dfs nil s t)))
 
-  (defanglican ctp "are s and t connected?" p-open
-    (let ((p-open (if (nil? p-open) 0.5 p-open)))
-      (predict (list 'connected? p-open) (connected? p-open))))
-  
-  (defanglican path-cost "expected path cost" p-open
-    (let ((p-open (if (nil? p-open) 0.5 p-open)))
-      (observe (flip 1.) (connected? p-open))
-      (predict p-open))))
+(defun connected? (graph s-t p-open)
+  (travel graph (first s-t) (second s-t) p-open))
+
+(defn get-distance
+  "retrieves distance as the log-weight"
+   [cont $state]
+   (cont (- (embang.state/get-log-weight $state)) $state))
+
+(defanglican ctp "expected path cost" p-open
+  (let ((p-open (if (nil? p-open) 0.5 p-open)))
+    (observe (flip 1.) ; drop disconnected instances
+             (connected? graph-20 s-t-20 p-open))
+    (predict 'distance (get-distance))))

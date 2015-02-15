@@ -42,8 +42,8 @@
   "translates let"
   [[bindings & body]]
   `(~'let [~@(mapcat (fn [[name value]]
-                     [name (expression value :name name)])
-                   bindings)]
+                       [name (expression value :name name)])
+                     bindings)]
      ~@(elist body)))
 
 (defn aloop
@@ -51,7 +51,9 @@
   [[bindings & body]]
   `(~'let [~'loop ~(alambda 'loop (cons (map first bindings)
                                          body))]
-     (~'loop ~@(map second bindings))))
+     (~'loop ~@(map (fn [[name value]]
+                      (expression value :name name))
+                    bindings))))
 
 (defn acond 
   "translates cond"
@@ -88,7 +90,6 @@
         (if (= (count args) 2)
           [(first args) (second args)]
           [`'~(first args) (first args)])]
-    (prn label expr)
     `(~'predict ~label ~(expression expr))))
         
 (defn aform
