@@ -98,9 +98,9 @@ Options:
   (if (= (ffirst args) \:)
     ;; Run auxiliary commands
     (case (read-string (first args))
+      :diff (apply diff (rest args))
       :freqs (freqs)
       :meansd (meansd)
-      :diff (apply diff (rest args))
       (binding [*out* *err*]
         (println (format "Unrecognized command: %s" (first args)))))
 

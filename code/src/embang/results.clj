@@ -84,84 +84,98 @@
 ;;; Summary statistics on inference results
 
 ;; Discrete results: value frequences (categorical distribution).
-;; Helper functions: total-weights and normalize-weights.
 
-(defn total-weights
-  "reads results from stdin and returns total weights
-  for every value of every discrete-valued predict"
-  []
-  (reduce
-    (fn [weights [label value log-weight]]
-      (if (and
-            (every?
-              #(or (integer? %)
-                   (symbol? %) (keyword? %)
-                   (contains? #{true false nil} %))
-              (flatten (list value)))
-            (number? log-weight))
-        ;; The value looks like a discrete value.
-        (update-in weights [label value]
-                   (fnil + 0.) (Math/exp log-weight))
-        weights))
-    {} (parsed-line-seq (line-seq (io/reader *in*)))))
+(defn countable?
+  "true when the value looks countable"
+  [value]
+  (every?
+    #(or (integer? %)
+         (symbol? %) (keyword? %)
+         (contains? #{true false nil} %))
+    (flatten (list value))))
 
-(defn normalize-weights
-  "normalizes weights for each label"
+(defn weights-to-freqs
+  "computes frequences from weights for each label"
   [weights]
   (reduce
-    (fn [weights label]
-      (let [sum-for-label (reduce + (vals (weights label)))]
+    (fn [weights [label label-weights]]
+      (let [sum-for-label (reduce + (vals label-weights))]
         (reduce
           (fn [weights value]
             (update-in weights [label value] / sum-for-label))
-          weights (keys (weights label)))))
-    weights (keys weights)))
+          weights (keys label-weights))))
+    weights (seq weights)))
 
-;; REPL/command-line command:
-(defn freqs
-  "reads results from stdin and writes the frequency table
-  for every integer-valued predict"
-  []
-  (let [total-freqs (normalize-weights (total-weights))]
-    (doseq [label (sort-by str (keys total-freqs))]
-      (doseq [value (sort-by str (keys (total-freqs label)))]
-        (let [count (get-in total-freqs [label value])]
-          (println
-            (format "%s, %s, %6g, %6g"
-                    label value count (Math/log count))))))))
+(defn fq-seq
+  "accepts a sequence of predicts 
+  and produces a sequence of frequencies"
+  [predicts]
+  (letfn
+    [(fq-seq* [predicts weights]
+       (lazy-seq
+         (when-let [[[label value log-weight] & predicts]
+                    (seq predicts)]
+           (if (and (countable? value) (number? log-weight))
+             (let [weights (update-in
+                             weights [label value]
+                             (fnil + 0.) (Math/exp log-weight))]
+               (cons (weights-to-freqs weights)
+                     (weight-seq* predicts weights)))
+             (weight-seq* predicts weights)))))]
+    (weight-seq predicts {})))
 
 ;; Continuous results: mean and standard deviation.
 
-;; REPL/command-line command:
-(defn meansd
-  "reads results from stdin and writes the mean and
-  standard deviation for each predict"
-  []
-  (loop [lines (parsed-line-seq (line-seq (io/reader *in*)))
-         sums {}]
-    (if (seq lines)
-      (let [[[label value log-weight] & lines] lines]
-        (recur 
-          lines
-          (if (number? value)
-            ;; The value is a numeric value for which mean
-            ;; and standard deviation can be computed.
-            (let [weight (Math/exp log-weight)
-                  weighted-value (* value weight)]
-              (-> sums
-                  (update-in [label :weight] (fnil + 0.) weight)
-                  (update-in [label :sum] (fnil + 0.) weighted-value)
-                  (update-in [label :sum2] (fnil + 0.) 
-                             (* value weighted-value))))
-            sums)))
+(defn sums-to-meansd
+  "accepts total sums for labels
+  and computes mean and sd for each label"
+  [sums]
+  (reduce (fn [meansd [label {:keys [sum sum2 weight]}]]
+            (let [mean (/ sum weight)
+                  sd (Math/sqrt (- (/ sum2 weight) (* mean mean)))]
+              (assoc meansd label {:mean mean :sd sd})))
+          {} (seq sums)))
 
-      (doseq [label (sort-by str (keys sums))]
-        (let [mean (/ (get-in sums [label :sum])
-                      (get-in sums [label :weight]))
-              sd (Math/sqrt (- (/ (get-in sums [label :sum2])
-                                  (get-in sums [label :weight]))
-                               (* mean mean)))]
-          (println (format "%s, %6g, %6g" label mean sd)))))))
+
+(defn ms-seq
+  "accepts a sequence of predicts
+  and produces a sequence of mean and sd for each label"
+  [predicts]
+  (letfn
+    [(ms-seq* [predicts sums]
+       (lazy-seq
+         (when-let [[[label value log-weight] & predicts]
+                    (seq predicts)]
+           (if (and (number? value) (number? log-weight))
+            (let [weight (Math/exp log-weight)
+                  weighted-value (* value weight)
+                  sums (-> sums
+                           (update-in [label :weight] (fnil + 0.)
+                                      weight)
+                           (update-in [label :sum] (fnil + 0.)
+                                      weighted-value)
+                           (update-in [label :sum2] (fnil + 0.)
+                                      (* value weighted-value)))]
+              (cons (sums-to-meansd sums)
+                    (ms-seq* predicts sums)))
+             (ms-seq* predicts sums)))))]
+    (ms-seq predicts {})))
+
+;;; Total results
+
+(defn totals
+  "reads results from stdin and returns totals"
+  [res-seq & {:keys [only exclude]
+              :or {only nil
+                   exclude #{}}}]
+  (let [totals (-> (io/reader *in*)
+                   line-seq
+                   parsed-line-seq
+                   res-seq
+                   last)]
+    (reduce dissoc
+            totals
+            (remove #(included? only exclude %) (keys totals)))))
 
 ;;;; Sample distance metrics
 
@@ -223,12 +237,6 @@
   (and (or (empty? only) (contains? only label))
        (not (contains? exclude label))))
 
-(defn predict-seq-skipping
-  "returns lazy sequence of predicts, 
-  skipping first `skip' predicts"
-  [skip]
-  (drop skip (parsed-line-seq (line-seq (io/reader *in*)))))
-
 ;;; Multimethods dispatching on metrics
 
 (defmulti get-truth
@@ -243,22 +251,9 @@
 
 ;;; Discrete predicts
 
-(defn total-freqs
-  "reads results from stdin and returns
-  a table of total frequences for discrete-valued predicts"
-  [& {:keys [only exclude]
-      :or {only nil
-           exclude #{}}}]
-  (let [total-weights (total-weights)]
-    (normalize-weights
-      (reduce dissoc total-weights 
-              (keep (complement 
-                      (partial included?  only exclude))
-                    (keys total-weights))))))
-
-(defn freq-seq
+(defn discrete-seq
   "reads results from stdin and returns a lazy sequence
-  of frequence distances, skipping first `skip' predict lines and
+  of frequency distances, skipping first `skip' predict lines and
   then producing a sequence entry each `step' predict lines"
   [distance true-freqs & {:keys [skip step only exclude]
                           :or {skip 0
@@ -266,7 +261,7 @@
                                only nil
                                exclude #{}}}]
   (letfn
-    [(freq-seq* [lines nlines weights]
+    [(fq-seq* [lines nlines weights]
        (lazy-seq
          (if (empty? lines) nil
            (let [[[label value log-weight] & lines] (seq lines)
@@ -279,30 +274,46 @@
                ;; After each `step' predict lines, include KL
                ;; into the sequence.
                (cons
-                 (let [freqs (normalize-weights weights)]
+                 (let [freqs (compute-freqs weights)]
                    (reduce
                      + (map (fn [label]
                               (distance
                                 (true-freqs label) (freqs label)))
                             (keys true-freqs))))
-                 (freq-seq* lines 1 weights))
+                 (fq-seq* lines 1 weights))
                ;; Otherwise, just accumulate the weights.
-               (freq-seq* lines (inc nlines) weights))))))]
-    (freq-seq* (predict-seq-skipping skip) 1 {})))
+               (fq-seq* lines (inc nlines) weights))))))]
+    (fq-seq* (predict-seq-skipping skip) 1 {})))
 
 (defmethod get-truth :kl [_] (total-freqs))
 
 (defmethod dist-seq :kl 
   [_ true-freqs & options]
-  (apply freq-seq KL true-freqs options))
+  (apply fq-seq KL true-freqs options))
 
 (defmethod get-truth :l2 [_] (total-freqs))
 
 (defmethod dist-seq :l2
   [_ true-freqs & options]
-  (apply freq-seq L2 true-freqs options))
+  (apply fq-seq L2 true-freqs options))
 
 ;;; Continuous predicts
+
+(defn total-meansd
+  "reads results from stdin and returns
+  a table of total frequences for discrete-valued predicts"
+  [& {:keys [only exclude]
+      :or {only nil
+           exclude #{}}}]
+  (let [meansd (-> (io/reader *in*)
+                  line-seq
+                  parsed-line-seq
+                  ms-seq
+                  last)]
+    (reduce dissoc
+            meansd
+            (remove #(included? only exclude %) (keys meansd)))))
+
 
 (defn total-samples
   "reads results from stdin and returns a map label -> sequence
@@ -386,12 +397,14 @@
 	  :burn 0
 	  :thin 1})
 
-(def cli-options
+(def diff-cli-options
   [["-b" "--burn N" "Skip first N predict lines"
     :parse-fn #(Integer/parseInt %)]
+   ["-c" "--config CONFIG" "config resource"
+    :default nil]
    ["-d" "--distance d" "distance type"
     :parse-fn keyword
-    :validate [#{:kl :l2 :ks} "unrecognized distance"]]
+    :validate [#{:fq :ms :kl :l2 :ks} "unrecognized distance"]]
    ["-e" "--exclude LABELS" "predicts to exclude from statistics"
     :default #{}
     :parse-fn (fn [s] (read-string (str "#{" s "}")))]
@@ -435,12 +448,14 @@ Options:
                            (println (usage summary)))
 
       :else
-      (let [config (apply hash-map 
-                          (with-open [in (java.io.PushbackReader.
-                                           (io/reader
-                                             (io/resource
-                                               (first arguments))))]
-                            (edn/read in)))
+      (let [config (if (:config options)
+                     (apply hash-map 
+                            (with-open [in (java.io.PushbackReader.
+                                             (io/reader
+                                               (io/resource
+                                                 (:config options))))]
+                              (edn/read in)))
+                     {})
             options (merge default-config config options)]
         (binding [*out* *err*]
           (doseq [[option value] (sort-by first options)]
@@ -454,3 +469,26 @@ Options:
                              :only (set (:only options))
                              :exclude (set (:exclude options)))]
             (prn distance)))))))
+
+;; REPL command
+(defn freqs
+  "reads results from stdin and writes the frequency table
+  for every integer-valued predict"
+  []
+  (let [total-freqs (totals fq-seq)]
+    (doseq [label (sort-by str (keys total-freqs))]
+      (doseq [value (sort (keys (total-freqs label)))]
+        (let [weight (get-in total-freqs [label value])]
+          (println
+            (format "%s, %s, %6g, %6g"
+                    label value weight (Math/log weights))))))))
+
+;; REPL command
+(defn meansd
+  "reads results from stdin and writes the mean and
+  standard deviation for each predict"
+  []
+  (let [total-meansd (totals ms-freq)]
+   (doseq [label (sort-by str (keys total-meansd))]
+     (let [{:keys [mean sd]} (get total-meansd label)]
+       (println (format "%s, %6g, %6g" label mean sd))))))
