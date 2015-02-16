@@ -1,6 +1,5 @@
 (ns angsrc.dp-mem
-  (:use [embang emit runtime]
-        [angsrc crp]))
+  (:use [embang emit runtime]))
 
 ;; sample-stick-index is a procedure that samples an index from
 ;; a potentially infinite dimensional discrete distribution 
