@@ -123,7 +123,7 @@
                (cons (weights-to-freqs weights)
                      (fq-seq* predicts weights)))
              (fq-seq* predicts weights)))))]
-    (fq-seq predicts {})))
+    (fq-seq* predicts {})))
 
 ;; Continuous results: mean and standard deviation.
 
@@ -159,7 +159,7 @@
               (cons (sums-to-meansd sums)
                     (ms-seq* predicts sums)))
              (ms-seq* predicts sums)))))]
-    (ms-seq predicts {})))
+    (ms-seq* predicts {})))
 
 (defn sm-seq
   "accets a sequence of predicts and produces sample sequence"
@@ -423,10 +423,10 @@ Options:
                              (get-truth (:distance options))))
               period (or (:period options) 1)]
           (doseq [distance (diff-seq (:distance options) truth
-                             :skip (* (:burn options) period)
-                             :step (* (:thin options) period)
-                             :only (set (:only options))
-                             :exclude (set (:exclude options)))]
+                                     :skip (* (:burn options) period)
+                                     :step (* (:thin options) period)
+                                     :only (set (:only options))
+                                     :exclude (set (:exclude options)))]
             (pprint distance)))))))
 
 ;; REPL command
@@ -448,6 +448,6 @@ Options:
   standard deviation for each predict"
   []
   (let [total-meansd (totals ms-seq)]
-   (doseq [label (sort-by str (keys total-meansd))]
-     (let [{:keys [mean sd]} (get total-meansd label)]
-       (println (format "%s, %6g, %6g" label mean sd))))))
+    (doseq [label (sort-by str (keys total-meansd))]
+      (let [{:keys [mean sd]} (get total-meansd label)]
+        (println (format "%s, %6g, %6g" label mean sd))))))
