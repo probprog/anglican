@@ -100,7 +100,7 @@
   (assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
                               (list (sample (normal 0 (sqrt (* 10 v)))) (sqrt v)))))
 
-  (define gaussian-mixture-model-parameters (dp 1.72 H))
+  (define gaussian-mixture-model-parameters (dp-mem 1.72 H))
 
   (reduce (lambda (_ o)
                   (observe (apply normal (gaussian-mixture-model-parameters))
