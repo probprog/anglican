@@ -22,6 +22,7 @@
 
 (def P-OPEN "probability that the edge is open" 0.5)
 (def COST "multiplier for edge costs" 1)
+(def INSTANCE "problem instance" 20)
 
 (defun travel (graph s t p-open cost)
   ;; All edges are open or blocked with the same probability.
@@ -132,10 +133,11 @@
                       parameters
                       (list parameters)))
         (p-open (or (first parameters) P-OPEN))
-        (cost (or (second parameters) COST)))
+        (cost (or (second parameters) COST))
+        (instance (get ctp-data (or (second (rest parameters)) INSTANCE))))
 
     (observe (flip 1.) ; drop disconnected instances
-             (travel graph-20 (first s-t-20) (second s-t-20)
+             (travel (get instance :graph) (get instance :s) (get instance :t)
                      p-open cost))
 
     (predict 'distance (get-distance cost))))
