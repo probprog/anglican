@@ -327,7 +327,7 @@
                (if (> log-p (/ -1. 0.))
                  log-p
                  ;; If the sample has zero probability, a new value
-                 ;; is observed, observe that this a new value and
+                 ;; is observed, observe that this is a new value and
                  ;; the probability of the value with respect to the
                  ;; base distribution.
                  (+ (observe dist ::new)

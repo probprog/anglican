@@ -1,6 +1,7 @@
 (ns embang.results
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [clojure.pprint :refer [pprint]]
             [clojure.edn :as edn]
             [clojure.data.json :as json]
             [clojure.tools.cli :as cli]))
@@ -15,7 +16,7 @@
   useful for running inference and processing results
   from the REPL. The syntax is:
 
-    (redir [:in \"input-file-name\" :out \"output-file-name\"] 
+    (redir [:in \"input-file-name\" :out \"output-file-name\"]
       actions ...)
 
   Either :in or :out (or both) can be omitted.
@@ -23,7 +24,7 @@
   and the output is appended to the file."
   [[& {:keys [in out] :as args}]  & body]
   (cond
-   in 
+   in
    (let [rdr (gensym "rdr")]
      `(with-open [~rdr (io/reader ~in)]
         (binding [*in* ~rdr]
@@ -44,11 +45,11 @@
 
 ;;; Parsing inference output.
 
-(defmulti parse-line 
+(defmulti parse-line
   "parses output line and returns [label value height]"
   (fn [format line] format))
 
-(defmethod parse-line :anglican [_ line] 
+(defmethod parse-line :anglican [_ line]
   (let [fields (str/split line #" *, *")
         [label value log-weight] (map edn/read-string
                                       (take-last 3 fields))]
@@ -107,7 +108,7 @@
     weights (seq weights)))
 
 (defn fq-seq
-  "accepts a sequence of predicts 
+  "accepts a sequence of predicts
   and produces a sequence of frequencies"
   [predicts]
   (letfn
@@ -120,9 +121,9 @@
                              weights [label value]
                              (fnil + 0.) (Math/exp log-weight))]
                (cons (weights-to-freqs weights)
-                     (weight-seq* predicts weights)))
-             (weight-seq* predicts weights)))))]
-    (weight-seq predicts {})))
+                     (fq-seq* predicts weights)))
+             (fq-seq* predicts weights)))))]
+    (fq-seq predicts {})))
 
 ;; Continuous results: mean and standard deviation.
 
@@ -135,7 +136,6 @@
                   sd (Math/sqrt (- (/ sum2 weight) (* mean mean)))]
               (assoc meansd label {:mean mean :sd sd})))
           {} (seq sums)))
-
 
 (defn ms-seq
   "accepts a sequence of predicts
@@ -161,17 +161,40 @@
              (ms-seq* predicts sums)))))]
     (ms-seq predicts {})))
 
+(defn sm-seq
+  "accets a sequence of predicts and produces sample sequence"
+  ;; Ignores weights.
+  [predicts]
+  (letfn
+    [(sm-seq* [predicts sseqs]
+       (lazy-seq
+         (when-let [[[label value log-weight] & predicts]
+                    (seq predicts)]
+           (if (number? log-weight)
+             (let [sseqs (update-in sseqs [label] (fnil conj []) value)]
+               (cons sseqs (sm-seq* predicts sseqs))
+             (sm-seq* predicts sseqs))))))]
+    (sm-seq* predicts {})))
+
+;;; Filtering labels
+
+(defn included?
+  "true when the label should be included"
+  [only exclude label]
+  (and (or (empty? only) (contains? only label))
+       (not (contains? exclude label))))
+
 ;;; Total results
 
 (defn totals
-  "reads results from stdin and returns totals"
-  [res-seq & {:keys [only exclude]
-              :or {only nil
-                   exclude #{}}}]
+  "reads results from stdin and returns totals filtered by smry-seq"
+  [smry-seq & {:keys [only exclude]
+               :or {only nil
+                    exclude #{}}}]
   (let [totals (-> (io/reader *in*)
                    line-seq
                    parsed-line-seq
-                   res-seq
+                   smry-seq
                    last)]
     (reduce dissoc
             totals
@@ -229,33 +252,45 @@
                 (map #(/ (double %) nx) (search-sorted sx s))))]
     (reduce max (map #(Math/abs (- %1 %2)) (cdf sa) (cdf sb)))))
 
-;;; Manipulating inference outputs
-
-(defn included?
-  "true when the label should be included"
-  [only exclude label]
-  (and (or (empty? only) (contains? only label))
-       (not (contains? exclude label))))
-
 ;;; Multimethods dispatching on metrics
 
 (defmulti get-truth
   "reads truth from stdin and returns
-  a structure suitable for dist-seq"
+  a structure suitable for diff-seq"
   (fn [distance-type] distance-type))
 
-(defmulti dist-seq 
+;; Not all metrics use ground truth.
+(defmethod get-truth :default [_] nil)
+
+(defmulti diff-seq
   "reads results from stdin and returns a lazy sequence
   of distances from the truth"
   (fn [distance-type truth & options] distance-type))
 
+(defn distance-seq
+  "reads results from stdin and returns a lazy sequence
+  of distances, skipping first `skip' predict lines and
+  then producing a sequence entry each `step' predict lines"
+  [smry-seq distance truth & {:keys [skip step only exclude]
+                              :or {skip 0
+                                   step 1
+                                   only nil
+                                   exclude #{}}}]
+  (->> (io/reader *in*)
+       line-seq
+       parsed-line-seq
+       (drop skip)
+       smry-seq
+       (take-nth step)
+       (map (fn [summary]
+              (reduce + (map #(distance (truth %) (summary %))
+                             (keep #(included? only exclude %)
+                                   (keys summary))))))))
+
 ;;; Discrete predicts
 
-(defn discrete-seq
-  "reads results from stdin and returns a lazy sequence
-  of frequency distances, skipping first `skip' predict lines and
-  then producing a sequence entry each `step' predict lines"
-  [distance true-freqs & {:keys [skip step only exclude]
+(defmethod diff-seq :fq
+  [_ _ & {:keys [skip step only exclude]
                           :or {skip 0
                                step 1
                                only nil
@@ -263,110 +298,48 @@
   (->> (io/reader *in*)
        line-seq
        parsed-line-seq
-       fq-seq
        (drop skip)
-       (take-nth step)
-       (map (fn [freqs]
-              (reduce + (map #(distance (true-freqs %) (freqs %))
-                             (keep #(included? only exclude %)
-                                   (keys freqs))))))))
+       fq-seq
+       (take-nth step)))
 
-(defmethod get-truth :kl [_] (total-freqs))
+(defmethod get-truth :kl [_] (totals fq-seq))
 
-(defmethod dist-seq :kl 
-  [_ true-freqs & options]
-  (apply fq-seq KL true-freqs options))
+(defmethod diff-seq :kl
+  [_ truth & options]
+  (apply distance-seq fq-seq KL truth options))
 
-(defmethod get-truth :l2 [_] (total-freqs))
+(defmethod get-truth :l2 [_] (totals fq-seq))
 
-(defmethod dist-seq :l2
-  [_ true-freqs & options]
-  (apply fq-seq L2 true-freqs options))
+(defmethod diff-seq :l2
+  [_ truth & options]
+  (apply distance-seq fq-seq L2 truth options))
 
 ;;; Continuous predicts
 
-(defn total-meansd
-  "reads results from stdin and returns
-  a table of total frequences for discrete-valued predicts"
-  [& {:keys [only exclude]
-      :or {only nil
-           exclude #{}}}]
-  (let [meansd (-> (io/reader *in*)
-                  line-seq
-                  parsed-line-seq
-                  ms-seq
-                  last)]
-    (reduce dissoc
-            meansd
-            (remove #(included? only exclude %) (keys meansd)))))
+(defmethod diff-seq :ms
+  [_ _ & {:keys [skip step only exclude]
+                          :or {skip 0
+                               step 1
+                               only nil
+                               exclude #{}}}]
+  (->> (io/reader *in*)
+       line-seq
+       parsed-line-seq
+       (drop skip)
+       ms-seq
+       (take-nth step)))
 
+(defmethod get-truth :ks [_] (totals sm-seq))
 
-(defn total-samples
-  "reads results from stdin and returns a map label -> sequence
-  of samples, skipping first `skip' predict lines and
-  then processing one entry per label each `step' predict lines"
-  ;; Ignores sample weights.
-  [& {:keys [skip step only exclude]
-      :or {skip 0
-           step 1
-           only nil
-           exclude #{}}}]
-  (loop [predicts (predict-seq-skipping skip)
-         nlines 1
-         samples {}
-         seen-labels #{}]
-    (if-let [[[label value _] & predicts] (seq predicts)]
-      (let [samples (if (and (included? only exclude label)
-                             (not (contains? seen-labels label)))
-                      (update-in samples [label]
-                                 (fnil conj []) value)
-                      samples)]
-        (if (= nlines step)
-          ;; After each nlines forget seen labels
-          ;; and start collecting new layer of samples.
-          (recur predicts 1
-                 samples (empty seen-labels))
-          ;; Only a single value for every label is
-          ;; collected over each nlines.
-          (recur predicts (inc nlines)
-                 samples (conj seen-labels label))))
-      samples)))
-
-(defmethod get-truth :ks [_] (total-samples))
-
-(defmethod dist-seq :ks
-  [_ true-samples & {:keys [skip step only exclude]
-                     :or {skip 0
-                          step 1
-                          only nil
-                          exclude #{}}}]
-  (letfn
-    [(ks-seq* [lines nlines samples]
-       (lazy-seq
-       (if (empty? lines) nil
-         (let [[[label value _] & lines] (seq lines)
-               samples (if (included? only exclude label)
-                         (update-in samples [label]
-                                    (fnil conj []) value)
-                         samples)]
-           (if (= nlines step)
-             ;; After each `step' predict lines, include KS
-             ;; into the sequence.
-             (cons (reduce
-                     + (map (fn [label]
-                              (KS (true-samples label)
-                                  (samples label)))
-                            (keys true-samples)))
-                   (ks-seq* lines 1 samples))
-               ;; Otherwise, just collect the samples.
-               (ks-seq* lines (inc nlines) samples))))))]
-    (ks-seq* (predict-seq-skipping skip) 1 {})))
+(defmethod diff-seq :ks
+  [_ truth & options]
+  (apply distance-seq sm-seq KS truth options))
 
 ;;; Diff: difference between prediction and truth
 
 ;; Command-line utility that takes the configuration and outputs of
 ;; the distance for a single experiment outcome and the truth.
-;; 
+;;
 ;; The truth is stored in an external file in predict format. So,
 ;; the configuration would look like
 
@@ -383,7 +356,7 @@
 	  :burn 0
 	  :thin 1})
 
-(def diff-cli-options
+(def cli-options
   [["-b" "--burn N" "Skip first N predict lines"
     :parse-fn #(Integer/parseInt %)]
    ["-c" "--config CONFIG" "config resource"
@@ -415,7 +388,7 @@ Options:
   (str/join "\n\t" (cons "ERROR parsing the command line:" errors)))
 
 (defn diff
-  "command-line/REPL utility that takes problem configuration 
+  "command-line/REPL utility that takes problem configuration
   and inference output and produces differences between
   the input and the truth"
   [& args]
@@ -435,7 +408,7 @@ Options:
 
       :else
       (let [config (when (:config options)
-                     (apply hash-map 
+                     (apply hash-map
                             (with-open [in (java.io.PushbackReader.
                                              (io/reader
                                                (io/resource
@@ -449,12 +422,12 @@ Options:
                       (redir [:in (io/resource (:truth options))]
                              (get-truth (:distance options))))
               period (or (:period options) 1)]
-          (doseq [distance (dist-seq (:distance options) truth
+          (doseq [distance (diff-seq (:distance options) truth
                              :skip (* (:burn options) period)
                              :step (* (:thin options) period)
                              :only (set (:only options))
                              :exclude (set (:exclude options)))]
-            (prn distance)))))))
+            (pprint distance)))))))
 
 ;; REPL command
 (defn freqs
@@ -467,14 +440,14 @@ Options:
         (let [weight (get-in total-freqs [label value])]
           (println
             (format "%s, %s, %6g, %6g"
-                    label value weight (Math/log weights))))))))
+                    label value weight (Math/log weight))))))))
 
 ;; REPL command
 (defn meansd
   "reads results from stdin and writes the mean and
   standard deviation for each predict"
   []
-  (let [total-meansd (totals ms-freq)]
+  (let [total-meansd (totals ms-seq)]
    (doseq [label (sort-by str (keys total-meansd))]
      (let [{:keys [mean sd]} (get total-meansd label)]
        (println (format "%s, %6g, %6g" label mean sd))))))
