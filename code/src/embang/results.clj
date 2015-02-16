@@ -1,8 +1,9 @@
 (ns embang.results
+  (:refer-clojure :exclude [read read-string])
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
-            [clojure.edn :as edn]
+            [clojure.edn :refer [read read-string]]
             [clojure.data.json :as json]
             [clojure.tools.cli :as cli]))
 
@@ -51,12 +52,12 @@
 
 (defmethod parse-line :anglican [_ line]
   (let [fields (str/split line #" *, *")
-        [label value log-weight] (map edn/read-string
+        [label value log-weight] (map read-string
                                       (take-last 3 fields))]
     [label value (or log-weight 0.)]))
 
 (defmethod parse-line :clojure [_ line]
-  (edn/read-string line))
+  (read-string line))
 
 (defmethod parse-line :json [_ line]
   (json/read-str line))
@@ -257,15 +258,28 @@
 (defmulti get-truth
   "reads truth from stdin and returns
   a structure suitable for diff-seq"
-  (fn [distance-type] distance-type))
+  (fn [distance-type & options] distance-type))
 
 ;; Not all metrics use ground truth.
-(defmethod get-truth :default [_] nil)
+(defmethod get-truth :default [_ & _] nil)
 
 (defmulti diff-seq
   "reads results from stdin and returns a lazy sequence
   of distances from the truth"
   (fn [distance-type truth & options] distance-type))
+
+(defn read-summaries
+  "reads summaries from standard input"
+  [smry-seq & {:keys [skip step]
+               :or {skip 0 
+                    step 1}}]
+  (->> (io/reader *in*)
+       line-seq
+       parsed-line-seq
+       (drop skip)
+       smry-seq
+       (take-nth step)
+       rest))
 
 (defn distance-seq
   "reads results from stdin and returns a lazy sequence
@@ -275,40 +289,32 @@
                               :or {skip 0
                                    step 1
                                    only nil
-                                   exclude #{}}}]
-  (->> (io/reader *in*)
-       line-seq
-       parsed-line-seq
-       (drop skip)
-       smry-seq
-       (take-nth step)
-       (map (fn [summary]
-              (reduce + (map #(distance (truth %) (summary %))
-                             (keep #(included? only exclude %)
-                                   (keys summary))))))))
+                                   exclude #{}} :as options}]
+  (map (fn [summary]
+         (reduce + (map #(distance (truth %) (summary %))
+                        (filter #(included? only exclude %)
+                                (keys summary)))))
+       (apply read-summaries smry-seq options)))
 
 ;;; Discrete predicts
 
 (defmethod diff-seq :fq
   [_ _ & {:keys [skip step only exclude]
-                          :or {skip 0
-                               step 1
-                               only nil
-                               exclude #{}}}]
-  (->> (io/reader *in*)
-       line-seq
-       parsed-line-seq
-       (drop skip)
-       fq-seq
-       (take-nth step)))
+          :or {skip 0
+               step 1
+               only nil
+               exclude #{}} :as options}]
+  (apply read-summaries fq-seq options))
 
-(defmethod get-truth :kl [_] (totals fq-seq))
+(defmethod get-truth :kl [_ & options]
+  (apply totals fq-seq options))
 
 (defmethod diff-seq :kl
   [_ truth & options]
   (apply distance-seq fq-seq KL truth options))
 
-(defmethod get-truth :l2 [_] (totals fq-seq))
+(defmethod get-truth :l2 [_ & options]
+  (apply totals fq-seq options))
 
 (defmethod diff-seq :l2
   [_ truth & options]
@@ -318,18 +324,14 @@
 
 (defmethod diff-seq :ms
   [_ _ & {:keys [skip step only exclude]
-                          :or {skip 0
-                               step 1
-                               only nil
-                               exclude #{}}}]
-  (->> (io/reader *in*)
-       line-seq
-       parsed-line-seq
-       (drop skip)
-       ms-seq
-       (take-nth step)))
+          :or {skip 0
+               step 1
+               only nil
+               exclude #{}}:as options}]
+  (apply read-summaries ms-seq options))
 
-(defmethod get-truth :ks [_] (totals sm-seq))
+(defmethod get-truth :ks [_ & options]
+  (apply totals sm-seq options))
 
 (defmethod diff-seq :ks
   [_ truth & options]
@@ -403,8 +405,8 @@ Options:
       errors (binding [*out* *err*]
                (println (error-msg errors)))
 
-      (empty? arguments) (binding [*out* *err*]
-                           (println (usage summary)))
+      (seq arguments) (binding [*out* *err*]
+                        (println (usage summary)))
 
       :else
       (let [config (when (:config options)
@@ -413,20 +415,24 @@ Options:
                                              (io/reader
                                                (io/resource
                                                  (:config options))))]
-                              (edn/read in))))
+                              (read in))))
             options (merge default-config config options)]
         (binding [*out* *err*]
           (doseq [[option value] (sort-by first options)]
             (println (format ";; %s %s" option value))))
-        (let [truth (when (:truth options)
-                      (redir [:in (io/resource (:truth options))]
-                             (get-truth (:distance options))))
+        (let [truth
+              (when (:truth options)
+                (redir [:in (io/resource (:truth options))]
+                       (get-truth (:distance options)
+                                  :only (set (:only options))
+                                  :exclude (set (:exclude options)))))
               period (or (:period options) 1)]
-          (doseq [distance (diff-seq (:distance options) truth
-                                     :skip (* (:burn options) period)
-                                     :step (* (:thin options) period)
-                                     :only (set (:only options))
-                                     :exclude (set (:exclude options)))]
+          (doseq [distance
+                  (diff-seq (:distance options) truth
+                            :skip (* (:burn options) period)
+                            :step (* (:thin options) period)
+                            :only (set (:only options))
+                            :exclude (set (:exclude options)))]
             (pprint distance)))))))
 
 ;; REPL command
