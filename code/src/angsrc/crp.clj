@@ -20,3 +20,9 @@
         (G (mem (lambda (s) (H)))))
     (lambda ()
       (G (C)))))
+
+;; DPmem, whatever it means.
+
+(defun dp-mem (alpha H)
+  ((mem (lambda args
+          (dp alpha (lambda () (apply H args)))))))
