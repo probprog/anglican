@@ -173,8 +173,8 @@
                     (seq predicts)]
            (if (number? log-weight)
              (let [sseqs (update-in sseqs [label] (fnil conj []) value)]
-               (cons sseqs (sm-seq* predicts sseqs))
-             (sm-seq* predicts sseqs))))))]
+               (cons sseqs (sm-seq* predicts sseqs)))
+             (sm-seq* predicts sseqs)))))]
     (sm-seq* predicts {})))
 
 ;;; Filtering labels
@@ -268,11 +268,24 @@
   of distances from the truth"
   (fn [distance-type truth & options] distance-type))
 
+;;; Filtering sequences
+
+;; Filtering options are forwarded. Clojure seems to have
+;; an inconsistency in that a function can't be applied
+;; to its own optional arguments. Fix it.
+
+(defn unmap
+  "transforms keyword arguments from map to sequence"
+  [options]
+  (if (map? options)
+    (apply concat options)
+    options))
+
 (defn read-summaries
   "reads summaries from standard input"
   [smry-seq & {:keys [skip step]
                :or {skip 0 
-                    step 1}}]
+                    step 1} :as options}]
   (->> (io/reader *in*)
        line-seq
        parsed-line-seq
@@ -294,31 +307,27 @@
          (reduce + (map #(distance (truth %) (summary %))
                         (filter #(included? only exclude %)
                                 (keys summary)))))
-       (apply read-summaries smry-seq options)))
+       (apply read-summaries smry-seq (unmap options))))
 
 ;;; Discrete predicts
 
 (defmethod diff-seq :fq
-  [_ _ & {:keys [skip step only exclude]
-          :or {skip 0
-               step 1
-               only nil
-               exclude #{}} :as options}]
-  (apply read-summaries fq-seq options))
+  [_ _ & options]
+  (read-summaries fq-seq (unmap options)))
 
 (defmethod get-truth :kl [_ & options]
-  (apply totals fq-seq options))
+  (apply totals fq-seq options (unmap options)))
 
 (defmethod diff-seq :kl
   [_ truth & options]
-  (apply distance-seq fq-seq KL truth options))
+  (apply distance-seq fq-seq KL truth (unmap options)))
 
 (defmethod get-truth :l2 [_ & options]
-  (apply totals fq-seq options))
+  (apply totals fq-seq (unmap options)))
 
 (defmethod diff-seq :l2
   [_ truth & options]
-  (apply distance-seq fq-seq L2 truth options))
+  (apply distance-seq fq-seq L2 truth (unmap options)))
 
 ;;; Continuous predicts
 
@@ -328,14 +337,15 @@
                step 1
                only nil
                exclude #{}}:as options}]
-  (apply read-summaries ms-seq options))
+  (apply read-summaries ms-seq (unmap options)))
 
 (defmethod get-truth :ks [_ & options]
   (apply totals sm-seq options))
 
 (defmethod diff-seq :ks
   [_ truth & options]
-  (apply distance-seq sm-seq KS truth options))
+  (prn options)
+  (apply distance-seq sm-seq KS truth (unmap options)))
 
 ;;; Diff: difference between prediction and truth
 
