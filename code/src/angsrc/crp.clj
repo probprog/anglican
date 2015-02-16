@@ -12,17 +12,11 @@
         (store name (absorb p s))
         s))))
 
-;; Dirichlet process, 
-;; draws a value obtained from the base measure.
+;; DPmem, memoizes calls to h softly.
+;; h may get an arbitrary number of arguments.
 
-(defun dp (alpha H)
+(defun dp-mem (alpha h)
   (let ((C (crp alpha))
-        (G (mem (lambda (s) (H)))))
-    (lambda ()
-      (G (C)))))
-
-;; DPmem, whatever it means.
-
-(defun dp-mem (alpha H)
-  ((mem (lambda args
-          (dp alpha (lambda () (apply H args)))))))
+        (f (mem (lambda (s args) (apply h args)))))
+    (lambda args
+      (f (C) args))))

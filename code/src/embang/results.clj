@@ -260,30 +260,16 @@
                                step 1
                                only nil
                                exclude #{}}}]
-  (letfn
-    [(fq-seq* [lines nlines weights]
-       (lazy-seq
-         (if (empty? lines) nil
-           (let [[[label value log-weight] & lines] (seq lines)
-                 weight (Math/exp log-weight)
-                 weights (if (included? only exclude label)
-                           (update-in weights [label value]
-                                      (fnil + 0.) weight)
-                           weights)]
-             (if (= nlines step)
-               ;; After each `step' predict lines, include KL
-               ;; into the sequence.
-               (cons
-                 (let [freqs (compute-freqs weights)]
-                   (reduce
-                     + (map (fn [label]
-                              (distance
-                                (true-freqs label) (freqs label)))
-                            (keys true-freqs))))
-                 (fq-seq* lines 1 weights))
-               ;; Otherwise, just accumulate the weights.
-               (fq-seq* lines (inc nlines) weights))))))]
-    (fq-seq* (predict-seq-skipping skip) 1 {})))
+  (->> (io/reader *in*)
+       line-seq
+       parsed-line-seq
+       fq-seq
+       (drop skip)
+       (take-nth step)
+       (map (fn [freqs]
+              (reduce + (map #(distance (true-freqs %) (freqs %))
+                             (keep #(included? only exclude %)
+                                   (keys freqs))))))))
 
 (defmethod get-truth :kl [_] (total-freqs))
 
@@ -448,20 +434,20 @@ Options:
                            (println (usage summary)))
 
       :else
-      (let [config (if (:config options)
+      (let [config (when (:config options)
                      (apply hash-map 
                             (with-open [in (java.io.PushbackReader.
                                              (io/reader
                                                (io/resource
                                                  (:config options))))]
-                              (edn/read in)))
-                     {})
+                              (edn/read in))))
             options (merge default-config config options)]
         (binding [*out* *err*]
           (doseq [[option value] (sort-by first options)]
             (println (format ";; %s %s" option value))))
-        (let [truth (redir [:in (io/resource (:truth options))]
-                      (get-truth (:distance options)))
+        (let [truth (when (:truth options)
+                      (redir [:in (io/resource (:truth options))]
+                             (get-truth (:distance options))))
               period (or (:period options) 1)]
           (doseq [distance (dist-seq (:distance options) truth
                              :skip (* (:burn options) period)
