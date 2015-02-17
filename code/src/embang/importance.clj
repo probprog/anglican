@@ -11,9 +11,9 @@
 
 (derive ::algorithm :embang.inference/algorithm)
 
-(defmethod infer :importance [_ prog & {}]
+(defmethod infer :importance [_ prog value & {}]
   (letfn [(sample-seq []
             (lazy-seq
-              (cons (:state (exec ::algorithm prog nil initial-state))
+              (cons (:state (exec ::algorithm prog value initial-state))
                     (sample-seq))))]
             (sample-seq)))

@@ -42,8 +42,8 @@
   "translates let"
   [[bindings & body]]
   `(~'let [~@(mapcat (fn [[name value]]
-                     [name (expression value :name name)])
-                   bindings)]
+                       [name (expression value :name name)])
+                     bindings)]
      ~@(elist body)))
 
 (defn aloop
@@ -51,7 +51,9 @@
   [[bindings & body]]
   `(~'let [~'loop ~(alambda 'loop (cons (map first bindings)
                                          body))]
-     (~'loop ~@(map second bindings))))
+     (~'loop ~@(map (fn [[name value]]
+                      (expression value :name name))
+                    bindings))))
 
 (defn acond 
   "translates cond"
@@ -61,6 +63,16 @@
                           (expression cnd))
                         (expression expr)])
                      clauses)))
+
+(defn acase
+  "translates case"
+  [[key & clauses]]
+  `(~'case ~(expression key)
+     ~@(mapcat (fn [[tag expr :as clause]]
+                 (if (= tag 'else) 
+                   (expression (rest clause))
+                   (expression clause)))
+               clauses)))
 
 (defn abegin
   "translates begin to do"
@@ -73,8 +85,12 @@
   ;; symbolic expression and value. This is necessary to
   ;; display predicted expressions in Anglican rather than
   ;; Clojure syntax.
-  [[expr]]
-  `(~'predict '~expr ~(expression expr)))
+  [args]
+  (let [[label expr]
+        (if (= (count args) 2)
+          [(first args) (second args)]
+          [`'~(first args) (first args)])]
+    `(~'predict ~label ~(expression expr))))
         
 (defn aform
   "translates compatible forms and function applications"
@@ -92,6 +108,7 @@
         loop   (aloop args)
         mem    (amem name args)
         cond   (acond args)
+        case   (acase args)
         begin  (abegin args)
         predict (apredict args)
         ;; other forms (if, and, or, application)

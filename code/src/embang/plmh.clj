@@ -27,8 +27,8 @@
                 [entry (next-state state entry)])
            number-of-threads))
 
-(defmethod infer :plmh [_ prog & {:keys [number-of-threads]
-                                  :or {number-of-threads 2}}]
+(defmethod infer :plmh [_ prog value & {:keys [number-of-threads]
+                                        :or {number-of-threads 2}}]
   (letfn
     [(next-seq [state] (next-state-seq state number-of-threads))
      (sample-seq [state next-states]
@@ -50,7 +50,7 @@
            (cons (set-log-weight state 0.)
                  (sample-seq state next-states)))))]
 
-    (let [state (:state (exec ::algorithm prog nil initial-state))]
+    (let [state (:state (exec ::algorithm prog value initial-state))]
       (if (seq (get-trace state))
         (sample-seq state (next-seq state))
         ;; No randomness in the program.
