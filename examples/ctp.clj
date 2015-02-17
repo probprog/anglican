@@ -1,4 +1,4 @@
-(ns ctpm
+(ns ctp 
   (require embang.state)
   (use [embang runtime emit]
        ctp-data))
@@ -118,7 +118,7 @@
        (for-nodes (rest nodes))))
    (range (count graph))))
 
-(defquery ctpm "expected path cost" parameters
+(defquery ctp "expected path cost" parameters
 
   (let [parameters (if (seq parameters)
                      parameters
