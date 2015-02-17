@@ -1,6 +1,6 @@
 (ns embang.emit
   (:use [embang.xlat :only [program alambda]])
-  (:use [embang.trap :only [cps-of-expression run-cont 
+  (:use [embang.trap :only [cps-of-expression result-cont 
                             fn-cps primitive-procedure-cps]]))
 
 ;;;; Top-level forms for anglican programs
@@ -22,7 +22,7 @@
   [& body]
   `(~'let [~@(mapcat (fn [fun] [fun (symbol (str "$" fun))]) 
                      '[map reduce
-                       filter
+                       filter some
                        repeatedly
                        comp partial])]
      ~@body))
@@ -36,7 +36,7 @@
           ['$value args])]
         (overriding-higher-order-functions
           `(~'fn [~value ~'$state]
-             ~(cps-of-expression (program source) run-cont)))))
+             ~(cps-of-expression (program source) result-cont)))))
 
 (defmacro defanglican
   "binds variable to anglican program"
@@ -48,22 +48,44 @@
     `(def ~(with-meta name {:doc docstring})
        (anglican ~@source))))
 
+;; Programs can be written directly in a Clojure subset
+;; rather than in Anglican. Consult embang/trap.clj for
+;; the supported sublanguage.
+
+(defmacro query
+  "macro for embedding m! programs"
+  [& args]
+  (let [[value source]
+        (if (symbol? (first args)) ; named argument?
+          [(first args) (rest args)]
+          ['$value args])]
+        (overriding-higher-order-functions
+          `(~'fn [~value ~'$state]
+             ~(cps-of-expression `(~'do ~@source) result-cont)))))
+
+(defmacro defquery
+  "binds variable to m! program"
+  [name & args]
+  (let [[docstring source]
+        (if (string? (first args))
+          [(first args) (rest args)]
+          [(format "m! program '%s'" name) args])]
+    `(def ~(with-meta name {:doc docstring})
+       (query ~@source))))
+
 ;;; Auxiliary macros
 
 ;; When a function is defined outside an Anglican 
 ;; program, it must be in CPS form. cps-fn and def-cps-fn
 ;; are like fn and defn but automatically transform functions
 ;; into CPS.
-;;
-;; $map and $reduce are not rebound as map
-;; and reduce because def-cps-fn are used to
-;; define the CPS versions.
 
 (defmacro cps-fn
   "converts function to CPS,
   useful for defining functions outside of defanglican"
   [& args]
-  (fn-cps args))
+  (overriding-higher-order-functions
+    (fn-cps args)))
 
 (defmacro def-cps-fn
   "binds variable to function in CPS form"
@@ -85,14 +107,12 @@
 (defmacro lambda
   "defines function in Anglican syntax"
   [& args]
-  (overriding-higher-order-functions
-   `(cps-fn ~@(next (alambda nil args)))))
+  `(cps-fn ~@(next (alambda nil args))))
 
 (defmacro defun
   "binds variable to function in Anglican syntax"
   [name & args]
-  (overriding-higher-order-functions
-   `(def-cps-fn ~@(next (alambda name args)))))
+  `(def-cps-fn ~@(next (alambda name args))))
 
 ;; Any non-CPS procedures can be used in the code,
 ;; but must be wrapped and re-bound.
@@ -119,6 +139,11 @@
 ;; Essential higher-order functions are implemented here and
 ;; rebound in macros defining anglican code by calling
 ;; `overriding-higher-order-functions'.
+
+(declare $map $reduce
+         $filter $some
+         $repeatedly
+         $comp $partial)
 
 (def-cps-fn ^:private $map1 
   "map on a single sequence"
@@ -169,6 +194,13 @@
    (empty? lst) lst
    (fun (first lst)) (cons (first lst) ($filter fun (rest lst)))
    :else ($filter fun (rest lst))))
+
+(def-cps-fn $some
+  "some in CPS"
+  [fun lst]
+  (and (seq lst)
+    (or (fun (first lst))
+        ($some fun (rest lst)))))
 
 ;; `repeatedly' is useful for sampling from multivariates
 ;; using `transform-sample'

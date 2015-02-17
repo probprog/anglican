@@ -53,6 +53,16 @@
   (let [Z (sum coll)]
     (map #(/ % Z) coll)))
 
+(defn log-sum-exp
+  "computes (log (+ (exp x) (exp y))) safely"
+  [log-x log-y]
+  (let [log-max (max log-x log-y)]
+    (if (< (/ -1. 0.) log-max (/ 1. 0.))
+      (+ log-max
+         (Math/log (+ (Math/exp (- log-x log-max))
+                      (Math/exp (- log-y log-max)))))
+      log-max)))
+
 ;;; Random distributions
 
 (defprotocol distribution
@@ -155,7 +165,7 @@
 (from-colt exponential [rate] double)
 
 (defn flip
-  "flip (bernoulli) distribution"
+  "flip (Bernoulli) distribution"
   [p]
   (let [dist (cern.jet.random.Uniform. RNG)]
     (reify distribution
@@ -323,15 +333,11 @@
                ;; value from the base measure.
                (if (= s ::new) (sample H) s)))
            (observe [this sample]
-             (let [log-p (observe dist sample)]
-               (if (> log-p (/ -1. 0.))
-                 log-p
-                 ;; If the sample has zero probability, a new value
-                 ;; is observed, observe that this is a new value and
-                 ;; the probability of the value with respect to the
-                 ;; base distribution.
-                 (+ (observe dist ::new)
-                    (observe H sample))))))))
+             (log-sum-exp
+               ;; The sample is one of absorbed samples.
+               (observe dist sample)
+               ;; The sample is drawn from the base distribution.
+               (+ (observe dist ::new) (observe H sample)))))))
      (absorb [this sample]
        (DP alpha H (update-in counts [sample] (fnil inc 0)))))))
 

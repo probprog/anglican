@@ -39,10 +39,10 @@
 (defrecord entry [choice-id value log-p cont])
 
 (defn choice-id
-  "returns and unique idenditifer for sample checkpoint
+  "returns a unique idenditifer for sample checkpoint
   and the updated state"
-  [obs state]
-  (checkpoint-id obs state ::choice-counts ::choice-last-id))
+  [smp state]
+  (checkpoint-id smp state ::choice-counts ::choice-last-id))
 
 (defn record-choice
   "records random choice in the state"
