@@ -68,12 +68,12 @@
 ;;; Inference loop
 
 (defmethod sweep ::algorithm
-  [algorithm prog number-of-particles retained-state]
+  [algorithm prog value number-of-particles retained-state]
   (loop [particles 
          (conj
           (repeatedly (- number-of-particles 1)
-                      #(exec algorithm prog nil initial-state))
-          (exec algorithm prog nil retained-state))]
+                      #(exec algorithm prog value initial-state))
+          (exec algorithm prog value retained-state))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
@@ -100,14 +100,15 @@
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
-(defmethod infer :pgibbs [_ prog & {:keys [number-of-particles]
-                                    :or {number-of-particles 2}}]
+(defmethod infer :pgibbs [_ prog value
+                          & {:keys [number-of-particles]
+                             :or {number-of-particles 2}}]
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
   (letfn [(sample-seq [retained-state]
             (lazy-seq
               (let [particles (sweep ::algorithm
-                                prog number-of-particles
+                                prog value number-of-particles
                                 retained-state)
                     retained-state (retained-initial-state
                                      (rand-nth particles))]

@@ -1,6 +1,6 @@
 (ns dp-church
   (:use [embang emit runtime])
-  (:use [angsrc dp-mem]))
+  (:use [angsrc dp-mem crp]))
 
 ;; An example from 
 ;;   http://www.robots.ox.ac.uk/~fwood/anglican/examples/dp_mixture_model/index.html
@@ -11,14 +11,6 @@
 ;; using `defun' (see angsrc.branching for examples), probably
 ;; even in a separate module. Here, it is kept inside to retain
 ;; the structure of the original example.
-
-(defun draw (dist)
-  ;; Sampling unconditionally, otherwise LMH is useless with
-  ;; the code below. A more logical way is to just predict
-  ;; the distribution parameters.
-  (let ((draw sample))
-    ;; Use sample, but hide it from the transformation.
-    (draw dist)))
 
 (defanglican dp-church
   ;; sample-stick-index is a procedure that samples an index from
@@ -65,7 +57,7 @@
                                o))
                     nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))]
 
-  [predict (draw (apply normal (gaussian-mixture-model-parameters)))])
+  [predict (sample* (apply normal (gaussian-mixture-model-parameters)))])
 
 ;; The same example, but without re-definition of DPmem. DPmem is 
 ;; defined in a separate module, angsrc.dp-mem, and imported in
@@ -83,7 +75,7 @@
                                o))
                     nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))]
 
-  [predict (draw (apply normal (gaussian-mixture-model-parameters)))])
+  [predict (sample* (apply normal (gaussian-mixture-model-parameters)))])
 
 ;; The same example in the new streamlined syntax. 
 
@@ -101,7 +93,22 @@
                            o))
           nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))
 
-  (predict (draw (apply normal (gaussian-mixture-model-parameters)))))
+  (predict (sample* (apply normal (gaussian-mixture-model-parameters)))))
+
+;; CRP-based DP instead of stick-breaking
+(defanglican dp-crp
+  (assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
+                              (list (sample (normal 0 (sqrt (* 10 v)))) (sqrt v)))))
+
+  (define gaussian-mixture-model-parameters (dp-mem 1.72 H))
+
+  (reduce (lambda (_ o)
+                  (observe (apply normal (gaussian-mixture-model-parameters))
+                           o))
+          nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))
+
+
+  (predict (sample* (apply normal (gaussian-mixture-model-parameters)))))
 
 ;; predict mean and sd 
 (defanglican mean-sd
@@ -138,4 +145,4 @@
         (sd (second params)))
     (predict mean)
     (predict sd)
-    (predict (draw (normal mean sd)))))
+    (predict (sample* (normal mean sd)))))

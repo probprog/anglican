@@ -125,10 +125,11 @@
       (add-predict '$particle-queue-length
                    (count @(state ::particle-queue)))))
 
-(defmethod infer :pcascade [_ prog & {:keys [number-of-threads
-                                             predict-cascade]
-                                      :or {number-of-threads 16
-                                           predict-cascade false}}]
+(defmethod infer :pcascade [_ prog value
+                            & {:keys [number-of-threads
+                                      predict-cascade]
+                               :or {number-of-threads 16
+                                    predict-cascade false}}]
   (let [initial-state (make-initial-state number-of-threads)]
     (letfn
       [(sample-seq []
@@ -141,7 +142,7 @@
                                         (/ number-of-threads 2)))
                                  #(future
                                     (exec ::algorithm
-                                          prog nil initial-state)))]
+                                          prog value initial-state)))]
                  (swap! (initial-state ::particle-count)
                         #(+ % (count new-threads)))
                  (swap! (initial-state ::particle-queue)

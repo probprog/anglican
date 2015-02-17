@@ -29,10 +29,14 @@
 
 (defmacro anglican 
   "macro for embedding anglican programs"
-  [& source]
-  (overriding-higher-order-functions
-   `(~'fn [~'_ ~'$state]
-      ~(cps-of-expression (program source) run-cont))))
+  [& args]
+  (let [[value source]
+        (if (symbol? (first args)) ; named argument?
+          [(first args) (rest args)]
+          ['$value args])]
+        (overriding-higher-order-functions
+          `(~'fn [~value ~'$state]
+             ~(cps-of-expression (program source) run-cont)))))
 
 (defmacro defanglican
   "binds variable to anglican program"

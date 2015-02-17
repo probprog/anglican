@@ -1,12 +1,7 @@
 (ns embang.runtime
   (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
-            [clojure.core.matrix.linear :as ml]
-            ;; Vectorz library is required explicitly to avoid
-            ;; loading it on demand at the beginning of a
-            ;; probabilistic programs. In Particle Cascade this
-            ;; causes transient failures to find :vectorz.
-            mikera.vectorz.core))
+            [clojure.core.matrix.linear :as ml]))
 
 ;; matrix library uses vectorz for protocol implementations
 (m/set-current-implementation :vectorz)
@@ -66,6 +61,12 @@
     "draws a sample from the distribution")
   (observe [this value]
     "return the probability [density] of the value"))
+
+;; `sample' is both a protocol method and a special form in
+;; Anglican. To generate random values without exposing the random
+;; choice as a checkpoint, use `sample*'.
+
+(def sample* "draws a sample from the distribution" sample)
 
 ;; distributions, in alphabetical order
 
@@ -303,6 +304,36 @@
                 ;; Fill the counts with zeroes until the new sample.
                 (into (repeat (+ (- sample (count counts)) 1) 0))
                 (update-in [sample] inc)))))))
+
+(defn DP
+  "Dirichlet process"
+  ([alpha H] (DP alpha H {}))
+  ([alpha H counts]
+   {:pre [(map? counts)]}
+   (reify
+     random-process
+     (produce [this]
+       ;; Sample from the categorical distribution of realized
+       ;; samples extended with a `new' value.
+       (let [dist (categorical (vec (conj counts [::new alpha])))]
+         (reify distribution
+           (sample [this] 
+             (let [s (sample dist)]
+               ;; When a `new' value is drawn, sample the actual
+               ;; value from the base measure.
+               (if (= s ::new) (sample H) s)))
+           (observe [this sample]
+             (let [log-p (observe dist sample)]
+               (if (> log-p (/ -1. 0.))
+                 log-p
+                 ;; If the sample has zero probability, a new value
+                 ;; is observed, observe that this is a new value and
+                 ;; the probability of the value with respect to the
+                 ;; base distribution.
+                 (+ (observe dist ::new)
+                    (observe H sample))))))))
+     (absorb [this sample]
+       (DP alpha H (update-in counts [sample] (fnil inc 0)))))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"

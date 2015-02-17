@@ -42,6 +42,13 @@
     (is (= (acond '(((= x 1) x) (else (* 2 x))))
            '(cond (= x 1) x :else (* 2 x))) "with else")))
 
+(deftest test-acase
+  (testing "acase"
+    (is (= (acase '(x (1 2) (3 4)))
+           '(case x 1 2 3 4)) "without else")
+    (is (= (acase '((+ y z) (1 2) (3 4) (else 5)))
+           '(case (+ y z) 1 2 3 4 5)))))
+
 (deftest test-abegin
   (testing "abegin"
     (is (= (abegin '((do 1) 2)) '(do (begin 1) 2))

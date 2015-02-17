@@ -17,10 +17,10 @@
                 [entry (next-state state entry)])
            number-of-threads))
 
-(defmethod infer :palmh [_ prog & {:keys [number-of-threads
-                                          predict-choices]
-                                  :or {number-of-threads 2
-                                       predict-choices false}}]
+(defmethod infer :palmh [_ prog value & {:keys [number-of-threads
+                                                predict-choices]
+                                         :or {number-of-threads 2
+                                              predict-choices false}}]
   (letfn
     [(next-seq [state] (next-state-seq state number-of-threads))
      (sample-seq [state next-states]
@@ -56,7 +56,7 @@
                         sample)]
            (cons sample (sample-seq state next-states)))))]
 
-    (let [state (:state (exec ::algorithm prog nil initial-state))]
+    (let [state (:state (exec ::algorithm prog value initial-state))]
       (if (seq (get-trace state))
         (sample-seq state (next-seq state))
         ;; No randomness in the program.
