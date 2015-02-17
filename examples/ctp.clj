@@ -22,7 +22,7 @@
 
 (def P-OPEN "probability that the edge is open" 0.5)
 (def COST "multiplier for edge costs" 1)
-(def NINSTANCE "problem instance" 20)
+(def NINSTANCE "problem instance" :20a)
 (def NITER "number of iterations" 100)
 (def PRPOL "predict the policy" false)
 
