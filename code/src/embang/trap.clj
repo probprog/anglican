@@ -434,7 +434,8 @@
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"
   (let [;; higher-order procedures cannot be primitive
-        exclude '#{map reduce
+        exclude '#{loop
+                   map reduce
                    filter keep keep-indexed remove
                    repeatedly
                    every? not-any? some

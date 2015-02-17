@@ -22,7 +22,7 @@
   [& body]
   `(~'let [~@(mapcat (fn [fun] [fun (symbol (str "$" fun))]) 
                      '[map reduce
-                       filter
+                       filter some
                        repeatedly
                        comp partial])]
      ~@body))
@@ -47,6 +47,31 @@
           [(format "anglican program '%s'" name) args])]
     `(def ~(with-meta name {:doc docstring})
        (anglican ~@source))))
+
+;; Programs can be written directly in a Clojure subset
+;; rather than in Anglican. Consult embang/trap.clj for
+;; the supported sublanguage.
+
+(defmacro query
+  "macro for embedding m! programs"
+  [& args]
+  (let [[value source]
+        (if (symbol? (first args)) ; named argument?
+          [(first args) (rest args)]
+          ['$value args])]
+        (overriding-higher-order-functions
+          `(~'fn [~value ~'$state]
+             ~(cps-of-expression `(~'fn [] ~@source) run-cont)))))
+
+(defmacro defquery
+  "binds variable to m! program"
+  [name & args]
+  (let [[docstring source]
+        (if (string? (first args))
+          [(first args) (rest args)]
+          [(format "m! program '%s'" name) args])]
+    `(def ~(with-meta name {:doc docstring})
+       (query ~@source))))
 
 ;;; Auxiliary macros
 
@@ -169,6 +194,13 @@
    (empty? lst) lst
    (fun (first lst)) (cons (first lst) ($filter fun (rest lst)))
    :else ($filter fun (rest lst))))
+
+(def-cps-fn $some
+  "some in CPS"
+  [fun lst]
+  (and (seq lst)
+    (or (fun (first lst))
+        ($some fun (rest lst)))))
 
 ;; `repeatedly' is useful for sampling from multivariates
 ;; using `transform-sample'

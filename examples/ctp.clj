@@ -50,18 +50,22 @@
                                         (repeat (count children)
                                                 1.))))))))
 
+        ;; Used to compute the walk distance.
+        (edge-weight (lambda (u v)
+                       (loop ((children (nth graph u)))
+                         (let ((child (first children)))
+                           (if (= (first child) v)
+                             (second child)
+                             (begin (assert (seq (rest children)))
+                                    (recur (rest children))))))))
+
         ;; Probability distribution that the traveller
         ;; `likes' the edge.
         (likes (lambda (u v)
-                 (loop ((children (nth graph u)))
-                   (let ((child (first children)))
-                     (if (= (first child) v)
                        ;; As the cost of travelling goes up,
                        ;; it makes more sense to invest into
                        ;; learning the policy.
-                       (flip (exp (- (* cost (second child)))))
-                       (begin (assert (seq (rest children)))
-                              (recur (rest children))))))))
+                       (flip (exp (- (* cost (edge-weight u v)))))))
 
         ;; Returns true when t is reachable from u.
         ;; Updates the distance to the goal as a side effect,
@@ -112,7 +116,8 @@
       (loop ((s-trans (policy nil s)))
         (if (seq s-trans)
           (begin
-            (predict (list 'T s (first (first s-trans))) (second (first s-trans)))
+            (predict (list 'T s (first (first s-trans)))
+                     (second (first s-trans)))
             (recur (rest s-trans)))))
       ;; Counts of open and blocked nodes.
       (predict 'nopen (retrieve ::nopen))
@@ -121,9 +126,10 @@
       res)))
 
 (defn get-distance
-  "computes distance from log-weight"
+  "computes walk distance from log-weight"
   ;; Purposefully defined as a regular clojure function
-  ;; to access the state.
+  ;; to access the state. The distance can be computed
+  ;; by dfs itself, but why bother.
   [cont $state cost]
   (cont (/ (- (embang.state/get-log-weight $state)) cost) $state))
 
@@ -134,10 +140,12 @@
                       (list parameters)))
         (p-open (or (first parameters) P-OPEN))
         (cost (or (second parameters) COST))
-        (instance (get ctp-data (or (second (rest parameters)) INSTANCE))))
+        (instance (get ctp-data
+                       (or (second (rest parameters)) INSTANCE))))
 
     (observe (flip 1.) ; drop disconnected instances
-             (travel (get instance :graph) (get instance :s) (get instance :t)
+             (travel (get instance :graph)
+                     (get instance :s) (get instance :t)
                      p-open cost))
 
     (predict 'distance (get-distance cost))))
