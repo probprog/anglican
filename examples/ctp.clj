@@ -140,8 +140,9 @@
                                children
                                ;; This is what we want to learn,
                                ;; expose it to MH.
-                               (sample (dirichlet
-                                         (repeat (count children) 1.)))))))]
+                               (sample u (dirichlet
+                                           (repeat (count children)
+                                                   1.)))))))]
 
       ((fn loop [n sum]
          (if (= n niter)
@@ -155,7 +156,7 @@
              (let [distance (/ sum n)]
                ;; Observe how we liked the journey.
                (observe (flip (exp (- (* cost distance)))) true)
-               (predict 'distance distance)))
+               (predict distance)))
 
 
            ;; Continue to next iterations.

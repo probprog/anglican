@@ -331,15 +331,28 @@
 
 ;;; Probabilistic forms
 
+;; If `predict' has two arguments, then the first argument
+;; is used as the predict label. Otherwise the label is
+;; the symbolic representation of `predict''s argument.
+
 (defn cps-of-predict
   "transforms predict to CPS,
   predict appends predicted expression
   and its value to (:predicts $state)"
   [args cont]
   (make-of-args args
-                (fn [[label value]]
-                  `(~cont nil (add-predict ~'$state
-                                           ~label ~value)))))
+                (fn [args*]
+                  (let [[label value]
+                        (if (= (count args*) 2)
+                          args*
+                          `['~(first args) ~@args*])]
+                    `(~cont nil (add-predict ~'$state
+                                             ~label ~value))))))
+
+;; `observe' and `select' may accept an optional argument at
+;; the first position. If the argument is specified, then
+;; the value is the identifier of the checkpoint; otherwise,
+;; the identifier is a statically generated symbol.
 
 (defn cps-of-observe
   "transforms observe to CPS,
@@ -348,9 +361,12 @@
   to the log-weight"
   [args cont]
   (make-of-args args
-                (fn [[dist value]]
-                  `(->observe '~(*gensym* "O")
-                              ~dist ~value ~cont ~'$state))))
+                (fn [args*]
+                  (let [[id dist value]
+                        (if (= (count args*) 3)
+                          args*
+                          `['~(*gensym* "O") ~@args*])]
+                    `(->observe ~id ~dist ~value ~cont ~'$state)))))
 
 (defn cps-of-sample
   "transforms sample to CPS;
@@ -358,9 +374,12 @@
   and the control is transferred to the inference algorithm"
   [args cont]
   (make-of-args args
-                (fn [[dist]]
-                  `(->sample '~(*gensym* "S")
-                             ~dist ~cont ~'$state))))
+                (fn [args*]
+                  (let [[id dist value]
+                        (if (= (count args*) 2)
+                          args*
+                          `['~(*gensym* "S") ~@args*])]
+                    `(->sample ~id ~dist ~cont ~'$state)))))
 
 ;;; Memoization and state access
 
