@@ -30,12 +30,9 @@
 (defrecord sample [id dist cont state])
 (defrecord result [state])
 
-;; Retrieval of final result:
-;; run the function on the initial state
-;; and return the final state wrapped into `result'.
+;; Retrieval of final result.
 
-(defn run-cont [f s]
-  (f (fn [v s] (->result (state-cont v s))) s))
+(defn result-cont [v s] (->result s))
 
 (defn primitive-procedure?
   "true if the procedure is primitive,

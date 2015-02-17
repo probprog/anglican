@@ -48,8 +48,8 @@
         ;; Policy is conditioned on the parent node p and
         ;; current node u.
         policy (mem (fn [p u]
-                      (let [children ($map first (nth graph u))]
-                        ($map list
+                      (let [children (map first (nth graph u))]
+                        (map list
                               children
                               ;; This is what we want to learn,
                               ;; expose it to MH.
@@ -59,7 +59,7 @@
 
         ;; Used to compute the walk distance.
         edge-weight (fn [u v]
-                      ($some (fn [child]
+                      (some (fn [child]
                                (if (= (first child) v)
                                  (second child)))
                              (nth graph u)))
@@ -80,7 +80,7 @@
                   ((fn loop [policy]
                      ;; On every step of the loop, filter visited
                      ;; edges from the policy.
-                     (let [policy ($filter
+                     (let [policy (filter
                                     (fn [choice]
                                       (not (contains?
                                              (retrieve ::visited)
@@ -110,7 +110,7 @@
 
                    ;; Initialize policy for the node by transition
                    ;; weights for all open edges.
-                   ($filter
+                   (filter
                      (fn [choice]
                        (open? u (first choice)))
                      (policy p u)))))]

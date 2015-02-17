@@ -124,7 +124,6 @@
       expr)))
 
 (defn program
-  "translates anglican program to clojure function"
+  "translates anglican program to clojure expression"
   [p]
-  `(~'fn []
-     ~@(elist p)))
+  `(~'do ~@(elist p)))
