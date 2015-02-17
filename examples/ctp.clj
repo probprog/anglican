@@ -1,4 +1,4 @@
-(ns ctp
+(ns ctpm
   (require embang.state)
   (use [embang runtime emit]
        ctp-data))
@@ -23,129 +23,149 @@
 (def P-OPEN "probability that the edge is open" 0.5)
 (def COST "multiplier for edge costs" 1)
 (def INSTANCE "problem instance" 20)
+(def NITER "number of iterations" 100)
+(def PRPOL "predict the policy" false)
 
-(defun travel (graph s t p-open cost)
+(def-cps-fn travel [graph s t p-open cost policy]
   ;; All edges are open or blocked with the same probability.
   ;; The results are conditioned on this random choice, hence
-  ;; the choice is hidden (*) from the inference algorithm.
-  (let ((open? (mem (lambda (u v) 
-                      (let ((is-open (sample* (flip p-open))))
-                        (if is-open
-                          ;; Keep counts of open and closed
-                          ;; explored edges for predicting.
-                          (store ::nopen (inc (or (retrieve ::nopen) 0)))
-                          (store ::nblocked (inc (or (retrieve ::nblocked) 0))))
-
-                        is-open))))
-
-        ;; Policy is conditioned on the parent node p and
-        ;; current node u.
-        (policy (mem (lambda (p u)
-                       (let ((children (map first (nth graph u))))
-                         (map list
-                              children
-                              ;; This is what we want to learn,
-                              ;; expose it to MH.
-                              (sample (dirichlet
-                                        (repeat (count children)
-                                                1.))))))))
+  ;; the choice is hidden (*) from the inference algorithm,
+  ;; and re-considered at each invocation of travel.
+  (let [open? (mem (fn [u v] 
+                     (let [is-open (sample* (flip p-open))]
+                       (if is-open
+                         ;; Keep counts of open and closed
+                         ;; explored edges for predicting.
+                         (store ::nopen (inc (or (retrieve ::nopen) 0)))
+                         (store ::nblocked (inc (or (retrieve ::nblocked) 0))))
+                       is-open)))
 
         ;; Used to compute the walk distance.
-        (edge-weight (lambda (u v)
-                       (loop ((children (nth graph u)))
-                         (let ((child (first children)))
-                           (if (= (first child) v)
-                             (second child)
-                             (begin (assert (seq (rest children)))
-                                    (recur (rest children))))))))
-
-        ;; Probability distribution that the traveller
-        ;; `likes' the edge.
-        (likes (lambda (u v)
-                       ;; As the cost of travelling goes up,
-                       ;; it makes more sense to invest into
-                       ;; learning the policy.
-                       (flip (exp (- (* cost (edge-weight u v)))))))
+        edge-weight (fn [u v]
+                      (some (fn [child]
+                               (if (= (first child) v)
+                                 (second child)))
+                             (nth graph u)))
 
         ;; Returns true when t is reachable from u.
         ;; Updates the distance to the goal as a side effect,
         ;; via observing edges.
-        (dfs (lambda (p u t)
-               (or (= u t)
-                   ;; Initialize policy for the node by transition
-                   ;; weights for all open edges.
-                   (loop ((policy (filter
-                                    (lambda (choice)
-                                      (open? u (first choice)))
-                                    (policy p u))))
+        dfs (fn dfs [u t]
+              (if (= u t)
+                [true 0.]
+                ((fn loop [policy passed]
+                   ;; On every step of the loop, filter visited
+                   ;; edges from the policy.
+                   (let [policy
+                         (filter
+                           (fn [choice]
+                             (not (contains?
+                                    (retrieve ::visited)
+                                    (sort [u (first choice)]))))
+                           policy)]
 
-                     ;; On every step of the loop, filter visited
-                     ;; edges from the policy.
-                     (let ((policy (filter
-                                     (lambda (choice)
-                                       (not (contains?
-                                              (retrieve ::visited)
-                                              (sort (list u (first choice))))))
-                                     policy)))
+                     (if (empty? policy)
+                       [false passed]
+                       (let [dist (categorical policy)
+                             ;; We implement here stochastic policy
+                             ;; and do not want to learn the best
+                             ;; path, but rather to win on average.
+                             ;; Again, sampling is hidden from MH.
+                             v (sample* dist)]
+                         ;; Search for the goal in the subtree.
+                         (store ::visited
+                                (conj (retrieve ::visited)
+                                      (sort [u v])))
+                         (let [res (dfs v t)
+                               passed (+ passed
+                                         (edge-weight u v)
+                                         (second res))]
+                           (if (first res)
+                             ;; Goal found in the subtree.
+                             [true passed]
+                             ;; Continue the search in another
+                             ;; subtree.
+                             (loop  
+                               policy
+                               ;; Add the weight of the edge
+                               ;; through which we return.
+                               (+ passed (edge-weight v u)))))))))
 
-                       (and (seq policy)
-                            (let ((dist (categorical policy))
-                                  ;; We implement here stochastic policy
-                                  ;; and do not want to learn the best
-                                  ;; path, but rather to win on average.
-                                  ;; Again, sampling is hidden from MH.
-                                  (v (sample* dist)))
-                              ;; left through [u v]
-                              (store ::visited
-                                     (conj (retrieve ::visited)
-                                           (sort (list u v))))
-                              ;; Observe the node. The probability
-                              ;; that we like the node decreases
-                              ;; with node weight.
-                              (observe (likes u v) true) 
-                              (or (dfs u v t)
-                                  (begin
-                                    ;; came back through [v u]
-                                    (observe (likes v u)  true)
-                                    (recur policy)))))))))))
+                 ;; Initialize policy for the node by transition
+                 ;; weights for all open edges.
+                 (filter
+                   (fn [choice]
+                     (open? u (first choice)))
+                   (policy u))
+
+                 ;; Start with zero passed distance.
+                 0.)))]
+
     (store ::visited (set ()))
-    (let ((res (dfs nil s t)))
+    (dfs s t)))
 
-      ;;; Debugging predicts.
-      ;; Policy at start node.
-      (loop ((s-trans (policy nil s)))
-        (if (seq s-trans)
-          (begin
-            (predict (list 'T s (first (first s-trans)))
-                     (second (first s-trans)))
-            (recur (rest s-trans)))))
-      ;; Counts of open and blocked nodes.
-      (predict 'nopen (retrieve ::nopen))
-      (predict 'nblocked (retrieve ::nblocked))
+(def-cps-fn predict-policy
+  [graph policy]
+  ((fn for-nodes [nodes]
+     (when (seq nodes)
+       (let [u (first nodes)]
+         ((fn for-choices [choices]
+            (when (seq choices)
+              (predict (list 'T u (first (first choices)))
+                       (second (first choices)))
+              (for-choices (rest choices))))
+          (policy u)))
+       (for-nodes (rest nodes))))
+   (range (count graph))))
 
-      res)))
+(defquery ctpm "expected path cost" parameters
 
-(defn get-distance
-  "computes walk distance from log-weight"
-  ;; Purposefully defined as a regular clojure function
-  ;; to access the state. The distance can be computed
-  ;; by dfs itself, but why bother.
-  [cont $state cost]
-  (cont (/ (- (embang.state/get-log-weight $state)) cost) $state))
+  (let [parameters (if (seq parameters)
+                     parameters
+                     (list parameters))
+        p-open (or (first parameters) P-OPEN)
+        cost (or (second parameters) COST)
+        instance (get ctp-data
+                      (or (second (rest parameters)) INSTANCE))
+        niter (or (second (rest (rest parameters))) NITER)
+        prpol (or (second (rest (rest (rest parameters))))) PRPOL]
 
-(defanglican ctp "expected path cost" parameters
+    ;; Fix policy for all iterations.
+    (let [graph (get instance :graph)
+          ;; Policy is conditioned on the parent node p and
+          ;; current node u.
+          policy (mem (fn [u]
+                        (let [children (map first (nth graph u))]
+                          (map list
+                               children
+                               ;; This is what we want to learn,
+                               ;; expose it to MH.
+                               (sample (dirichlet
+                                         (repeat (count children) 1.)))))))]
 
-  (let ((parameters (if (seq parameters)
-                      parameters
-                      (list parameters)))
-        (p-open (or (first parameters) P-OPEN))
-        (cost (or (second parameters) COST))
-        (instance (get ctp-data
-                       (or (second (rest parameters)) INSTANCE))))
+      ((fn loop [n sum]
+         (if (= n niter)
+           ;; Found niter connected items.
+           (do
+             ;; Policy at every node.
+             (when prpol
+               (predict-policy graph policy))
 
-    (observe (flip 1.) ; drop disconnected instances
-             (travel (get instance :graph)
-                     (get instance :s) (get instance :t)
-                     p-open cost))
+             ;; The average distance should decrease with convergence.
+             (let [distance (/ sum n)]
+               ;; Observe how we liked the journey.
+               (observe (flip (exp (- (* cost distance)))) true)
+               (predict 'distance distance)))
 
-    (predict 'distance (get-distance cost))))
+
+           ;; Continue to next iterations.
+           (let [res (travel (get instance :graph)
+                             (get instance :s) (get instance :t)
+                             p-open cost
+                             policy)]
+             (if (first res) 
+               ;; Connected instance.
+               (loop (inc n) (+ sum (second res)))
+               ;; Disconnected instance.
+               (loop n sum)))))
+       0 0.))))
