@@ -53,13 +53,17 @@
 (defn simple?
   "true if expr has no continuation"
   [expr]
-  (if (and (seq? expr) (seq expr))
+  (cond
+    (or (vector? expr) (map? expr) (set? expr))
+    (every? simple? expr)
+
+    (and (seq? expr) (seq expr))
     (case (first expr)
       quote true
       fn false
       (begin
-       if cond 
-       and or do) (every? simple? (rest expr))
+        if when cond 
+        and or do) (every? simple? (rest expr))
       case (if (even? (count expr))
              ;; No default clause.
              (every? simple? (take-nth 2 (rest expr)))
@@ -71,16 +75,17 @@
                          (take-nth 2 (rest bindings)))
                  (every? simple? body)))
       (predict
-       observe
-       sample
-       mem
-       store
-       retrieve
-       apply) false
+        observe
+        sample
+        mem
+        store
+        retrieve
+        apply) false
       ;; application
       (and (primitive-procedure? (first expr))
            (every? simple? (rest expr))))
-    (not (primitive-procedure? expr))))
+
+    (not (primitive-procedure?  expr)) true))
 
 ;;; Opaque expresions
 
@@ -127,8 +132,36 @@
            ~(cps-of-elist rst cont))
         cont))))
 
+;;; Literal data structures --- vectors, maps and sets.
+
+;; Literal vector is a shorthand notation for (vector ... ).
+(defn cps-of-vector
+  "transforms literal vector to CPS"
+  [expr cont]
+  (cps-of-expression `(~'vector ~@expr) cont))
+
+;; Literal map is a shorthand notation for (hash-map ...).
+(defn cps-of-hash-map
+  "transforms literal map to CPS"
+  [expr cont]
+  (cps-of-expression `(~'hash-map ~@(apply concat (seq expr))) cont))
+
+;; Literal set is a shorthand notation for (set (list ...)).
+(defn cps-of-set
+  "transforms literal set to CPS"
+  [expr cont]
+  (cps-of-expression `(~'set (~'list ~@expr)) cont))
+
+;; Opaque expressions are passed to continuations as arguments.
+(defn cps-of-opaque
+  "transforms opaque expression to CPS"
+  [expr cont]
+  `(~cont ~(opaque-cps expr) ~'$state))
+
 ;; Continuation is the first, rather than the last, parameter of a
 ;; function to support functions with variable arguments.
+
+;;; Closures
 
 (defn fn-cps
   "transforms function definition to CPS form"
@@ -159,6 +192,8 @@
                 `(~'fn [~name ~'$state]
                    ~rst))))))
     (cps-of-elist body cont)))
+
+;;; Flow control.
 
 (defmacro ^:private defn-with-named-cont
   "binds the continuation to a name to make the code
@@ -196,6 +231,11 @@
              (~'if ~cnd
                ~(cps-of-expression thn cont)
                ~(cps-of-expression els cont))))))))
+
+(defn cps-of-when
+  "transforms when to CPS"
+  [args cont]
+  (cps-of-if `(~(first args) (~'do ~@(rest args))) cont))
 
 (defn-with-named-cont
   cps-of-cond
@@ -260,6 +300,8 @@
   [exprs cont]
   (cps-of-elist exprs cont))
 
+;;;; Special forms and applications
+
 (defn ^:private make-of-args
   "builds lexical bindings for all compound args
   and then calls `make' to build expression
@@ -286,6 +328,8 @@
                    (make (map second substs))))]
 
          (make-of-slist substs)))))
+
+;;; Probabilistic forms
 
 (defn cps-of-predict
   "transforms predict to CPS,
@@ -317,6 +361,8 @@
                 (fn [[dist]]
                   `(->sample '~(*gensym* "S")
                              ~dist ~cont ~'$state))))
+
+;;; Memoization and state access
 
 (defn cps-of-mem
   "transforms mem to CPS"
@@ -368,6 +414,8 @@
                   `(~cont (retrieve ~'$state ~@args)
                           ~'$state))))
 
+;;; Function applications
+
 (defn cps-of-apply
   "transforms apply to CPS;
   apply of user-defined (not primitive) procedures
@@ -377,7 +425,7 @@
                 (fn [acall]
                   (let [[rator & rands] acall]
                     (if (primitive-procedure? rator)
-                      `(~cont (apply ~@acall) ~'$state) ; clojure `apply'
+                      `(~cont (apply ~@acall) ~'$state)
                       `(~'fn [] (apply ~rator
                                        ~cont ~'$state ~@rands)))))))
 
@@ -393,6 +441,8 @@
                       `(~cont ~call ~'$state)
                       `(~'fn [] (~rator ~cont ~'$state ~@rands)))))))
 
+;;; Primitive procedures in value postition
+
 (defn primitive-procedure-cps
   "wraps primitive procedure as a CPS form"
   [expr]
@@ -400,33 +450,37 @@
         parms (*gensym* "P")]
     `(~'fn [~fncont ~'$state & ~parms]
        (~fncont (~'apply ~expr ~parms) ~'$state))))
+
+;;; Transformation dispatch
     
 (defn cps-of-expression
   "dispatches CPS transformation by expression type"
   [expr cont]
   (cond
-    (opaque?
-      expr) `(~cont ~(opaque-cps expr) ~'$state)
-    (seq?
-      expr) (let [[kwd & args] expr]
-              (case kwd
-                let       (cps-of-let args cont)
-                if        (cps-of-if args cont)
-                cond      (cps-of-cond args cont)
-                case      (cps-of-case args cont)
-                and       (cps-of-and args cont)
-                or        (cps-of-or args cont)
-                do        (cps-of-do args cont)
-                predict   (cps-of-predict args cont)
-                observe   (cps-of-observe args cont)
-                sample    (cps-of-sample args cont)
-                mem       (cps-of-mem args cont)
-                store     (cps-of-store args cont)
-                retrieve  (cps-of-retrieve args cont)
-                apply     (cps-of-apply args cont)
-                ;; application
-                (cps-of-application expr cont)))
-     :else (assert false)))
+    (vector? expr)             (cps-of-vector expr cont)
+    (map? expr)                (cps-of-hash-map expr cont)
+    (set? expr)                (cps-of-set expr cont)
+    (opaque?  expr)            (cps-of-opaque expr cont)
+    (seq?  expr) (let [[kwd & args] expr]
+                   (case kwd
+                     let       (cps-of-let args cont)
+                     if        (cps-of-if args cont)
+                     when      (cps-of-when args cont)
+                     cond      (cps-of-cond args cont)
+                     case      (cps-of-case args cont)
+                     and       (cps-of-and args cont)
+                     or        (cps-of-or args cont)
+                     do        (cps-of-do args cont)
+                     predict   (cps-of-predict args cont)
+                     observe   (cps-of-observe args cont)
+                     sample    (cps-of-sample args cont)
+                     mem       (cps-of-mem args cont)
+                     store     (cps-of-store args cont)
+                     retrieve  (cps-of-retrieve args cont)
+                     apply     (cps-of-apply args cont)
+                     ;; application
+                               (cps-of-application expr cont)))
+    :else (assert false (str "Cannot transform " expr " to CPS"))))
 
 (def ^:dynamic *primitive-procedures*
   "primitive procedures, do not exist in CPS form"

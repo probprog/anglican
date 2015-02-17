@@ -5,9 +5,18 @@
 (deftest test-simple?
   (testing "simple?"
     (is (simple? 1) "number")
+    (is (simple? [1 2]) "vector")
+    (is (simple? {:x 1}) "map")
+    (is (simple? #{1}) "set")
     (is (simple? '(quote (1 2 3))) "quote")
     (is (simple? 'x) "variable")
     (is (simple? '(if 1 2 3)) "if with simple subexpressions")
+    (is (not (simple? '[1 (foo x)]))
+        "vector with compound subexpressions")
+    (is (not (simple? '{:x (bar 1)}))
+        "map with compound subexpressions")
+    (is (not (simple? '#{(if x (foo a) (bar b))}))
+        "set with compound subexpressions")
     (is (not (simple? '(a b c))) "application")
     (is (not (simple? '(cond a 1 (b) 2)))
         "cond with compound subexpression")
@@ -45,6 +54,17 @@
                    $state))
           "primitive procedure can be passed as an argument"))))
 
+(deftest test-of-literal
+  (testing "vector"
+    (is (= (cps-of-vector [1 2 3] 'ret) '(ret (vector 1 2 3) $state))
+        "literal vector"))
+  (testing "map"
+    (is (= (cps-of-hash-map {1 2} 'ret) '(ret (hash-map 1 2) $state))
+        "literal hash-map"))
+  (testing "set"
+    (is (= (cps-of-set #{1} 'ret) '(ret (set (list 1)) $state))
+        "literal set")))
+
 (deftest test-fn-cps
   (binding [*gensym* symbol]
     (testing "fn-cps"
@@ -74,6 +94,7 @@
              '(let [C (fn [c s] nil)]
                 (if 1 (C 2 $state) (C 3 $state))))
           "if with named cont"))
+
     (testing "cps-of-if"
       (is (= (cps-of-if '(1 2 3) 'ret)
              '(if 1 (ret 2 $state) (ret 3 $state)))
@@ -88,6 +109,11 @@
       (is (= (cps-of-if '(1 2) 'ret)
              '(if 1 (ret 2 $state) (ret nil $state)))
           "missing else"))
+
+    (testing "cps-of-when"
+      (is (= (cps-of-when '(a b c) 'ret)
+             '(if a (ret (do b c) $state) (ret nil $state)))))
+
     (testing "cps-of-cond"
       (is (= (cps-of-cond '(1 2 3 4) 'ret)
              '(if 1 (ret 2 $state)
