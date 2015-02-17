@@ -56,7 +56,7 @@
   "macro for embedding m! programs"
   [& args]
   (let [[value source]
-        (if (symbol? (first args)) ; named argument?
+        (if (or (symbol? (first args)) (vector? (first args)))
           [(first args) (rest args)]
           ['$value args])]
         (overriding-higher-order-functions

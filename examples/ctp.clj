@@ -22,7 +22,7 @@
 
 (def P-OPEN "probability that the edge is open" 0.5)
 (def COST "multiplier for edge costs" 1)
-(def INSTANCE "problem instance" 20)
+(def NINSTANCE "problem instance" 20)
 (def NITER "number of iterations" 100)
 (def PRPOL "predict the policy" false)
 
@@ -118,22 +118,18 @@
        (for-nodes (rest nodes))))
    (range (count graph))))
 
-(defquery ctp "expected path cost" parameters
+(defquery ctp "expected path cost" [p-open cost ninstance niter prpol]
 
-  (let [parameters (if (seq parameters)
-                     parameters
-                     (list parameters))
-        p-open (or (first parameters) P-OPEN)
-        cost (or (second parameters) COST)
-        instance (get ctp-data
-                      (or (second (rest parameters)) INSTANCE))
-        niter (or (second (rest (rest parameters))) NITER)
-        prpol (or (second (rest (rest (rest parameters))))) PRPOL]
+  (let [p-open (or p-open P-OPEN)
+        cost (or cost COST)
+        ninstance (or ninstance NINSTANCE)
+        niter (or niter NITER)
+        prpol (or prpol PRPOL)]
 
-    ;; Fix policy for all iterations.
-    (let [graph (get instance :graph)
-          ;; Policy is conditioned on the parent node p and
-          ;; current node u.
+    (let [instance (get ctp-data ninstance)
+          graph (get instance :graph)
+          ;; Fix policy for all iterations.  Policy is conditioned on the
+          ;; parent node p and current node u.
           policy (mem (fn [u]
                         (let [children (map first (nth graph u))]
                           (map list
