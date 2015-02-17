@@ -53,7 +53,8 @@
                               children
                               ;; This is what we want to learn,
                               ;; expose it to MH.
-                              (sample (dirichlet
+                              (repeat (count children) 1.)
+                              #_ (sample (dirichlet
                                         (repeat (count children)
                                                 1.)))))))
 
