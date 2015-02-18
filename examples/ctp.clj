@@ -154,7 +154,6 @@
                (observe (flip (exp (- (* cost distance)))) true)
                (predict distance)))
 
-
            ;; Continue to next iterations.
            (let [res (travel (get instance :graph)
                              (get instance :s) (get instance :t)
