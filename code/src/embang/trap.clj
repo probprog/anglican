@@ -19,6 +19,13 @@
 
 (declare ^:dynamic *primitive-procedures*)
 
+(defmacro shading-primitive-procedures
+  "excludes names from the set of primitive procedures"
+  [names & body]
+  `(binding [*primitive-procedures*
+             (reduce disj *primitive-procedures* (flatten ~names))]
+     ~@body))
+
 ;; Continuation access --- value and state
 
 (defn value-cont "returns value" [v _] v)
@@ -170,8 +177,7 @@
     (fn-cps `[nil ~@args])
     (let [[name parms & body] args
           fncont (*gensym* "C")]
-      (binding [*primitive-procedures*
-                (reduce disj *primitive-procedures* parms)]
+      (shading-primitive-procedures parms
         `(~'fn ~@(when name [name])
            [~fncont ~'$state ~@parms]
            ~(cps-of-elist body fncont))))))
@@ -181,8 +187,7 @@
   [[bindings & body] cont]
   (if (seq bindings)
     (let [[name value & bindings] bindings]
-      (binding [*primitive-procedures*
-                (disj *primitive-procedures* name)]
+      (shading-primitive-procedures [name]
         (let [rst (cps-of-let `(~bindings ~@body) cont)]
           (if (opaque? value)
             `(~'let [~name ~(opaque-cps value)]
