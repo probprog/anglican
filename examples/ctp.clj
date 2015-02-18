@@ -36,8 +36,10 @@
                        (if is-open
                          ;; Keep counts of open and closed
                          ;; explored edges for predicting.
-                         (store ::nopen (inc (or (retrieve ::nopen) 0)))
-                         (store ::nblocked (inc (or (retrieve ::nblocked) 0))))
+                         (store ::nopen
+                                (inc (or (retrieve ::nopen) 0)))
+                         (store ::nblocked
+                                (inc (or (retrieve ::nblocked) 0))))
                        is-open)))
 
         ;; Used to compute the walk distance.
