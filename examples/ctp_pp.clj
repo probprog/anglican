@@ -25,9 +25,6 @@
 
 (def-cps-fn travel [graph s t p-open policy]
   ;; All edges are open or blocked with the same probability.
-  ;; The results are conditioned on this random choice, hence
-  ;; the choice is hidden (*) from the inference algorithm,
-  ;; and re-considered at each invocation of travel.
   (let [open? (mem (fn [u v] 
                      (sample* (flip p-open))))
 
@@ -61,7 +58,6 @@
                              ;; We implement here stochastic policy
                              ;; and do not want to learn the best
                              ;; path, but rather to win on average.
-                             ;; Again, sampling is hidden from MH.
                              v (sample* dist)]
                          ;; Search for the goal in the subtree.
                          (store ::visited
