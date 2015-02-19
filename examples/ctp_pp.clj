@@ -3,7 +3,7 @@
   (use [embang runtime emit]
        ctp-data))
 
-;;; Canadian Traveller Problem
+;;;; Canadian Traveller Problem
 
 ;; The graph is attributed by two probabilities for each
 ;; edge --- that the edge is open, and that the traveller
@@ -16,15 +16,14 @@
 ;; probabilities of selecting each edge.
 
 ;;; Default values for parameters. 
-
 ;; Parameters can be passed via the initial value as
 ;;   (p-open cost).
 
 (def P-OPEN "probability that the edge is open" 0.5)
 (def COST "multiplier for edge costs" 1)
-(def NINSTANCE "problem instance" :20a)
+(def NINSTANCE "problem instance" :50a)
 
-(def-cps-fn travel [graph s t p-open cost policy]
+(def-cps-fn travel [graph s t p-open policy]
   ;; All edges are open or blocked with the same probability.
   ;; The results are conditioned on this random choice, hence
   ;; the choice is hidden (*) from the inference algorithm,
@@ -134,7 +133,7 @@
                                (sample u (dirichlet
                                            (repeat (count children)
                                                    1.)))))))
-          result (travel graph s t p-open cost policy)
+          result (travel graph s t p-open policy)
           connected (first result)
           distance (second result)]
       ;; Reject disconnected items.
