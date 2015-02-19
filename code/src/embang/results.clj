@@ -197,9 +197,9 @@
                    parsed-line-seq
                    smry-seq
                    last)]
-    (reduce dissoc
-            totals
-            (remove #(included? only exclude %) (keys totals)))))
+    (select-keys totals
+                 (filter #(included? only exclude %)
+                         (keys totals)))))
 
 ;;;; Sample distance metrics
 
@@ -283,16 +283,22 @@
 
 (defn read-summaries
   "reads summaries from standard input"
-  [smry-seq & {:keys [skip step]
+  [smry-seq & {:keys [skip step only exclude]
                :or {skip 0 
-                    step 1} :as options}]
+                    step 1
+                    only nil
+                    exclude #{}} :as options}]
   (->> (io/reader *in*)
        line-seq
        parsed-line-seq
        (drop skip)
        smry-seq
        (take-nth step)
-       rest))
+       rest
+       (map (fn [summary] 
+              (select-keys summary 
+                           (filter #(included? only exclude %)
+                                   (keys summary)))))))
 
 (defn distance-seq
   "reads results from stdin and returns a lazy sequence
@@ -305,8 +311,7 @@
                                    exclude #{}} :as options}]
   (map (fn [summary]
          (reduce + (map #(distance (truth %) (summary %))
-                        (filter #(included? only exclude %)
-                                (keys summary)))))
+                        (keys summary))))
        (apply read-summaries smry-seq (unmap options))))
 
 ;;; Discrete predicts

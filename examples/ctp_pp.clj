@@ -22,8 +22,9 @@
 (def P-OPEN "probability that the edge is open" 0.5)
 (def COST "multiplier for edge costs" 1)
 (def NINSTANCE "problem instance" :50a)
+(def DETERMINISTIC "learn deterministic policy" false)
 
-(def-cps-fn travel [graph s t p-open policy]
+(def-cps-fn travel [graph s t p-open policy deterministic]
   ;; All edges are open or blocked with the same probability.
   (let [open? (mem (fn [u v] 
                      (sample* (flip p-open))))
@@ -55,14 +56,12 @@
                      (if (empty? policy)
                        [false passed]
                        (let [dist (categorical policy)
-                             ;; We implement here stochastic policy
-                             ;; and do not want to learn the best
-                             ;; path, but rather to win on average.
-                             v (first 
-                                 (reduce (fn [[imax pmax] [i p]]
-                                         (if (< pmax p) [i p] [imax pmax]))
-                                       [0 0] policy)
-                                       #_ (sample* dist))]
+                             v (if deterministic
+                                 (first 
+                                   (reduce (fn [[imax pmax] [i p]]
+                                             (if (< pmax p) [i p] [imax pmax]))
+                                           [0 0] policy))
+                                   (sample* dist))]
                          ;; Search for the goal in the subtree.
                          (store ::visited
                                 (conj (retrieve ::visited)
@@ -112,11 +111,12 @@
 
 (defquery ctp-pp
   "predicting policy for CTP"
-  [p-open cost ninstance] 
+  [p-open cost ninstance deterministic] 
 
   (let [p-open (or p-open P-OPEN)
         cost (or cost COST)
-        ninstance (or ninstance NINSTANCE)]
+        ninstance (or ninstance NINSTANCE)
+        deterministic (or deterministic DETERMINISTIC)]
 
     (let [instance (get ctp-data ninstance)
           graph (get instance :graph)
@@ -142,7 +142,7 @@
           policy (fn [u] (get transitions u))
 
           ;; Compute the predictions
-          result (travel graph s t p-open policy)
+          result (travel graph s t p-open policy deterministic)
           connected (first result)
           distance (second result)]
 
