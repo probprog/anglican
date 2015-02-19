@@ -58,7 +58,11 @@
                              ;; We implement here stochastic policy
                              ;; and do not want to learn the best
                              ;; path, but rather to win on average.
-                             v (sample* dist)]
+                             v (first 
+                                 (reduce (fn [[imax pmax] [i p]]
+                                         (if (< pmax p) [i p] [imax pmax]))
+                                       [0 0] policy)
+                                       #_ (sample* dist))]
                          ;; Search for the goal in the subtree.
                          (store ::visited
                                 (conj (retrieve ::visited)
