@@ -118,20 +118,30 @@
           graph (get instance :graph)
           s (get instance :s)
           t (get instance :t)
-          ;; Fix policy for all iterations.  Policy is conditioned on the
-          ;; parent node p and current node u.
-          policy (mem (fn [u]
-                        (let [children (map first (nth graph u))]
-                          (map list
-                               children
-                               ;; This is what we want to learn,
-                               ;; expose it to MH.
-                               (sample u (dirichlet
-                                           (repeat (count children)
-                                                   1.)))))))
+
+          ;; Fix policy in every node.
+          transitions 
+          (reduce
+            (fn [transitions u]
+              (assoc transitions u
+                     (let [children (map first (nth graph u))]
+                       ;; Build argument for the categorical distribution:
+                       ;; selection probability for each child.
+                       (map list
+                            children
+                            (sample (dirichlet
+                                      (repeat (count children)
+                                              1.)))))))
+            {} (range (count graph)))
+
+          ;; Policy function for the agent.
+          policy (fn [u] (get transitions u))
+
+          ;; Compute the predictions
           result (travel graph s t p-open policy)
           connected (first result)
           distance (second result)]
+
       ;; Reject disconnected items.
       (observe (flip 1.0) connected)
       ;; Observe how the agent liked the journey.
