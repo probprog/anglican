@@ -23,7 +23,6 @@
 (def P-OPEN "probability that the edge is open" 0.5)
 (def COST "multiplier for edge costs" 1)
 (def NINSTANCE "problem instance" :20a)
-(def NITER "number of iterations" 100)
 
 (def-cps-fn travel [graph s t p-open cost policy]
   ;; All edges are open or blocked with the same probability.
@@ -114,12 +113,11 @@
 
 (defquery ctp-pp
   "predicting policy for CTP"
-  [p-open cost ninstance niter]
+  [p-open cost ninstance] 
 
   (let [p-open (or p-open P-OPEN)
         cost (or cost COST)
-        ninstance (or ninstance NINSTANCE)
-        niter (or niter NITER)]
+        ninstance (or ninstance NINSTANCE)]
 
     (let [instance (get ctp-data ninstance)
           graph (get instance :graph)
