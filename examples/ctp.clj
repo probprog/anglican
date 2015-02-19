@@ -18,7 +18,7 @@
 ;;; Default values for parameters. 
 ;;
 ;; Parameters can be passed via the initial value as
-;;   (p-open cost).
+;;   (p-open cost ninstance niter prpol). 
 
 (def P-OPEN "probability that the edge is open" 0.5)
 (def COST "multiplier for edge costs" 1)
@@ -26,7 +26,7 @@
 (def NITER "number of iterations" 100)
 (def PRPOL "predict the policy" false)
 
-(def-cps-fn travel [graph s t p-open cost policy]
+(def-cps-fn travel [graph s t p-open policy]
   ;; All edges are open or blocked with the same probability.
   ;; The results are conditioned on this random choice, hence
   ;; the choice is hidden (*) from the inference algorithm,
@@ -128,10 +128,12 @@
         niter (or niter NITER)
         prpol (or prpol PRPOL)]
 
-    (let [instance (get ctp-data ninstance)
+    (let [;; Retrieve problem instance
+          instance (get ctp-data ninstance)
           graph (get instance :graph)
           s (get instance :s)
           t (get instance :t)
+
           ;; Fix policy in every node for all iterations.
           transitions 
           (reduce
@@ -146,6 +148,7 @@
                                       (repeat (count children)
                                               1.)))))))
             {} (range (count graph)))
+
           ;; Policy function for the agent.
           policy (fn [u] (get transitions u))]
 
@@ -164,7 +167,7 @@
                (predict distance)))
 
            ;; Continue to next iteration.
-           (let [res (travel graph s t p-open cost policy)]
+           (let [res (travel graph s t p-open policy)]
              (if (first res) 
                ;; Connected instance.
                (loop (inc n) (+ sum (second res)))
