@@ -3,7 +3,7 @@
   (use [embang runtime emit]
        ctp-data))
 
-;;; Canadian Traveller Problem
+;;;; Canadian Traveller Problem
 
 ;; The graph is attributed by two probabilities for each
 ;; edge --- that the edge is open, and that the traveller
@@ -16,7 +16,7 @@
 ;; probabilities of selecting each edge.
 
 ;;; Default values for parameters. 
-
+;;
 ;; Parameters can be passed via the initial value as
 ;;   (p-open cost).
 
@@ -130,17 +130,24 @@
 
     (let [instance (get ctp-data ninstance)
           graph (get instance :graph)
-          ;; Fix policy for all iterations.  Policy is conditioned on the
-          ;; parent node p and current node u.
-          policy (mem (fn [u]
-                        (let [children (map first (nth graph u))]
-                          (map list
-                               children
-                               ;; This is what we want to learn,
-                               ;; expose it to MH.
-                               (sample u (dirichlet
-                                           (repeat (count children)
-                                                   1.)))))))]
+          s (get instance :s)
+          t (get instance :t)
+          ;; Fix policy in every node for all iterations.
+          transitions 
+          (reduce
+            (fn [transitions u]
+              (assoc transitions u
+                     (let [children (map first (nth graph u))]
+                       ;; Build argument for the categorical distribution:
+                       ;; selection probability for each child.
+                       (map list
+                            children
+                            (sample (dirichlet
+                                      (repeat (count children)
+                                              1.)))))))
+            {} (range (count graph)))
+          ;; Policy function for the agent.
+          policy (fn [u] (get transitions u))]
 
       ((fn loop [n sum]
          (if (= n niter)
@@ -156,11 +163,8 @@
                (observe (flip (exp (- (* cost distance)))) true)
                (predict distance)))
 
-           ;; Continue to next iterations.
-           (let [res (travel (get instance :graph)
-                             (get instance :s) (get instance :t)
-                             p-open cost
-                             policy)]
+           ;; Continue to next iteration.
+           (let [res (travel graph s t p-open cost policy)]
              (if (first res) 
                ;; Connected instance.
                (loop (inc n) (+ sum (second res)))
