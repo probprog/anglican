@@ -464,7 +464,7 @@
                   (let [[rator & rands] call]
                     (if (primitive-procedure? rator)
                       `(~cont ~call ~'$state)
-                      `(~'fn ~(*gensym* "application") []
+                      `(~'fn ~(*gensym* "trampoline") []
                          (~rator ~cont ~'$state ~@rands)))))))
 
 ;;; Primitive procedures in value postition

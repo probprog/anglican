@@ -1,6 +1,7 @@
 (ns embang.emit
   (:use [embang.xlat :only [program alambda]])
-  (:use [embang.trap :only [shading-primitive-procedures
+  (:use [embang.trap :only [*gensym*
+                            shading-primitive-procedures
                             cps-of-expression result-cont 
                             fn-cps primitive-procedure-cps]]))
 
@@ -37,7 +38,7 @@
           ['$value args])]
     (overriding-higher-order-functions
       (shading-primitive-procedures [value]
-        `(~'fn [~value ~'$state]
+        `(~'fn ~(*gensym* "anglican") [~value ~'$state]
            ~(cps-of-expression (program source) result-cont))))))
 
 (defmacro defanglican
@@ -63,7 +64,7 @@
           ['$value args])]
     (overriding-higher-order-functions
       (shading-primitive-procedures (if (vector? value) value [value])
-        `(~'fn [~value ~'$state]
+        `(~'fn ~(*gensym* "query") [~value ~'$state]
            ~(cps-of-expression `(~'do ~@source) result-cont))))))
 
 (defmacro defquery
