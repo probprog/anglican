@@ -127,7 +127,7 @@
 (def ^:dynamic *gensym* 
   "customized gensym for code generation,
   bound to `symbol' in tests"
-  (comp gensym (partial str "$")))
+  gensym)
 
 (defn ^:private cps-of-elist
   [exprs cont]
