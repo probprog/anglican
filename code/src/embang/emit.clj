@@ -1,6 +1,8 @@
 (ns embang.emit
   (:use [embang.xlat :only [program alambda]])
-  (:use [embang.trap :only [cps-of-expression result-cont 
+  (:use [embang.trap :only [*gensym*
+                            shading-primitive-procedures
+                            cps-of-expression result-cont 
                             fn-cps primitive-procedure-cps]]))
 
 ;;;; Top-level forms for anglican programs
@@ -34,9 +36,10 @@
         (if (symbol? (first args)) ; named argument?
           [(first args) (rest args)]
           ['$value args])]
-        (overriding-higher-order-functions
-          `(~'fn [~value ~'$state]
-             ~(cps-of-expression (program source) result-cont)))))
+    (overriding-higher-order-functions
+      (shading-primitive-procedures [value]
+        `(~'fn ~(*gensym* "anglican") [~value ~'$state]
+           ~(cps-of-expression (program source) result-cont))))))
 
 (defmacro defanglican
   "binds variable to anglican program"
@@ -56,12 +59,13 @@
   "macro for embedding m! programs"
   [& args]
   (let [[value source]
-        (if (symbol? (first args)) ; named argument?
+        (if (or (symbol? (first args)) (vector? (first args)))
           [(first args) (rest args)]
           ['$value args])]
-        (overriding-higher-order-functions
-          `(~'fn [~value ~'$state]
-             ~(cps-of-expression `(~'do ~@source) result-cont)))))
+    (overriding-higher-order-functions
+      (shading-primitive-procedures (if (vector? value) value [value])
+        `(~'fn ~(*gensym* "query") [~value ~'$state]
+           ~(cps-of-expression `(~'do ~@source) result-cont))))))
 
 (defmacro defquery
   "binds variable to m! program"

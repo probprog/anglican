@@ -19,6 +19,13 @@
 
 (declare ^:dynamic *primitive-procedures*)
 
+(defmacro shading-primitive-procedures
+  "excludes names from the set of primitive procedures"
+  [names & body]
+  `(binding [*primitive-procedures*
+             (reduce disj *primitive-procedures* (flatten ~names))]
+     ~@body))
+
 ;; Continuation access --- value and state
 
 (defn value-cont "returns value" [v _] v)
@@ -120,7 +127,7 @@
 (def ^:dynamic *gensym* 
   "customized gensym for code generation,
   bound to `symbol' in tests"
-  (comp gensym (partial str "$")))
+  gensym)
 
 (defn ^:private cps-of-elist
   [exprs cont]
@@ -128,7 +135,7 @@
     (cps-of-expression
       fst
       (if (seq rst)
-        `(~'fn [~'_ ~'$state]
+        `(~'fn ~(*gensym* "elist") [~'_ ~'$state]
            ~(cps-of-elist rst cont))
         cont))))
 
@@ -170,9 +177,8 @@
     (fn-cps `[nil ~@args])
     (let [[name parms & body] args
           fncont (*gensym* "C")]
-      (binding [*primitive-procedures*
-                (reduce disj *primitive-procedures* parms)]
-        `(~'fn ~@(when name [name])
+      (shading-primitive-procedures parms
+        `(~'fn ~(or name (*gensym* "fn"))
            [~fncont ~'$state ~@parms]
            ~(cps-of-elist body fncont))))))
 
@@ -181,15 +187,14 @@
   [[bindings & body] cont]
   (if (seq bindings)
     (let [[name value & bindings] bindings]
-      (binding [*primitive-procedures*
-                (disj *primitive-procedures* name)]
+      (shading-primitive-procedures [name]
         (let [rst (cps-of-let `(~bindings ~@body) cont)]
           (if (opaque? value)
             `(~'let [~name ~(opaque-cps value)]
                ~rst)
             (cps-of-expression
               value
-                `(~'fn [~name ~'$state]
+                `(~'fn ~(*gensym* "let") [~name ~'$state]
                    ~rst))))))
     (cps-of-elist body cont)))
 
@@ -227,7 +232,7 @@
       (cps-of-expression
         cnd
         (let [cnd (*gensym* "I")]
-          `(~'fn [~cnd ~'$state]
+          `(~'fn ~(*gensym* "if") [~cnd ~'$state]
              (~'if ~cnd
                ~(cps-of-expression thn cont)
                ~(cps-of-expression els cont))))))))
@@ -261,7 +266,7 @@
       (cps-of-expression
         key
         (let [key (*gensym* "K")]
-          `(~'fn [~key ~'$state]
+          `(~'fn ~(*gensym* "case") [~key ~'$state]
              ~(cps-of-expression
                 `(~'case ~key ~@clauses) cont)))))))
 
@@ -275,7 +280,7 @@
         (cps-of-expression
           cnd
           (let [cnd (*gensym* "I")]
-            `(~'fn [~cnd ~'$state]
+            `(~'fn ~(*gensym* "and") [~cnd ~'$state]
                ~(cps-of-if [cnd `(~'and ~@args) cnd] cont))))
         (cps-of-expression cnd cont)))
     (cps-of-expression true cont)))
@@ -290,7 +295,7 @@
         (cps-of-expression
           cnd
           (let [cnd (*gensym* "I")]
-            `(~'fn [~cnd ~'$state]
+            `(~'fn ~(*gensym* "or") [~cnd ~'$state]
                ~(cps-of-if [cnd cnd `(~'or ~@args)] cont))))
         (cps-of-expression cnd cont)))
     (cps-of-expression false cont)))
@@ -322,7 +327,7 @@
                      (if arg ;; is a compound expression
                        (cps-of-expression
                          arg
-                         `(~'fn [~subst ~'$state]
+                         `(~'fn ~(*gensym* "arg") [~subst ~'$state]
                             ~(make-of-slist slist)))
                        (make-of-slist slist)))
                    (make (map second substs))))]
@@ -400,7 +405,7 @@
                       [nil arg])]
 
     `(~cont (~'let [~id (~'gensym "M")]
-              (~'fn ~@(when name [name])
+              (~'fn ~(or name (*gensym* "mem"))
                 [~mcont ~'$state & ~mparms]
                 (~'if (in-mem? ~'$state ~id ~mparms)
                   ;; continue with stored value
@@ -410,7 +415,7 @@
                   ;; and updates the state
                   ~(cps-of-expression
                      `(~'apply ~expr ~mparms)
-                     `(~'fn [~value ~'$state]
+                     `(~'fn ~(*gensym* "set-mem") [~value ~'$state]
                         (~mcont ~value
                                 (set-mem ~'$state
                                          ~id ~mparms ~value)))))))
@@ -445,8 +450,9 @@
                   (let [[rator & rands] acall]
                     (if (primitive-procedure? rator)
                       `(~cont (apply ~@acall) ~'$state)
-                      `(~'fn [] (apply ~rator
-                                       ~cont ~'$state ~@rands)))))))
+                      `(~'fn ~(*gensym* "apply") []
+                         (apply ~rator
+                                ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-application
   "transforms application to CPS;
@@ -458,7 +464,8 @@
                   (let [[rator & rands] call]
                     (if (primitive-procedure? rator)
                       `(~cont ~call ~'$state)
-                      `(~'fn [] (~rator ~cont ~'$state ~@rands)))))))
+                      `(~'fn ~(*gensym* "trampoline") []
+                         (~rator ~cont ~'$state ~@rands)))))))
 
 ;;; Primitive procedures in value postition
 
@@ -467,7 +474,7 @@
   [expr]
   (let [fncont (*gensym* "C")
         parms (*gensym* "P")]
-    `(~'fn [~fncont ~'$state & ~parms]
+    `(~'fn ~(*gensym* expr) [~fncont ~'$state & ~parms]
        (~fncont (~'apply ~expr ~parms) ~'$state))))
 
 ;;; Transformation dispatch

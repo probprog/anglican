@@ -8,7 +8,7 @@
   [assume top-level (crp 10.0)]
 
   [assume symbol->state-distribution
-    (mem (lambda (symbol) (dp 10.0 top-level)))]
+    (mem (lambda (symbol) (dp-mem 10.0 top-level)))]
 
   [assume state-symbol->next-state
     (mem (lambda (state symbol) ((symbol->state-distribution symbol))))]
@@ -63,7 +63,7 @@
   [assume flipped-coin (flip 0.1)]
 
   [assume symbol->state-distribution
-    (mem (lambda (symbol) (dp 10.0 top-level)))]
+    (mem (lambda (symbol) (dp-mem 10.0 top-level)))]
 
   [assume state-symbol->next-state
     (mem (lambda (state symbol) ((symbol->state-distribution symbol))))]
