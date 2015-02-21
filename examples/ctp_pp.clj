@@ -36,9 +36,8 @@
                                  (second child)))
                              (nth graph u)))
 
-        ;; Returns true when t is reachable from u.
-        ;; Updates the distance to the goal as a side effect,
-        ;; via observing edges.
+        ;; Performs depth first search from u to t.
+        ;;  Returns a tuple [connected passed-distance].
         dfs (fn dfs [u t]
               (if (= u t)
                 [true 0.]
@@ -59,7 +58,8 @@
                              v (if deterministic
                                  (first 
                                    (reduce (fn [[imax pmax] [i p]]
-                                             (if (< pmax p) [i p] [imax pmax]))
+                                             (if (< pmax p) [i p]
+                                               [imax pmax]))
                                            [0 0] policy))
                                    (sample* dist))]
                          ;; Search for the goal in the subtree.
