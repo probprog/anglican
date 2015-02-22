@@ -10,14 +10,12 @@
 (with-primitive-procedures [make-id]
   (defquery particle-filter
     "filters particles infinitely"
-    (let [_ (sample (flip 0.5))
+    (let [_ (sample (flip 0.5)) ; stop the warmup
           id (make-id)]
       (predict :prior id)
       ((fn loop []
+         ;; the longer it runs with pfilter, the
+         ;; few particles with id>1 survive.
          (observe (flip (/ id)) true)
          (predict :posterior id)
          (loop))))))
-
-  
-
-
