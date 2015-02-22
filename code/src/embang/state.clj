@@ -42,6 +42,11 @@
   [state]
   (state ::predicts))
 
+(defn clear-predicts
+  "clear predicts"
+  [state]
+  (update-in state [::predicts] empty))
+
 ;; The following three methods are used by the `mem' form. The
 ;; memoized values are kept in the state, independently for each
 ;; particle.
