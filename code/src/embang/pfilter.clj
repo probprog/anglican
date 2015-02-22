@@ -30,7 +30,7 @@
                      (let [state (:state particle)]
                        ;; Skip states without predicts.
                        (when (seq (get-predicts state))
-                         ;; The state is after observe and before
+                         ;; The state is after `observe' and before
                          ;; resampling, restore the weight to 1.
                          (set-log-weight state 0))))
                    particles)
