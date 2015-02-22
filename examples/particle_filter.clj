@@ -10,14 +10,14 @@
 (with-primitive-procedures [make-id]
   (defquery particle-filter
     "filters particles infinitely"
-    (let [chance (sample (flip 0.5))
+    (let [_ (sample (flip 0.5))
           id (make-id)]
-      ((fn loop [p]
-         (predict (list :prior id)  chance)
-         (observe (flip p) chance)
-         (predict (list :posterior id) chance)
-         (loop (- 1 p)))
-       (/ 1. 3.)))))
+      (predict :prior id)
+      ((fn loop []
+         (observe (flip (/ id)) true)
+         (predict :posterior id)
+         (loop))))))
+
   
 
 

@@ -28,7 +28,8 @@
                  (when (some #(get-predicts (:state %)) particles)
                    (map #(set-log-weight (:state %) 0.)  particles))
                  (sample-seq 
-                   (map #(exec ::algorithm (:cont %) nil (:state %))
+                   (map #(exec ::algorithm (:cont %) nil 
+                               (clear-predicts (:state %)))
                         (resample particles))))
 
                (every? #(instance? embang.trap.result %) particles)
