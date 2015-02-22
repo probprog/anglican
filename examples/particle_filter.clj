@@ -15,7 +15,7 @@
       (predict :prior id)
       ((fn loop []
          ;; the longer it runs with pfilter, the
-         ;; few particles with id>1 survive.
+         ;; fewer particles with id>1 survive.
          (observe (flip (/ id)) true)
          (predict :posterior id)
          (loop))))))
