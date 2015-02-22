@@ -48,5 +48,4 @@
                        (throw (AssertionError.
                                 (str "some `observe' directives "
                                      "are not global")))))))]
-
       (sample-seq initial-particles))))
