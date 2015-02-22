@@ -31,38 +31,6 @@
 (defn sqrt [x] (Math/sqrt x))
 (defn pow [x y] (Math/pow x y))
 
-(defn isnan? [x]
-  (Double/isNaN x))
-
-(defn isfinite? [x]
-  (not (or (Double/isNaN x) (Double/isInfinite x))))
-
-(defn sum
-  "sum of the collection elements"
-  [coll]
-  (reduce + coll))
-
-(defn mean
-  "mean of the collection elements"
-  [coll]
-  (/ (sum coll) (count coll)))
-
-(defn normalize
-  "normalized collection"
-  [coll]
-  (let [Z (sum coll)]
-    (map #(/ % Z) coll)))
-
-(defn log-sum-exp
-  "computes (log (+ (exp x) (exp y))) safely"
-  [log-x log-y]
-  (let [log-max (max log-x log-y)]
-    (if (< (/ -1. 0.) log-max (/ 1. 0.))
-      (+ log-max
-         (Math/log (+ (Math/exp (- log-x log-max))
-                      (Math/exp (- log-y log-max)))))
-      log-max)))
-
 ;;; Random distributions
 
 (defprotocol distribution
@@ -77,6 +45,20 @@
 ;; choice as a checkpoint, use `sample*'.
 
 (def sample* "draws a sample from the distribution" sample)
+
+;; Log probabilities are used pervasively. A precision-preserving
+;; way to add probabilities (e.g. for computing union probability)
+;; is log-sum-exp.
+
+(defn log-sum-exp
+  "computes (log (+ (exp x) (exp y))) safely"
+  [log-x log-y]
+  (let [log-max (max log-x log-y)]
+    (if (< (/ -1. 0.) log-max (/ 1. 0.))
+      (+ log-max
+         (Math/log (+ (Math/exp (- log-x log-max))
+                      (Math/exp (- log-y log-max)))))
+      log-max)))
 
 ;; distributions, in alphabetical order
 
