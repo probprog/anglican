@@ -8,7 +8,7 @@
 ;;
 ;; Particle filter is NOT a probabilistic programming inference
 ;; algorithm. Every observe creates a new batch of output states,
-;; the algorithm can run infinitely.
+;; the program may run infinitely.
 
 (derive ::algorithm :embang.smc/algorithm)
 
