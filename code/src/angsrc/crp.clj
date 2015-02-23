@@ -1,8 +1,8 @@
 (ns angsrc.crp
   (:use [embang emit runtime]))
 
-;; Stateful Chinese restaurant process, 
-;; draws an index.
+;; Stateful Chinese restaurant process, draws an index.
+;; Compatibility wrapper with Anglican.
 
 (defun crp (alpha)
   (let ((name (gensym "crp")))
@@ -12,7 +12,7 @@
         (store name (absorb p s))
         s))))
 
-;; DPmem, memoizes calls to h softly.
+;; DP-mem, memoizes calls to h softly.
 ;; h may get an arbitrary number of arguments.
 
 (defun dp-mem (alpha h)
