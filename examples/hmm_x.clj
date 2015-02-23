@@ -8,8 +8,7 @@
 
 (defanglican hmm-x
   "HMM with predicts for first state"
-  [assume initial-state-distribution
-   (normalize (list 1.0 1.0 1.0))]
+  [assume initial-state-distribution (list 1.0 1.0 1.0)]
   [assume get-state-transition-vector
    (lambda (s)
            (cond ((= s 0) (list 0.1 0.5 0.4))
