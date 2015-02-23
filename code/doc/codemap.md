@@ -38,10 +38,10 @@
         # Java
         MTMersenneTwister.java --- thread-safe synchronized version
                           of cern.jet.random.engine.MersenneTwister 
-      angsrc/
-        # Anglican source code modules
+      anglib/
+        # Anglican library modules
         ## In particular: 
-        dp_mem.clj     --- Stick-breaking DPmem
         crp.clj        --- Wrapped CRP for compatibility with the
-                           original Anglican syntax; crp-based dp-mem
+                           original Anglican syntax; crp-based DPmem
         iris_data.clj  --- Ronald Fisher's Iris dataset
+		beaver.clj     --- Beaver activity datasets

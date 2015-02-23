@@ -1,4 +1,4 @@
-(ns angsrc.beaver-data)
+(ns anglib.beaver-data)
 
 ;; record field accessors for beaver datasets
 (def beaver-day #(nth % 0))
