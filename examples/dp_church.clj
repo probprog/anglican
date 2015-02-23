@@ -55,11 +55,11 @@
                                o))
                     nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))]
 
+  ;; sample* is just like sample, but does not create a checkpoint. 
   [predict (sample* (apply normal (gaussian-mixture-model-parameters)))])
 
-;; The same example, but without re-definition of DPmem. DPmem is 
-;; defined in a separate module, dpmem, and imported in
-;; the namespace declaration.
+;; The same example, but without re-definition of DPmem. DPmem is defined in a
+;; separate module, dpmem, and imported in the namespace declaration.
 
 (defanglican sans-dpmem
   [assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
@@ -67,7 +67,6 @@
 
   [assume gaussian-mixture-model-parameters (DPmem 1.72 H)]
 
-  ;; instead of observe-csv
   [assume _ (reduce (lambda (_ o)
                       (observe (apply normal (gaussian-mixture-model-parameters))
                                o))
