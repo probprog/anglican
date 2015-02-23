@@ -1,7 +1,7 @@
 (ns dp-church
   (:use [embang emit runtime])
   (:use dpmem)                       ; DPmem via stick breaking
-  (:require [angsrc.crp :as crp]))   ; DPmem via crp
+  (:require [anglib.crp :as crp]))   ; DPmem via crp
 
 ;; An example from 
 ;;   http://www.robots.ox.ac.uk/~fwood/anglican/examples/dp_mixture_model/index.html

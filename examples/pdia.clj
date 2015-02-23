@@ -1,6 +1,6 @@
 (ns pdia
   (:use [embang emit runtime])
-  (:use [angsrc crp]))
+  (:use [anglib crp]))
 
 (defanglican pdia
   [assume vocabulary '(A B)]

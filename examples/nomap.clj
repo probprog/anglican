@@ -1,4 +1,4 @@
-(ns angsrc.nomap
+(ns nomap
   (:use [embang emit runtime]))
 
 (defanglican nomap
