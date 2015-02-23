@@ -25,8 +25,15 @@
              (cond
                (every? #(instance? embang.trap.observe %) particles)
                (concat
-                 (when (some #(get-predicts (:state %)) particles)
-                   (map #(set-log-weight (:state %) 0.)  particles))
+                 (keep
+                   (fn [particle]
+                     (let [state (:state particle)]
+                       ;; Skip states without predicts.
+                       (when (seq (get-predicts state))
+                         ;; The state is after `observe' and before
+                         ;; resampling, restore the weight to 1.
+                         (set-log-weight state 0))))
+                   particles)
                  (sample-seq 
                    (map #(exec ::algorithm (:cont %) nil 
                                (clear-predicts (:state %)))
@@ -41,5 +48,4 @@
                        (throw (AssertionError.
                                 (str "some `observe' directives "
                                      "are not global")))))))]
-
       (sample-seq initial-particles))))

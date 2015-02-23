@@ -1,5 +1,9 @@
-(ns angsrc.dp-mem
+(ns dpmem
   (:use [embang emit runtime]))
+
+;; Implementation of DPmem from
+;;   http://www.robots.ox.ac.uk/~fwood/anglican/examples/dp_mixture_model/index.html
+;; Used in dp-church.
 
 ;; sample-stick-index is a procedure that samples an index from
 ;; a potentially infinite dimensional discrete distribution 
