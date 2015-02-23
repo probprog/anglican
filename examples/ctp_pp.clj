@@ -41,7 +41,11 @@
         dfs (fn dfs [u t]
               (if (= u t)
                 [true 0.]
-                ((fn loop [policy passed]
+                (loop [policy (filter (fn [choice]
+                                        (open? u (first choice)))
+                                      (policy u))
+                       ;; Start with zero passed distance.
+                       passed 0.]
                    ;; On every step of the loop, filter visited
                    ;; edges from the policy.
                    (let [policy
@@ -75,21 +79,12 @@
                              [true passed]
                              ;; Continue the search in another
                              ;; subtree.
-                             (loop  
+                             (recur  
                                policy
                                ;; Add the weight of the edge
                                ;; through which we return.
-                               (+ passed (edge-weight v u)))))))))
+                               (+ passed (edge-weight v u)))))))))))]
 
-                 ;; Initialize policy for the node by transition
-                 ;; weights for all open edges.
-                 (filter
-                   (fn [choice]
-                     (open? u (first choice)))
-                   (policy u))
-
-                 ;; Start with zero passed distance.
-                 0.)))]
 
     (store ::visited (set ()))
     (dfs s t)))

@@ -111,7 +111,7 @@
         case   (acase args)
         begin  (abegin args)
         predict (apredict args)
-        ;; other forms (if, and, or, application)
+        ;; other forms (`if', `and', `or', `application')
         ;;  have compatible structure
         (aform expr)))
     (case expr
@@ -119,8 +119,6 @@
       ;; `begin' and `lambda' to avoid name clashes
       do 'begin
       fn 'lambda
-      ;; loop is translated to function `loop'
-      recur 'loop
       expr)))
 
 (defn program
