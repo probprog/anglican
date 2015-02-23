@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference
-        [embang.runtime :only [observe sample]]))
+        [embang.runtime :only [log-sum-exp observe sample]]))
 
 ;;;; Parallel Cascade
 
@@ -31,16 +31,6 @@
 
 ;; Average weights are stored as tuples [log-total-weight count].
 
-(defn ^:private log-sum
-  "computes (log (+ (exp x) (exp y))) safely"
-  [log-x log-y]
-  (let [log-max (max log-x log-y)]
-    (if (< (/ -1. 0.) log-max (/ 1. 0.))
-      (+ log-max
-         (Math/log (+ (Math/exp (- log-x log-max))
-                      (Math/exp (- log-y log-max)))))
-      log-max)))
-
 (defn weight-ratio!
   "updates average weight for observe-id and returns weight-ratio"
   [state observe-id log-weight mplier]
@@ -54,7 +44,8 @@
   (let [[log-total cnt]
         (swap! (@(state ::average-weights) observe-id)
                (fn [[log-total cnt]]
-                 [(log-sum log-total (+ log-weight (Math/log mplier)))
+                 [(log-sum-exp log-total
+                               (+ log-weight (Math/log mplier)))
                   (+ cnt mplier)]))]
     (if (= log-total (/ -1. 0.)) 1.    ; all particles had 0 weight
       (Math/exp (- log-weight (- log-total (Math/log cnt)))))))
@@ -125,10 +116,11 @@
       (add-predict '$particle-queue-length
                    (count @(state ::particle-queue)))))
 
-(defmethod infer :pcascade [_ prog & {:keys [number-of-threads
-                                             predict-cascade]
-                                      :or {number-of-threads 16
-                                           predict-cascade false}}]
+(defmethod infer :pcascade [_ prog value
+                            & {:keys [number-of-threads
+                                      predict-cascade]
+                               :or {number-of-threads 16
+                                    predict-cascade false}}]
   (let [initial-state (make-initial-state number-of-threads)]
     (letfn
       [(sample-seq []
@@ -141,7 +133,7 @@
                                         (/ number-of-threads 2)))
                                  #(future
                                     (exec ::algorithm
-                                          prog nil initial-state)))]
+                                          prog value initial-state)))]
                  (swap! (initial-state ::particle-count)
                         #(+ % (count new-threads)))
                  (swap! (initial-state ::particle-queue)

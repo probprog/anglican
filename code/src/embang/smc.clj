@@ -18,13 +18,13 @@
 
 (defmulti sweep
   "a single sweep of SMC and friends"
-  (fn [algorithm prog number-of-particles & _] algorithm))
+  (fn [algorithm prog value number-of-particles & _] algorithm))
     
 (defmethod sweep ::algorithm
-  [algorithm prog number-of-particles]
+  [algorithm prog value number-of-particles]
   (loop [particles (repeatedly number-of-particles
                                #(exec algorithm
-                                      prog nil initial-state))]
+                                      prog value initial-state))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
@@ -36,14 +36,14 @@
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
-(defmethod infer :smc [_ prog & {:keys [number-of-particles]
-                                 :or {number-of-particles 1}}]
+(defmethod infer :smc [_ prog value & {:keys [number-of-particles]
+                                       :or {number-of-particles 1}}]
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
   (letfn [(sample-seq []
             (lazy-seq
               (let [particles (sweep ::algorithm
-                                     prog number-of-particles)]
+                                     prog value number-of-particles)]
                 (concat (map :state particles) (sample-seq)))))]
     (sample-seq)))
 

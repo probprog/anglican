@@ -31,28 +31,6 @@
 (defn sqrt [x] (Math/sqrt x))
 (defn pow [x y] (Math/pow x y))
 
-(defn isnan? [x]
-  (Double/isNaN x))
-
-(defn isfinite? [x]
-  (not (or (Double/isNaN x) (Double/isInfinite x))))
-
-(defn sum
-  "sum of the collection elements"
-  [coll]
-  (reduce + coll))
-
-(defn mean
-  "mean of the collection elements"
-  [coll]
-  (/ (sum coll) (count coll)))
-
-(defn normalize
-  "normalized collection"
-  [coll]
-  (let [Z (sum coll)]
-    (map #(/ % Z) coll)))
-
 ;;; Random distributions
 
 (defprotocol distribution
@@ -67,6 +45,20 @@
 ;; choice as a checkpoint, use `sample*'.
 
 (def sample* "draws a sample from the distribution" sample)
+
+;; Log probabilities are used pervasively. A precision-preserving
+;; way to add probabilities (e.g. for computing union probability)
+;; is log-sum-exp.
+
+(defn log-sum-exp
+  "computes (log (+ (exp x) (exp y))) safely"
+  [log-x log-y]
+  (let [log-max (max log-x log-y)]
+    (if (< (/ -1. 0.) log-max (/ 1. 0.))
+      (+ log-max
+         (Math/log (+ (Math/exp (- log-x log-max))
+                      (Math/exp (- log-y log-max)))))
+      log-max)))
 
 ;; distributions, in alphabetical order
 
@@ -155,7 +147,7 @@
 (from-colt exponential [rate] double)
 
 (defn flip
-  "flip (bernoulli) distribution"
+  "flip (Bernoulli) distribution"
   [p]
   (let [dist (cern.jet.random.Uniform. RNG)]
     (reify distribution
@@ -304,6 +296,32 @@
                 ;; Fill the counts with zeroes until the new sample.
                 (into (repeat (+ (- sample (count counts)) 1) 0))
                 (update-in [sample] inc)))))))
+
+(defn DP
+  "Dirichlet process"
+  ([alpha H] (DP alpha H {}))
+  ([alpha H counts]
+   {:pre [(map? counts)]}
+   (reify
+     random-process
+     (produce [this]
+       ;; Sample from the categorical distribution of realized
+       ;; samples extended with a `new' value.
+       (let [dist (categorical (vec (conj counts [::new alpha])))]
+         (reify distribution
+           (sample [this] 
+             (let [s (sample dist)]
+               ;; When a `new' value is drawn, sample the actual
+               ;; value from the base measure.
+               (if (= s ::new) (sample H) s)))
+           (observe [this sample]
+             (log-sum-exp
+               ;; The sample is one of absorbed samples.
+               (observe dist sample)
+               ;; The sample is drawn from the base distribution.
+               (+ (observe dist ::new) (observe H sample)))))))
+     (absorb [this sample]
+       (DP alpha H (update-in counts [sample] (fnil inc 0)))))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"

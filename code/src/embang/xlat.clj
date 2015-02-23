@@ -42,8 +42,8 @@
   "translates let"
   [[bindings & body]]
   `(~'let [~@(mapcat (fn [[name value]]
-                     [name (expression value :name name)])
-                   bindings)]
+                       [name (expression value :name name)])
+                     bindings)]
      ~@(elist body)))
 
 (defn aloop
@@ -51,7 +51,9 @@
   [[bindings & body]]
   `(~'let [~'loop ~(alambda 'loop (cons (map first bindings)
                                          body))]
-     (~'loop ~@(map second bindings))))
+     (~'loop ~@(map (fn [[name value]]
+                      (expression value :name name))
+                    bindings))))
 
 (defn acond 
   "translates cond"
@@ -83,8 +85,12 @@
   ;; symbolic expression and value. This is necessary to
   ;; display predicted expressions in Anglican rather than
   ;; Clojure syntax.
-  [[expr]]
-  `(~'predict '~expr ~(expression expr)))
+  [args]
+  (let [[label expr]
+        (if (= (count args) 2)
+          [(first args) (second args)]
+          [`'~(first args) (first args)])]
+    `(~'predict ~label ~(expression expr))))
         
 (defn aform
   "translates compatible forms and function applications"
@@ -118,7 +124,6 @@
       expr)))
 
 (defn program
-  "translates anglican program to clojure function"
+  "translates anglican program to clojure expression"
   [p]
-  `(~'fn []
-     ~@(elist p)))
+  `(~'do ~@(elist p)))

@@ -59,6 +59,10 @@
     :default 1
     :parse-fn #(Integer/parseInt %)]
 
+   ["-v" "--value V" "Initial value to pass to the program"
+    :default nil
+    :parse-fn read-string]
+
    ["-h" "--help" "Print usage summary and exit"]])
 
 (defn usage [summary]
@@ -71,11 +75,11 @@ from the command line, or:
 in the REPL, where `namespace' is the namespace containing the
 embedded Anglican program to run, for example:
 
-    bash$ lein run angsrc.branching -a gibbs -n 500 \\
+    bash$ lein run anglib.branching -a gibbs -n 500 \\
                -o \":number-of-particles 50\"
 
     embang.core=> (m! -a gibbs -n 500 -o \":number-of-particles 50\"
-                      angsrc.branching)
+                      anglib.branching)
 
 `program' is the first argument of `defanglican'. The namespace
 may contain multiple programs. If `program' is omitted, it defaults
@@ -94,9 +98,9 @@ Options:
   (if (= (ffirst args) \:)
     ;; Run auxiliary commands
     (case (read-string (first args))
+      :diff (apply diff (rest args))
       :freqs (freqs)
       :meansd (meansd)
-      :diff (apply diff (rest args))
       (binding [*out* *err*]
         (println (format "Unrecognized command: %s" (first args)))))
 
@@ -126,11 +130,13 @@ Options:
           (println
             (format (str ";; Program: %s/%s\n"
                          ";; Inference algorithm: %s\n"
+                         ";; Initial value: %s\n"
                          ";; Number of samples: %s (*%s+%s) \n"
                          ";; Output format: %s\n"
                          ";; Algorithm options: %s")
                     nsname progname
                     (:inference-algorithm options)
+                    (:value options)
                     (:number-of-samples options)
                     (:thin options)
                     (:burn options)
@@ -150,7 +156,8 @@ Options:
                        states (as->
                                 (apply infer
                                        (:inference-algorithm options)
-                                       (warmup program)
+                                       (warmup program (:value options))
+                                       nil
                                        (:algorithm-options options))
                                 states
                                 ;; Burn samples.
@@ -162,8 +169,7 @@ Options:
                   (when-not (= i (:number-of-samples options))
                     (when (seq states)
                       (let [state (first states)]
-                        (print-predicts state
-                                        (:output-format options))
+                        (print-predicts (:output-format options) state)
                         (recur (inc i) (rest states))))))
                 (catch Exception e
                   (binding [*out* *err*]

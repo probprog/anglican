@@ -39,10 +39,10 @@
 (defrecord entry [choice-id value log-p cont])
 
 (defn choice-id
-  "returns and unique idenditifer for sample checkpoint
+  "returns a unique idenditifer for sample checkpoint
   and the updated state"
-  [obs state]
-  (checkpoint-id obs state ::choice-counts ::choice-last-id))
+  [smp state]
+  (checkpoint-id smp state ::choice-counts ::choice-last-id))
 
 (defn record-choice
   "records random choice in the state"
@@ -137,7 +137,7 @@
      (get-log-retained-probability state)
      (- (Math/log (count (state ::trace))))))
 
-(defmethod infer :lmh [_ prog & {}]
+(defmethod infer :lmh [_ prog value & {}]
   (letfn
     [(sample-seq [state]
        (lazy-seq
@@ -158,7 +158,7 @@
            ;; setting the weight to the unit weight.
            (cons (set-log-weight state 0.) (sample-seq state)))))]
 
-    (let [state (:state (exec ::algorithm prog nil initial-state))]
+    (let [state (:state (exec ::algorithm prog value initial-state))]
       (if (seq (state ::trace))
         (sample-seq state)
         ;; No randomness in the program.

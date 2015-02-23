@@ -13,16 +13,22 @@
         runtime.clj    --- Runtime support
 
         ## Algorithms
+
+        ### Inferring distribution
         importance.clj --- Importance sampling
         [p]lmh.clj     --- [Parallel] Lightweight Metropolis-Hastings
         [p]almh.clj    --- [Parallel] Adaptive LMH
-        smc.clj        --- Particle Filter
+        smc.clj        --- Sequential Monte Carlo
         pimh.clj       --- Particle Independent Metropolis-Hastings
         pgibbs.clj     --- Particle Gibbs (Iterative Conditional SMC)
         pcascade.clj   --- Parallel Particle Cascade
-		bgrad.clj      --- MAP estimation via bayesian gradient ascent
-        siman.clj      --- MAP estimation via simulated annealing
-        bgrad.clj      --- MAP estimation via Bayesian gradient
+
+        ### Estimating MAP
+        siman.clj      --- Simulated annealing
+        bgrad.clj      --- Bayesian gradient
+
+        ### Filtering
+        pfilter.clj    --- Particle Filter
 
         # Code transformations
         xlat.clj       --- Anglican to Clojure
@@ -32,10 +38,10 @@
         # Java
         MTMersenneTwister.java --- thread-safe synchronized version
                           of cern.jet.random.engine.MersenneTwister 
-      angsrc/
-        # Anglican source code modules
+      anglib/
+        # Anglican library modules
         ## In particular: 
-        dp_mem.clj     --- Implementation of DPmem
-        crp.clj        --- Wrapped CRP for compatibility
-                           with the original Anglican syntax
+        crp.clj        --- Wrapped CRP for compatibility with the
+                           original Anglican syntax; crp-based DPmem
         iris_data.clj  --- Ronald Fisher's Iris dataset
+		beaver.clj     --- Beaver activity datasets
