@@ -1,7 +1,7 @@
-(ns angsrc.crp
+(ns anglib.crp
   (:use [embang emit runtime]))
 
-;;; Wrappers to ease porting code from Anglican.
+;;; Wrappers to ease porting code from original Anglican.
 
 ;; Stateful Chinese restaurant process, draws an index.
 

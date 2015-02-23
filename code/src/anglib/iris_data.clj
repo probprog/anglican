@@ -1,4 +1,4 @@
-(ns angsrc.iris-data)
+(ns anglib.iris-data)
 
 (def iris-setosa :setosa)
 (def iris-virginica :virginica)

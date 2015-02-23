@@ -1,6 +1,7 @@
 (ns anglib.beaver-data)
 
-;; record field accessors for beaver datasets
+;; Record field accessors for beaver datasets
+
 (def beaver-day #(nth % 0))
 (def beaver-time #(nth % 1))
 (def beaver-temperature #(nth % 2))
