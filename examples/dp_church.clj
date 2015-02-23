@@ -1,6 +1,7 @@
 (ns dp-church
   (:use [embang emit runtime])
-  (:use dpmem))
+  (:use dpmem)                       ; DPmem via stick breaking
+  (:require [angsrc.crp :as crp]))   ; DPmem via crp
 
 ;; An example from 
 ;;   http://www.robots.ox.ac.uk/~fwood/anglican/examples/dp_mixture_model/index.html
@@ -61,11 +62,26 @@
 ;; The same example, but without re-definition of DPmem. DPmem is defined in a
 ;; separate module, dpmem, and imported in the namespace declaration.
 
-(defanglican sans-dpmem
+(defanglican stick-breaking
   [assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
                               (list (sample (normal 0 (sqrt (* 10 v)))) (sqrt v))))] 
 
   [assume gaussian-mixture-model-parameters (DPmem 1.72 H)]
+
+  [assume _ (reduce (lambda (_ o)
+                      (observe (apply normal (gaussian-mixture-model-parameters))
+                               o))
+                    nil '(10 11 12 -100 -150 -200 0.001 0.01 0.005 0))]
+
+  [predict (sample* (apply normal (gaussian-mixture-model-parameters)))])
+
+;; with DPmem implemented using CRP.
+
+(defanglican crp
+  [assume H (lambda () (begin (define v (/ 1.0 (sample (gamma 1 10))))
+                              (list (sample (normal 0 (sqrt (* 10 v)))) (sqrt v))))] 
+
+  [assume gaussian-mixture-model-parameters (crp/DPmem 1.72 H)]
 
   [assume _ (reduce (lambda (_ o)
                       (observe (apply normal (gaussian-mixture-model-parameters))

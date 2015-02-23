@@ -1,8 +1,9 @@
 (ns angsrc.crp
   (:use [embang emit runtime]))
 
+;;; Wrappers to ease porting code from Anglican.
+
 ;; Stateful Chinese restaurant process, draws an index.
-;; Compatibility wrapper with Anglican.
 
 (defun crp (alpha)
   (let ((name (gensym "crp")))
@@ -12,10 +13,10 @@
         (store name (absorb p s))
         s))))
 
-;; DP-mem, memoizes calls to h softly.
+;; DPmem, memoizes calls to h softly.
 ;; h may get an arbitrary number of arguments.
 
-(defun dp-mem (alpha h)
+(defun DPmem (alpha h)
   (let ((C (crp alpha))
         (f (mem (lambda (s args) (apply h args)))))
     (lambda args

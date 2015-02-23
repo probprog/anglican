@@ -1,4 +1,4 @@
-(ns angsrc.dp-mem
+(ns dpmem
   (:use [embang emit runtime]))
 
 ;; Implementation of DPmem from
