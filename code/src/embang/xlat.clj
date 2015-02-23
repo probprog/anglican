@@ -49,11 +49,10 @@
 (defn aloop
   "translates loop+recur"
   [[bindings & body]]
-  `(~'let [~'loop ~(alambda 'loop (cons (map first bindings)
-                                         body))]
-     (~'loop ~@(map (fn [[name value]]
-                      (expression value :name name))
-                    bindings))))
+  `(~(alambda 'loop `(~(map first bindings) ~@body))
+    ~@(map (fn [[name value]]
+             (expression value :name name))
+           bindings)))
 
 (defn acond 
   "translates cond"

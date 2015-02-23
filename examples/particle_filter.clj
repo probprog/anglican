@@ -13,9 +13,9 @@
     (let [_ (sample (flip 0.5)) ; stop the warmup
           id (make-id)]
       (predict :prior id)
-      ((fn loop []
+      (loop []
          ;; the longer it runs with pfilter, the
          ;; fewer particles with id>1 survive.
          (observe (flip (/ id)) true)
          (predict :posterior id)
-         (loop))))))
+         (recur)))))
