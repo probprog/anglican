@@ -122,6 +122,20 @@ logi for anglican.logi).
     -v, --value V                               Initial value to pass to the program
     -h, --help                                  print usage summary and exit
 
+#### Inference algorithms
+
+Currently implemented inference algorithms are:
+
+ * **lmh** &#x2014; Lightweight Metropolis-Hastings (random
+   databaset)
+ * **pgibbs** &#x2014; Iterative Conditional SMC (Partical
+   Gibbs)
+ * **pimh** &#x2014; Particle Independent Metropolis-Hastings
+
+As well as a bunch of more esoteric algorithms. If you are
+curious, consult the [code map](doc/codemap.md) and/or look
+for modules with implementations of `embang.inference/infer`.
+  
 ## Examples
 
 Some program examples are in [`../examples`](../examples/).
