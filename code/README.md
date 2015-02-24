@@ -126,13 +126,13 @@ logi for anglican.logi).
 
 Currently implemented inference algorithms are:
 
- * **lmh** --- Lightweight Metropolis-Hastings (random
+ * **lmh** &mdash; Lightweight Metropolis-Hastings (random
    databaset)
- * **pgibbs** --- Iterative Conditional SMC (Partical
+ * **pgibbs** &mdash; Iterative Conditional SMC (Partical
    Gibbs)
- * **pimh** --- Particle Independent Metropolis-Hastings
+ * **pimh** &mdash; Particle Independent Metropolis-Hastings
 
-As well as a bunch of more esoteric algorithms. If you are
+As well as a bunch of other esoteric algorithms. If you are
 curious, consult the [code map](doc/codemap.md) and/or look
 for modules with implementations of `embang.inference/infer`.
   
