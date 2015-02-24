@@ -163,9 +163,7 @@ Options:
                                 ;; Burn samples.
                                 (drop (:burn options) states)
                                 ;; Thin samples.
-                                (map first
-                                     (partition
-                                       1 (:thin options) states)))]
+                                (take-nth (:thin options) states))]
                   (when-not (= i (:number-of-samples options))
                     (when (seq states)
                       (let [state (first states)]
