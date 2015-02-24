@@ -69,25 +69,26 @@
       quote true
       fn false
       (begin
-        if when cond 
-        and or do) (every? simple? (rest expr))
+       if when cond 
+       and or do) (every? simple? (rest expr))
       case (if (even? (count expr))
              ;; No default clause.
              (every? simple? (take-nth 2 (rest expr)))
              ;; Default clause is a single expression.
              (and (every? simple? (take-nth 2 (rest expr)))
                   (simple? (last expr))))
-      let (let [[_ bindings & body] expr]
-            (and (every? simple?
-                         (take-nth 2 (rest bindings)))
-                 (every? simple? body)))
-      (predict
-        observe
-        sample
-        mem
-        store
-        retrieve
-        apply) false
+      (let loop) (let [[_ bindings & body] expr]
+                   (and (every? simple?
+                                (take-nth 2 (rest bindings)))
+                        (every? simple? body)))
+      (recur
+       predict
+       observe
+       sample
+       mem
+       store
+       retrieve
+       apply) false
       ;; application
       (and (primitive-procedure? (first expr))
            (every? simple? (rest expr))))
@@ -122,7 +123,8 @@
 
 ;;; General CPS transformation rules
 
-(declare cps-of-expression)
+(declare cps-of-expression
+         cps-of-application)
 
 (def ^:dynamic *gensym* 
   "customized gensym for code generation,
@@ -197,6 +199,22 @@
                 `(~'fn ~(*gensym* "let") [~name ~'$state]
                    ~rst))))))
     (cps-of-elist body cont)))
+
+;; `loop' is translated into an application of recursive
+;; function, due to the trampolining of all calls, there
+;; is no need for loop/recur.
+(defn cps-of-loop
+  "transforms loop"
+  [[bindings & body] cont]
+  (cps-of-expression `((~'fn ~'loop [~@(take-nth 2 bindings)]
+                         ~@body)
+                       ~@(take-nth 2 (rest bindings)))
+                     cont))
+
+(defn cps-of-recur
+  "transforms recur"
+  [args cont]
+  (cps-of-application `(~'loop ~@args) cont))
 
 ;;; Flow control.
 
@@ -490,6 +508,8 @@
     (seq?  expr) (let [[kwd & args] expr]
                    (case kwd
                      let       (cps-of-let args cont)
+                     loop      (cps-of-loop args cont)
+                     recur     (cps-of-recur args cont)
                      if        (cps-of-if args cont)
                      when      (cps-of-when args cont)
                      cond      (cps-of-cond args cont)

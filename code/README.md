@@ -39,21 +39,22 @@ would look like in the following example:
       [predict x])
 
 Multiple programs may reside within the same namespace.  By
-convention, the default program (whatever this means) has the
-same name as the last component in the namespace name.  Place
-the program in an appopriate location in Clojure directory
-layout; the example above should go into [`../examples`](../examples/)
-subdirectory of __m!__ tree, referenced from `project.clj` as
-a resource path.
+convention, the default program has the same name as the last
+component in the namespace name.  Place the program in an
+appopriate location in Clojure directory layout; the example
+above should go into [`../examples`](../examples/) subdirectory
+of __m!__ tree, referenced from `project.clj` as a resource
+path.
 
 The language is essentially compatible with Anglican, with 
 the following 'restrictions', or enhancements, depending on the
 point of view. 
 
-  1. `recur` is not recognized as a special instruction. __m!__
-  is fully tail-recursive  through trampolining of all calls of
-  compound procedures, thus `recur` is not needed, and is
-  actually misleading.
+  1. `recur` for functions is not implemented. __m!__ is fully
+  tail-recursive through trampolining of all calls of compound
+  procedures, thus `recur` is not needed, and is actually
+  misleading. `recur` with `loop` works (by transforming `loop`
+  into a function and calling the function recursively).
 
   2. Distribution names --- `normal`, `gamma`, `flip` etc --- 
   return distribution objects. To obtain a sample from the
@@ -78,8 +79,9 @@ The last stored value is retrieved.
 
 Functions can be defined outside Anglican programs, and
 implemented either in Clojure or in Anglican. See 
-[`../examples/branching.clj`](../examples/branching.clj)
-for examples.
+[`../examples/neural_net.clj`](../examples/neural_net.clj),
+[`../examples/ctp_pp.clj`](../examples/ctp_pp.clj)
+for inspiring examples.
 
 ### Running programs
 
@@ -117,9 +119,23 @@ logi for anglican.logi).
     -n, --number-of-samples N                   Output predicts for N samples
     -o, --algorithm-options OPTIONS  []         Algorithm options
     -t, --thin N                     1          Retain each Nth sample
+    -v, --value V                               Initial value to pass to the program
     -h, --help                                  print usage summary and exit
 
+#### Inference algorithms
 
+Currently implemented inference algorithms are:
+
+ * **lmh** &mdash; Lightweight Metropolis-Hastings (random
+   databaset)
+ * **pgibbs** &mdash; Iterative Conditional SMC (Partical
+   Gibbs)
+ * **pimh** &mdash; Particle Independent Metropolis-Hastings
+
+As well as a bunch of other esoteric algorithms. If you are
+curious, consult the [code map](doc/codemap.md) and/or look
+for modules with implementations of `embang.inference/infer`.
+  
 ## Examples
 
 Some program examples are in [`../examples`](../examples/).
@@ -157,4 +173,4 @@ GNU General Public License for more details.
 
 You should have received a copy of the [GNU General Public
 License](gpl-3.0.txt) along with Anglican.  If not, see
-[http://www.gnu.org/licenses/](http://www.gnu.org/licenses/).
+<http://www.gnu.org/licenses/>.

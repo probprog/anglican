@@ -49,11 +49,10 @@
 (defn aloop
   "translates loop+recur"
   [[bindings & body]]
-  `(~'let [~'loop ~(alambda 'loop (cons (map first bindings)
-                                         body))]
-     (~'loop ~@(map (fn [[name value]]
-                      (expression value :name name))
-                    bindings))))
+  `(~(alambda 'loop `(~(map first bindings) ~@body))
+    ~@(map (fn [[name value]]
+             (expression value :name name))
+           bindings)))
 
 (defn acond 
   "translates cond"
@@ -111,7 +110,7 @@
         case   (acase args)
         begin  (abegin args)
         predict (apredict args)
-        ;; other forms (if, and, or, application)
+        ;; other forms (`if', `and', `or', `application')
         ;;  have compatible structure
         (aform expr)))
     (case expr
@@ -119,8 +118,6 @@
       ;; `begin' and `lambda' to avoid name clashes
       do 'begin
       fn 'lambda
-      ;; loop is translated to function `loop'
-      recur 'loop
       expr)))
 
 (defn program
