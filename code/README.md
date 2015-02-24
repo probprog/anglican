@@ -42,7 +42,7 @@ Multiple programs may reside within the same namespace.  By
 convention, the default program (whatever this means) has the
 same name as the last component in the namespace name.  Place
 the program in an appopriate location in Clojure directory
-layout; the example above should go into [`../examples`](../examples/)
+layout; the example above should go into <../examples/>
 subdirectory of __m!__ tree, referenced from `project.clj` as
 a resource path.
 
@@ -78,7 +78,7 @@ The last stored value is retrieved.
 
 Functions can be defined outside Anglican programs, and
 implemented either in Clojure or in Anglican. See 
-[`../examples/branching.clj`](../examples/branching.clj)
+<../examples/branching.clj>
 for examples.
 
 ### Running programs
@@ -122,7 +122,7 @@ logi for anglican.logi).
 
 ## Examples
 
-Some program examples are in [`../examples`](../examples/).
+Some program examples are in <../examples/>.
 If you want to run programs from the repl:
 
     (m! --help)
@@ -157,4 +157,4 @@ GNU General Public License for more details.
 
 You should have received a copy of the [GNU General Public
 License](gpl-3.0.txt) along with Anglican.  If not, see
-[http://www.gnu.org/licenses/](http://www.gnu.org/licenses/).
+<http://www.gnu.org/licenses/>.
