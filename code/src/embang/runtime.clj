@@ -83,7 +83,7 @@
           ~'(observe [this value] (log (.pdf dist value))))))))
 
 (defn bernoulli
-  "bernoulli distribution"
+  "Bernoulli distribution"
   [p]
   (let [dist (cern.jet.random.Uniform. RNG)]
     (reify distribution
@@ -136,7 +136,7 @@
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
 (defn log-gamma-fn 
-  "log gamma function"
+  "log Gamma function"
   [x]
   (cern.jet.stat.Gamma/logGamma x))
 
@@ -225,7 +225,7 @@
       (transform-sample [this samples] (transform-sample samples)))))
 
 (defn log-mv-gamma-fn
-  "multivariate gamma function"
+  "multivariate Gamma function"
   [p a]
   (+ (* 0.25 p (- p 1) (Math/log Math/PI))
      (reduce + (map (fn [j]
