@@ -13,12 +13,14 @@
   returning a lazy sequence of results"
   [thunk n]
   (letfn [(result-seq [running]
-            (lazy-seq 
-              (cons (deref (peek running))
-                    (result-seq (conj (pop running)
-                                      (future (thunk)))))))]
-    (result-seq (into clojure.lang.PersistentQueue/EMPTY
-                      (repeatedly n #(future (thunk)))))))
+            (if (empty? running)
+              (recur
+                (into running
+                      (repeatedly n #(future (thunk)))))
+              (lazy-seq
+                (cons (deref (peek running))
+                      (result-seq (pop running))))))]
+    (result-seq clojure.lang.PersistentQueue/EMPTY)))
 
 (defn next-state-seq
   "returns lazy sequence of next states"
