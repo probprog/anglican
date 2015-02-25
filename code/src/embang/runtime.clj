@@ -63,11 +63,12 @@
 ;; distributions, in alphabetical order
 
 (def ^:private RNG
-  "random number generator"
+  "random number generator;
+  used by colt distribution objects"
   (embang.MTMersenneTwister. (java.util.Date.)))
 
 (defmacro from-colt
-  "wraps incanter distribution"
+  "wraps colt distribution"
   ([name args vtype]
    `(from-colt ~name ~args ~vtype (~(str/capitalize name) ~@args)))
   ([name args vtype [colt-name & colt-args]]
@@ -258,9 +259,9 @@
     "absorbs the sample and returns a new process"))
 
 ;; Random processes can accept and return functions,
-;; and translations in and out of CPS form must be
-;; performed. To avoid mutual dependencies, we
-;; define here two wrappers.
+;; and translations in and out of CPS form must be performed.
+;; To avoid circular dependencies (emit<trap<runtime<emit),
+;; we define two wrappers here.
 
 (defn ^:private uncps
   "reconstructs value-returning function from CPS form"
