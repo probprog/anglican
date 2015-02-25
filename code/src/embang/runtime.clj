@@ -82,6 +82,18 @@
                                        ~'dist))
           ~'(observe [this value] (log (.pdf dist value))))))))
 
+(defn bernoulli
+  "bernoulli distribution"
+  [p]
+  (let [dist (cern.jet.random.Uniform. RNG)]
+    (reify distribution
+      (sample [this] (if (< (.nextDouble dist) p) 1 0))
+      (observe [this value]
+        (Math/log (case value
+                    1 p
+                    0 (- 1. p)
+                    0.))))))
+
 (from-colt beta [alpha beta] double)
 (from-colt binomial [n p] int)
 
@@ -148,7 +160,7 @@
 (from-colt exponential [rate] double)
 
 (defn flip
-  "flip (Bernoulli) distribution"
+  "flip (Bernoulli boolean) distribution"
   [p]
   (let [dist (cern.jet.random.Uniform. RNG)]
     (reify distribution
