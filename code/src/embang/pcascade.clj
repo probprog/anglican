@@ -83,7 +83,7 @@
         ceil-ratio (Math/ceil weight-ratio)
         ratio (if (< (- ceil-ratio weight-ratio) (rand))
                 ceil-ratio (- ceil-ratio 1.))
-        log-weight (- log-weight ratio)
+        log-weight (- log-weight (Math/log ratio))
         multiplier (bigint ratio)]
 
     (if (zero? multiplier)
