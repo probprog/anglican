@@ -19,7 +19,7 @@
 
          ;;; Shared state
          ::particle-count (atom 0)   ; number of running particles
-         ::particle-queue            ; queue of launched particles
+         ::state-queue               ; queue of final states
          (atom clojure.lang.PersistentQueue/EMPTY)
          ::average-weights (atom {}) ; average weights
 
@@ -98,11 +98,12 @@
             (let [new-thread (future (exec ::algorithm
                                            (:cont obs) nil state))]
               (swap! (state ::particle-count) inc)
-              (swap! (state ::particle-queue) #(conj % new-thread))
               (recur (dec multiplier)))))))))
 
 (defmethod checkpoint [::algorithm embang.trap.result] [_ res]
-  (swap! ((:state res) ::particle-count) dec)
+  (let [state (:state res)]
+    (swap! (state ::particle-count) dec)
+    (swap! (state ::state-queue) conj state))
   res)
 
 (defn add-cascade-predicts
@@ -110,9 +111,7 @@
   [state]
   (-> state 
       (add-predict '$particle-count @(state ::particle-count))
-      (add-predict '$multiplier (state ::multiplier))
-      (add-predict '$particle-queue-length
-                   (count @(state ::particle-queue)))))
+      (add-predict '$multiplier (state ::multiplier))))
 
 (defmethod infer :pcascade [_ prog value
                             & {:keys [number-of-threads
@@ -121,39 +120,39 @@
                                     predict-cascade false}}]
   (let [initial-state (make-initial-state number-of-threads)]
     (letfn
-      [(sample-seq []
-         (lazy-seq
-           (if (empty? @(initial-state ::particle-queue))
-             ;; All particles died, launch new particles.
-             (let [new-threads (repeatedly
-                                 ;; Leave space for spawned particles.
-                                 (int (Math/ceil
-                                        (/ number-of-threads 2)))
-                                 #(future
-                                    (exec ::algorithm
-                                          prog value initial-state)))]
-                 (swap! (initial-state ::particle-count)
-                        #(+ % (count new-threads)))
-                 (swap! (initial-state ::particle-queue)
-                        #(into % new-threads))
-                 (sample-seq))
+        [(sample-seq []
+           (lazy-seq
+            (if (empty? @(initial-state ::state-queue))
+              (if (zero? @(initial-state ::particle-count))
+                ;; All particles died, launch new particles.
+                (let [new-threads
+                      (repeatedly
+                       ;; Leave space for spawned particles.
+                       (int (Math/ceil
+                             (/ number-of-threads 2)))
+                       #(future
+                          (exec ::algorithm
+                                prog value initial-state)))]
+                  
+                  (swap! (initial-state ::particle-count)
+                         #(+ % (count new-threads)))
+                  (sample-seq))
 
-             ;; Retrieve first particle in the queue.
-             (let [res @(peek @(initial-state ::particle-queue))]
-               (swap! (initial-state ::particle-queue) pop)
-               (if (some? res)
-                 ;; The particle has lived through to the result.
-                 ;; Multiply the weight by the multiplier.
-                 (let [state (add-log-weight
-                               (:state res)
-                               (Math/log
-                                 (double
-                                   ((:state res) ::multiplier))))
-                       state (if predict-cascade
-                               (add-cascade-predicts state)
-                               state)]
-                   ;; Add the state to the output sequence.
-                   (cons state (sample-seq)))
-                 ;; The particle died midway, retrieve the next one.
-                 (sample-seq))))))]
+                ;; Particles are still running, wait for them
+                (do
+                  (Thread/yield)
+                  (sample-seq)))
+
+              ;; Retrieve first particle in the queue.
+              (let [state (peek @(initial-state ::state-queue))]
+                (swap! (initial-state ::state-queue) pop)
+                ;; Multiply the weight by the multiplier.
+                (let [state (add-log-weight
+                             state
+                             (Math/log (double (state ::multiplier))))
+                      state (if predict-cascade
+                              (add-cascade-predicts state)
+                              state)]
+                  ;; Add the state to the output sequence.
+                  (cons state (sample-seq)))))))]
       (sample-seq))))
