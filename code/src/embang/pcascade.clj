@@ -16,10 +16,12 @@
   [particle-cap]
   (into embang.state/initial-state
         {::particle-cap particle-cap ; max number of running threads
-
+         ::particle-id nil           ; unique id, for monitoring;
+                                     ; assigned on thread launch
          ;;; Shared state
+         ::particle-next-id (atom 0) ; shared source of particle ids
          ::particle-count (atom 0)   ; number of running particles
-         ::state-queue               ; queue of final states
+         ::sample-queue              ; queue of produced samples
          (atom clojure.lang.PersistentQueue/EMPTY)
          ::average-weights (atom {}) ; average weights
 
@@ -54,6 +56,13 @@
   "returns an unique idenditifer for observe and the updated state"
   [obs state]
   (checkpoint-id obs state ::observe-counts ::observe-last-id))
+
+(defn launch-particle
+  "launch a particle in a new thread"
+  [cont value state]
+  (future (exec ::algorithm cont value
+                (assoc state ::particle-id 
+                       (swap! (state ::particle-next-id) inc)))))
 
 (defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   (let [;; Incorporate new observation
@@ -95,21 +104,24 @@
                                          * multiplier))
             :else
             ;; Launch new thread.
-            (let [new-thread (future (exec ::algorithm
-                                           (:cont obs) nil state))]
+            (let [new-thread (launch-particle (:cont obs) nil state)]
               (swap! (state ::particle-count) inc)
               (recur (dec multiplier)))))))))
 
 (defmethod checkpoint [::algorithm embang.trap.result] [_ res]
-  (let [state (:state res)]
+  (let [state (:state res)
+        ;; Multiply the weight by the multiplier.
+        state (add-log-weight
+               state (Math/log (double (state ::multiplier))))]
     (swap! (state ::particle-count) dec)
-    (swap! (state ::state-queue) conj state))
+    (swap! (state ::sample-queue) conj state))
   res)
 
 (defn add-cascade-predicts
   "adds internal cascade statistics as predicts"
   [state]
-  (-> state 
+  (-> state
+      (add-predict '$particle-id (state ::particle-id))
       (add-predict '$particle-count @(state ::particle-count))
       (add-predict '$multiplier (state ::multiplier))))
 
@@ -122,7 +134,8 @@
     (letfn
         [(sample-seq []
            (lazy-seq
-            (if (empty? @(initial-state ::state-queue))
+            (if (empty? @(initial-state ::sample-queue))
+              ;; No ready samples.
               (if (zero? @(initial-state ::particle-count))
                 ;; All particles died, launch new particles.
                 (let [new-threads
@@ -130,29 +143,21 @@
                        ;; Leave space for spawned particles.
                        (int (Math/ceil
                              (/ number-of-threads 2)))
-                       #(future
-                          (exec ::algorithm
-                                prog value initial-state)))]
-                  
+                       #(launch-particle prog value initial-state))]
                   (swap! (initial-state ::particle-count)
                          #(+ % (count new-threads)))
                   (sample-seq))
-
                 ;; Particles are still running, wait for them
                 (do
                   (Thread/yield)
                   (sample-seq)))
 
-              ;; Retrieve first particle in the queue.
-              (let [state (peek @(initial-state ::state-queue))]
-                (swap! (initial-state ::state-queue) pop)
-                ;; Multiply the weight by the multiplier.
-                (let [state (add-log-weight
-                             state
-                             (Math/log (double (state ::multiplier))))
-                      state (if predict-cascade
+              ;; Retrieve first sample from the queue.
+              (let [state (peek @(initial-state ::sample-queue))]
+                (swap! (initial-state ::sample-queue) pop)
+                ;; Add the state to the output sequence.
+                (cons (if predict-cascade
                               (add-cascade-predicts state)
-                              state)]
-                  ;; Add the state to the output sequence.
+                              state)
                   (cons state (sample-seq)))))))]
       (sample-seq))))
