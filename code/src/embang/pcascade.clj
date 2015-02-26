@@ -129,10 +129,15 @@
 
 (defmethod infer :pcascade [_ prog value
                             & {:keys [number-of-threads
+                                      number-of-particles
                                       predict-cascade]
                                :or {number-of-threads 16
                                     predict-cascade false}}]
-  (let [initial-state (make-initial-state number-of-threads)]
+  (let [initial-state (make-initial-state number-of-threads)
+        number-of-particles (or number-of-particles
+                                ;; Leave space for spawned particles.
+                                (int (Math/ceil
+                                      (/ number-of-threads 2))))]
     (letfn
         [(sample-seq []
            (lazy-seq
@@ -142,9 +147,7 @@
                 ;; All particles died, launch new particles.
                 (let [new-threads
                       (repeatedly
-                       ;; Leave space for spawned particles.
-                       (int (Math/ceil
-                             (/ number-of-threads 2)))
+                       number-of-particles
                        #(launch-particle prog value initial-state))]
                   (swap! (initial-state ::particle-count)
                          #(+ % (count new-threads)))
@@ -161,5 +164,5 @@
                 (cons (if predict-cascade
                               (add-cascade-predicts state)
                               state)
-                  (cons state (sample-seq)))))))]
+                      (sample-seq))))))]
       (sample-seq))))
