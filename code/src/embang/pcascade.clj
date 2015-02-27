@@ -16,10 +16,12 @@
   [particle-cap]
   (into embang.state/initial-state
         {::particle-cap particle-cap ; max number of running threads
-         ::particle-id nil           ; unique id, for monitoring;
+         ::particle-id 0             ; unique id, for monitoring;
                                      ; assigned on thread launch
+         ::parent-id -1              ; unique id of the parent, or 0
+                                     ; for initial particles
          ;;; Shared state
-         ::particle-next-id (atom 0) ; shared source of particle ids
+         ::last-particle-id (atom 0) ; shared source of particle ids
          ::particle-count (atom 0)   ; number of running particles
          ::sample-queue              ; queue of produced samples
          (atom clojure.lang.PersistentQueue/EMPTY)
@@ -61,8 +63,9 @@
   "launch a particle in a new thread"
   [cont value state]
   (future (exec ::algorithm cont value
-                (assoc state ::particle-id 
-                       (swap! (state ::particle-next-id) inc)))))
+                (assoc state 
+                  ::particle-id (swap! (state ::last-particle-id) inc)
+                  ::parent-id (state ::particle-id)))))
 
 (defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
   (let [;; Incorporate new observation
@@ -122,6 +125,7 @@
   [state]
   (-> state
       (add-predict '$particle-id (state ::particle-id))
+      (add-predict '$parent-id (state ::parent-id))
       (add-predict '$particle-count @(state ::particle-count))
       (add-predict '$multiplier (state ::multiplier))))
 
