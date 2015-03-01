@@ -31,8 +31,7 @@
 (deftest test-aloop
   (testing "aloop"
     (is (= (aloop '(((x 1) (y 2)) (recur (+ x 1) y)))
-           '(let [loop (fn loop [x y] (loop (+ x 1) y))]
-              (loop 1 2)))
+           '((fn loop [x y] (recur (+ x 1) y)) 1 2))
         "loop")))
 
 (deftest test-acond
@@ -69,7 +68,7 @@
             '[[assume x 1]
               [assume y 2]
               [predict (+ x y)]])
-           '(fn []
+           '(do
               (let [x 1]
                 (let [y 2]
                   (predict '(+ x y) (+ x y))))))
@@ -80,7 +79,7 @@
                                 1 
                                 (* n (fact (- n 1)))))]
               [predict (fact 5)]])
-           '(fn []
+           '(do
               (let [fact (fn fact [n]
                            (if (= n 1)
                              1 

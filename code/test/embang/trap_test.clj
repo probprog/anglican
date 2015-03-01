@@ -37,20 +37,22 @@
       (is (not (primitive-procedure? 'fact))
           "fact is not primitive")
       (is (= (cps-of-expression '(fn [dec] dec) 'ret)
-             '(ret (fn [C $state dec] (C dec $state)) $state))
+             '(ret (fn fn [C $state dec] (C dec $state)) $state))
           "primitive procedure name can be used as parameter")
       (is (= (cps-of-expression '(let [dec 1] dec) 'ret)
              '(let [dec 1] (ret dec $state)))
           "primitive procedure name can be locally rebound")
       (is (= (cps-of-expression '(let [x dec] (x 1)) 'ret)
-             '(let [x (fn [C $state & P]
+             '(let [x (fn dec [C $state & P]
                         (C (apply dec P) $state))]
-                (fn [] (x ret $state 1))))
+                (fn trampoline [] (x ret $state 1))))
           "primitive procedure can be locally bound")
       (is (= (cps-of-expression '(list inc dec) 'ret)
-             '(ret (list 
-                      (fn [C $state & P] (C (apply inc P) $state))
-                      (fn [C $state & P] (C (apply dec P) $state)))
+             '(ret (list
+                      (fn inc [C $state & P]
+                        (C (apply inc P) $state))
+                      (fn dec [C $state & P] 
+                        (C (apply dec P) $state)))
                    $state))
           "primitive procedure can be passed as an argument"))))
 
@@ -69,10 +71,10 @@
   (binding [*gensym* symbol]
     (testing "fn-cps"
       (is (= (fn-cps '([x] x))
-             '(fn [C $state x] (C x $state)))
+             '(fn fn [C $state x] (C x $state)))
           "anonymous function")
       (is (= (fn-cps '(foo [x] (bar)))
-             '(fn foo [C $state x] (fn [] (bar C $state))))
+             '(fn foo [C $state x] (fn trampoline [] (bar C $state))))
           "named function with compound body"))))
 
 (deftest test-cps-of-let
@@ -82,16 +84,16 @@
              '(let [x 1] (let [y 2] (ret (+ x y) $state))))
           "simple let")
       (is (= (cps-of-let '([x (foo 1)] x) 'ret)
-             '(fn [] 
-                (foo (fn [x $state] (ret x $state))
+             '(fn trampoline []
+                (foo (fn let [x $state] (ret x $state))
                      $state 1)))
           "compound value in let"))))
 
 (deftest test-cps-of-if
   (binding [*gensym* symbol]
     (testing "defn-with-named-cont"
-      (is (= (cps-of-if '(1 2 3) '(fn [c s] nil))
-             '(let [C (fn [c s] nil)]
+      (is (= (cps-of-if '(1 2 3) '(fn cont [c s] nil))
+             '(let [C (fn cont [c s] nil)]
                 (if 1 (C 2 $state) (C 3 $state))))
           "if with named cont"))
 
@@ -100,10 +102,11 @@
              '(if 1 (ret 2 $state) (ret 3 $state)))
           "simple if")
       (is (= (cps-of-if '((a) (b) (c)) 'ret)
-             '(fn []
-                (a (fn [I $state] (if I
-                                    (fn [] (b ret $state))
-                                    (fn [] (c ret $state))))
+             '(fn trampoline []
+                (a (fn if [I $state]
+                     (if I
+                       (fn trampoline [] (b ret $state))
+                       (fn trampoline [] (c ret $state))))
                    $state)))
           "compound if")
       (is (= (cps-of-if '(1 2) 'ret)
@@ -122,12 +125,11 @@
 
     (testing "cps-of-case"
       (is (= (cps-of-case '(x 1 (foo 2)) 'ret)
-             '(case x 1 (fn [] (foo ret $state 2))))
+             '(case x 1 (fn trampoline [] (foo ret $state 2))))
           "opaque key")
       (is (= (cps-of-case '((foo x) 1 2) 'ret)
-             '(fn []
-                (foo (fn [K $state]
-                       (ret (case K 1 2) $state))
+             '(fn trampoline []
+                (foo (fn case [K $state] (ret (case K 1 2) $state))
                      $state x)))
           "translucent key"))
 
@@ -136,11 +138,11 @@
              '(ret true $state))
           "empty")
       (is (= (cps-of-and '((y)) 'ret)
-             '(fn [] (y ret $state)))
+             '(fn trampoline [] (y ret $state)))
           "single argument")
       (is (= (cps-of-and '(x (y)) 'ret)
-             '((fn [I $state]
-                 (if I (fn [] (y ret $state))
+             '((fn and [I $state]
+                 (if I (fn trampoline [] (y ret $state))
                    (ret I $state)))
                x $state))
           "multiple arguments"))
@@ -150,32 +152,35 @@
              '(ret false $state))
           "empty")
       (is (= (cps-of-or '((y)) 'ret)
-             '(fn [] (y ret $state)))
+             '(fn trampoline [] (y ret $state)))
           "single argument")
       (is (= (cps-of-or '(x (y)) 'ret)
-             '((fn [I $state]
+             '((fn or [I $state]
                 (if I (ret I $state)
-                  (fn [] (y ret $state))))
+                  (fn trampoline [] (y ret $state))))
                x $state))
           "multiple arguments"))))
 
 (deftest test-cps-of-do
-  (testing "cps-of-do"
-    (is (= (cps-of-do '(1 2) 'ret)
-           '((fn [_ $state] (ret 2 $state)) 1 $state))
-        "list of simple expressions")
-    (is (= (cps-of-do '((a) 1) 'ret)
-           '(fn [] (a (fn [_ $state] (ret 1 $state)) $state)))
-        "list of compound and simple")))
+  (binding [*gensym* symbol]
+    (testing "cps-of-do"
+      (is (= (cps-of-do '(1 2) 'ret)
+             '((fn elist [_ $state] (ret 2 $state)) 1 $state))
+          "list of simple expressions")
+      (is (= (cps-of-do '((a) 1) 'ret)
+             '(fn trampoline []
+                (a (fn elist [_ $state] (ret 1 $state)) $state)))
+          "list of compound and simple"))))
 
 (deftest test-cps-of-apply
-  (testing "cps-of-apply"
-    (is (= (cps-of-apply '(+ terms) 'ret)
-           '(ret (clojure.core/apply + terms) $state))
-        "simple apply")
-    (is (= (cps-of-apply '(foo xs) 'ret)
-           '(fn [] (clojure.core/apply foo ret $state xs)))
-        "compound apply")))
+  (binding [*gensym* symbol]
+    (testing "cps-of-apply"
+      (is (= (cps-of-apply '(+ terms) 'ret)
+             '(ret (clojure.core/apply + terms) $state))
+          "simple apply")
+      (is (= (cps-of-apply '(foo xs) 'ret)
+             '(fn apply [] (clojure.core/apply foo ret $state xs)))
+          "compound apply"))))
 
 (deftest test-cps-of-predict
   (binding [*gensym* symbol]
@@ -184,19 +189,21 @@
              '(ret nil (embang.state/add-predict $state 'x x)))
           "simple predict")
       (is (= (cps-of-predict '('(foo) (foo)) 'ret)
-             '(fn []
-                (foo (fn [A $state]
-                       (ret nil (embang.state/add-predict $state '(foo) A)))
+             '(fn trampoline []
+                (foo (fn arg [A $state]
+                       (ret nil (embang.state/add-predict $state
+                                                          '(foo) A)))
                      $state)))))))
 
 (deftest test-cps-of-sample
   (binding [*gensym* symbol]
     (testing "cps-of-sample"
       (is (= (cps-of-sample '((foo 2)) 'ret)
-             '(fn [] (foo (fn [A $state]
-                            (embang.trap/->sample 'S A ret $state))
-                          $state
-                          2)))
+             '(fn trampoline []
+                (foo (fn arg [A $state]
+                       (embang.trap/->sample 'S A ret $state))
+                     $state
+                     2)))
           "compound sample"))))
 
 (deftest test-cps-of-observe
@@ -211,14 +218,15 @@
     (testing "cps-of-mem"
       (is (= (cps-of-mem '((fn [x] x)) 'ret)
              '(ret (let [M (gensym "M")]
-                     (fn [C $state & P]
+                     (fn mem [C $state & P]
                        (if (embang.state/in-mem? $state M P)
                          (C (embang.state/get-mem $state M P) $state)
-                         (fn []
+                         (fn apply []
                            (clojure.core/apply
-                             (fn [C $state x] (C x $state))
-                             (fn [V $state]
-                               (C V (embang.state/set-mem $state M P V)))
+                             (fn fn [C $state x] (C x $state))
+                             (fn set-mem [V $state]
+                               (C V (embang.state/set-mem $state
+                                                          M P V)))
                              $state
                              P)))))
                    $state))
@@ -228,25 +236,27 @@
                      (fn foo [C $state & P]
                        (if (embang.state/in-mem? $state M P)
                          (C (embang.state/get-mem $state M P) $state)
-                         (fn []
+                         (fn apply []
                            (clojure.core/apply
-                             (fn [C $state x] (C x $state))
-                             (fn [V $state]
-                               (C V (embang.state/set-mem $state M P V)))
+                             (fn fn [C $state x] (C x $state))
+                             (fn set-mem [V $state]
+                               (C V (embang.state/set-mem $state
+                                                          M P V)))
                              $state
                              P)))))
                    $state))
           "mem of named compound function")
       (is (= (cps-of-mem '(foo) 'ret)
              '(ret (let [M (gensym "M")]
-                     (fn [C $state & P]
+                     (fn mem [C $state & P]
                        (if (embang.state/in-mem? $state M P)
                          (C (embang.state/get-mem $state M P) $state)
-                         (fn []
+                         (fn apply []
                            (clojure.core/apply
                              foo
-                             (fn [V $state]
-                               (C V (embang.state/set-mem $state M P V)))
+                             (fn set-mem [V $state]
+                               (C V (embang.state/set-mem $state
+                                                          M P V)))
                              $state
                              P)))))
                    $state))
@@ -263,14 +273,17 @@
              '(ret 1 (embang.state/store $state 1)))
           "simple store")
       (is (= (cps-of-store [:a '(foo)] 'ret)
-             '(fn [] (foo (fn [A $state] (ret A (embang.state/store $state :a A))) $state)))
+             '(fn trampoline []
+                (foo (fn arg [A $state]
+                       (ret A (embang.state/store $state :a A)))
+                     $state)))
           "compound store"))))
 
 (deftest test-primitive-procedure-cps
   (binding [*gensym* symbol]
     (testing "primitive-procedure-cps"
       (is (= (primitive-procedure-cps 'inc)
-             '(fn [C $state & P]
+             '(fn inc [C $state & P]
                 (C (apply inc P) $state)))
           "primitive procedure"))))
 
@@ -285,6 +298,8 @@
           "cps of simple if"))
     (testing "(cps-of-expression compound-expression)"
       (is (= (cps-of-expression '(if x (foo) (bar)) 'ret)
-             '(if x (fn [] (foo ret $state)) (fn [] (bar ret $state))))
+             '(if x
+                (fn trampoline [] (foo ret $state))
+                (fn trampoline [] (bar ret $state))))
           "cps of compound if"))))
 
