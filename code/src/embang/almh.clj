@@ -7,7 +7,7 @@
                               utility]]))
 
 ;;;; Adaptive scheduling single-site Metropolis-Hastings
-;
+;;
 ;; A separate set of pending entries is maintained
 ;; for each predict, and the reward is distributed
 ;; between the entries when the predict is updated.
@@ -242,26 +242,32 @@
      (get-log-retained-probability state)
      (log-entry-probability state entry)))
 
-;; Reporting statistics
+;;; Reporting statistics
 
-(defn add-choice-predicts
-  "adds predicts for choice statistics
-  to the state"
-  [state]
-  (-> state
-      ;; Average choice rewards
-      (add-predict '$choice-rewards
-                   (sort-by first
-                           (map (fn [[choice-id [sum cnt]]]
-                                  [choice-id (/ sum cnt) cnt])
-                                (state ::choice-rewards))))
-      ;; Actual choice counts, these are different
-      ;; from normalized discounted counts in rewards.
-      (add-predict '$choice-counts
-                   (sort-by first (state ::choice-counts)))
-      (add-predict '$total-count
-                   (reduce + (map second
-                                  (state ::choice-counts))))))
+;; Sample identifiers can be computed at runtime
+;; and may be of any comparable type. Sort them
+;; as strings.
+
+(let [sort-choices (partial sort-by (comp str first))]
+
+  (defn add-choice-predicts
+    "adds predicts for choice statistics
+    to the state"
+    [state]
+    (-> state
+        ;; Average choice rewards
+        (add-predict '$choice-rewards
+                     (sort-choices
+                       (map (fn [[choice-id [sum cnt]]]
+                              [choice-id (/ sum cnt) cnt])
+                            (state ::choice-rewards))))
+        ;; Actual choice counts, these are different
+        ;; from normalized discounted counts in rewards.
+        (add-predict '$choice-counts
+                     (sort-choices (state ::choice-counts)))
+        (add-predict '$total-count
+                     (reduce + (map second
+                                    (state ::choice-counts)))))))
 
 (defmethod infer :almh [_ prog value & {:keys [predict-choices]
                                         :or {predict-choices false}}]
