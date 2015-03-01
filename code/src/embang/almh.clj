@@ -189,7 +189,7 @@
   (embang.lmh/prev-state state next-state entry
                          (state-update next-state)))
 
-;; Adaptive scheduling
+;;; Adaptive scheduling
 
 (defn ucb
   "returns function computing UCB of average reward"
