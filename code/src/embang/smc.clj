@@ -50,8 +50,8 @@
 
 ;;; Resampling particles
 
-;; Systematic resampling is used. The particles are assigned
-;; unit weight after resampling.
+;; Systematic resampling is used. All particles get the same
+;; weight after resampling.
 
 (defn recover-weights
   "recovers weights from log-weights"
