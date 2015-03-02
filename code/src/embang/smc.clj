@@ -104,9 +104,8 @@
             (recur (+ x step) (+ n 1)
                    acc weights particles
                    (conj new-particles
-                         (update-in
-                           particle [:state]
-                           set-log-weight log-weight)))
+                         (update-in particle [:state]
+                                    set-log-weight log-weight)))
             ;; Otherwise, keep going through the particle's
             ;; segments, recycling the list of particles and
             ;; their weights when necessary.
