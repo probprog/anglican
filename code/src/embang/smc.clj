@@ -107,7 +107,7 @@
                          (update-in
                            particle [:state]
                            set-log-weight log-weight)))
-            ;; Otherwise, keep going through the wheel
+            ;; Otherwise, keep going through the particle's
             ;; segments, recycling the list of particles and
             ;; their weights when necessary.
             (recur x n
