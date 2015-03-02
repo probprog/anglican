@@ -76,7 +76,7 @@
        (if (re-find #"^\s*;|^\s*$" line)
          ;; meta-info or comment
          (if-let [format-option (re-matches
-                                 #"^;;\s*Output format:\s+:(.+)"
+                                #"^;;\s*Output format:\s+:(.+)"
                                  line)]
            (recur lines (keyword (format-option 1)))
            (recur lines format))
@@ -457,7 +457,12 @@ Options:
   []
   (let [total-freqs (totals fq-seq)]
     (doseq [label (sort-by str (keys total-freqs))]
-      (doseq [value (sort (keys (total-freqs label)))]
+      (doseq [value (sort-by
+                      (fn [value]
+                        (if (instance? java.lang.Comparable value)
+                          value
+                          (str value)))
+                      (keys (total-freqs label)))]
         (let [weight (get-in total-freqs [label value])]
           (println
             (format "%s, %s, %6g, %6g"
