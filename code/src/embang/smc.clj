@@ -72,7 +72,7 @@
   mean weight (:mean) or, by default, 1 (:one)"
   [particles number-of-new-particles & {:keys [outgoing-weight]
                                         :or {outgoing-weight :one}}]
-  ;; invariant bindings for sampling
+  ;; Invariant bindings for sampling
   (let [weights (recover-weights
                   (map (comp get-log-weight :state) particles))
         total-weight (reduce + weights)
@@ -81,10 +81,11 @@
         log-weight (case outgoing-weight
                      :one 0.
                      :mean (Math/log step))
-        all-weights weights     ; particle sequence is circular
+        ;; The particle sequence is circular.
+        all-weights weights
         all-particles particles]
 
-    ;; the systematic sampling loop
+    ;; The systematic sampling loop
     (loop [x (rand total-weight)
            n 0      ; number of particles sampled so far
            acc 0    ; upper bound of the current segment
