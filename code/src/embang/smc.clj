@@ -28,7 +28,7 @@
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
-                 (resample particles (count particles)
+                 (resample particles number-of-particles
                            :outgoing-weight :mean)))
 
      (every? #(instance? embang.trap.result %) particles)
