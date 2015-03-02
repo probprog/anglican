@@ -37,7 +37,7 @@
                  (sample-seq 
                    (map #(exec ::algorithm (:cont %) nil 
                                (clear-predicts (:state %)))
-                        (resample particles))))
+                        (resample particles (count particles)))))
 
                (every? #(instance? embang.trap.result %) particles)
                (concat 
