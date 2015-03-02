@@ -24,7 +24,7 @@
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
-                 (resample particles))
+                 (resample particles (count particles)))
             (- (+ log-Z (Math/log
                           (reduce
                             + (recover-weights

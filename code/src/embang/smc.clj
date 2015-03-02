@@ -19,7 +19,7 @@
 (defmulti sweep
   "a single sweep of SMC and friends"
   (fn [algorithm prog value number-of-particles & _] algorithm))
-    
+
 (defmethod sweep ::algorithm
   [algorithm prog value number-of-particles]
   (loop [particles (repeatedly number-of-particles
@@ -28,11 +28,12 @@
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
-                 (resample particles)))
+                 (resample particles (count particles)
+                           :outgoing-weight :mean)))
 
      (every? #(instance? embang.trap.result %) particles)
      particles
-     
+
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
@@ -65,45 +66,51 @@
          log-weights)))
 
 (defn resample
-  "resamples particles proportionally to their current weights"
-  ([particles] (resample particles (count particles)))
-  ([particles number-of-new-particles]
+  "resamples particles proportionally to their current weights;
+  returns a sequence of number-of-new-particles resampled
+  particles with the same weight (:outgoing-weight), either the
+  mean weight (:mean) or 1 (:one)"
+  [particles number-of-new-particles & {:keys [outgoing-weight]
+                                        :or {outgoing-weight :one}}]
+  ;; invariant bindings for sampling
+  (let [weights (recover-weights
+                  (map (comp get-log-weight :state) particles))
+        total-weight (reduce + weights)
+        step (/ total-weight number-of-new-particles)
+        ;; After resampling, all particles have the same weight.
+        log-weight (case outgoing-weight
+                     :one 0.
+                     :mean (Math/log step))
+        all-weights weights     ; particle sequence is circular
+        all-particles particles]
 
-     ;; invariant bindings for sampling
-     (let [weights (recover-weights
-                    (map (comp get-log-weight :state) particles))
-           total-weight (reduce + weights)
-           step (/ total-weight number-of-new-particles)
-           all-weights weights     ; particle sequence is circular
-           all-particles particles]
+    ;; the systematic sampling loop
+    (loop [x (rand total-weight)
+           n 0      ; number of particles sampled so far
+           acc 0    ; upper bound of the current segment
+           weights all-weights
+           particles all-particles
+           new-particles nil]
+      (if (= n number-of-new-particles)
+        new-particles
+        (let [[weight & next-weights] weights
+              [particle & next-particles] particles
+              next-acc (+ acc weight)]
 
-       ;; the systematic sampling loop
-       (loop [x (rand total-weight)
-              n 0      ; number of particles sampled so far
-              acc 0    ; upper bound of the current segment
-              weights all-weights
-              particles all-particles
-              new-particles nil]
-         (if (= n number-of-new-particles)
-           new-particles
-           (let [[weight & next-weights] weights
-                 [particle & next-particles] particles
-                 next-acc (+ acc weight)]
-
-             (if (< x next-acc)
-               ;; Found the wheel segment into which x has fallen.
-               ;; Advance x by step for the next particle's segment.
-               (recur (+ x step) (+ n 1) 
-                      acc weights particles
-                      (conj new-particles
-                            (update-in
-                             particle [:state]
-                             set-log-weight 0.)))
-               ;; Otherwise, keep going through the particle's 
-               ;; segments, recycling the list of particles and
-               ;; their weights when necessary.
-               (recur x n
-                      next-acc
-                      (or next-weights all-weights)
-                      (or next-particles all-particles)
-                      new-particles))))))))
+          (if (< x next-acc)
+            ;; Found the wheel segment into which x has fallen.
+            ;; Advance x by step for the next particle's segment.
+            (recur (+ x step) (+ n 1)
+                   acc weights particles
+                   (conj new-particles
+                         (update-in
+                           particle [:state]
+                           set-log-weight log-weight)))
+            ;; Otherwise, keep going through the particle's
+            ;; segments, recycling the list of particles and
+            ;; their weights when necessary.
+            (recur x n
+                   next-acc
+                   (or next-weights all-weights)
+                   (or next-particles all-particles)
+                   new-particles)))))))
