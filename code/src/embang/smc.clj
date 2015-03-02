@@ -69,7 +69,7 @@
   "resamples particles proportionally to their current weights;
   returns a sequence of number-of-new-particles resampled
   particles with the same weight (:outgoing-weight), either the
-  mean weight (:mean) or 1 (:one)"
+  mean weight (:mean) or, by default, 1 (:one)"
   [particles number-of-new-particles & {:keys [outgoing-weight]
                                         :or {outgoing-weight :one}}]
   ;; invariant bindings for sampling
