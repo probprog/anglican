@@ -76,7 +76,7 @@
        (if (re-find #"^\s*;|^\s*$" line)
          ;; meta-info or comment
          (if-let [format-option (re-matches
-                                 #"^;;\s*Output format:\s+:(.+)"
+                                #"^;;\s*Output format:\s+:(.+)"
                                  line)]
            (recur lines (keyword (format-option 1)))
            (recur lines format))
@@ -450,32 +450,30 @@ Options:
                             :exclude (set (:exclude options)))]
             (pprint distance)))))))
 
-(letfn [(to-comparable
-          [value]
-          (if (instance? java.lang.Comparable value)
-            value
-            (str value)))]
+;; REPL command
+(defn freqs
+  "reads results from stdin and writes the frequency table
+  for every integer-valued predict"
+  []
+  (let [total-freqs (totals fq-seq)]
+    (doseq [label (sort-by str (keys total-freqs))]
+      (doseq [value (sort-by
+                      (fn [value]
+                        (if (instance? java.lang.Comparable value)
+                          value
+                          (str value)))
+                      (keys (total-freqs label)))]
+        (let [weight (get-in total-freqs [label value])]
+          (println
+            (format "%s, %s, %6g, %6g"
+                    label value weight (Math/log weight))))))))
 
-  ;; REPL command
-  (defn freqs
-    "reads results from stdin and writes the frequency table
-    for every integer-valued predict"
-    []
-    (let [total-freqs (totals fq-seq)]
-      (doseq [label (sort-by to-comparable (keys total-freqs))]
-        (doseq [value (sort-by to-comparable
-                               (keys (total-freqs label)))]
-          (let [weight (get-in total-freqs [label value])]
-            (println
-              (format "%s, %s, %6g, %6g"
-                      label value weight (Math/log weight))))))))
-
-  ;; REPL command
-  (defn meansd
-    "reads results from stdin and writes the mean and
-    standard deviation for each predict"
-    []
-    (let [total-meansd (totals ms-seq)]
-      (doseq [label (sort-by to-comparable (keys total-meansd))]
-        (let [{:keys [mean sd]} (get total-meansd label)]
-          (println (format "%s, %6g, %6g" label mean sd)))))))
+;; REPL command
+(defn meansd
+  "reads results from stdin and writes the mean and
+  standard deviation for each predict"
+  []
+  (let [total-meansd (totals ms-seq)]
+    (doseq [label (sort-by str (keys total-meansd))]
+      (let [{:keys [mean sd]} (get total-meansd label)]
+        (println (format "%s, %6g, %6g" label mean sd))))))
