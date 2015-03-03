@@ -1,4 +1,4 @@
-(ns embang.bgrad
+(ns embang.bamc
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [clojure.data.priority-map
              :refer [priority-map-keyfn-by]])
@@ -256,14 +256,14 @@
 
 ;;; Inference method
 
-(defmethod infer :bgrad [_ prog value
-                         & {:keys [predict-trace
-                                   predict-candidates
-                                   predict-bandits
-                                   number-of-samples]
-                            :or {predict-trace false
-                                 predict-candidates false
-                                 predict-bandits false}}]
+(defmethod infer :bamc [_ prog value
+                        & {:keys [predict-trace
+                                  predict-candidates
+                                  predict-bandits
+                                  number-of-samples]
+                           :or {predict-trace false
+                                predict-candidates false
+                                predict-bandits false}}]
   ;; The MAP inference consists of two chained transformations,
   ;; `sample-seq', followed by `map-seq'.
   (letfn

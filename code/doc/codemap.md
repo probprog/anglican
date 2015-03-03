@@ -25,7 +25,7 @@
 
         ### Estimating MAP
         siman.clj      --- Simulated annealing
-        bgrad.clj      --- Bayesian gradient
+        bamc.clj       --- Bayesian ascent Monte Carlo 
 
         ### Filtering
         pfilter.clj    --- Particle Filter
