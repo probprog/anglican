@@ -248,7 +248,7 @@
                  first
                  (map (fn [[bandit-id {:keys [arms new-arm-count]}]]
                         ;; For each bandit, report the number of
-                        ;; arts and the number of times a new arm
+                        ;; arms and the number of times a new arm
                         ;; was chosen.
                         [bandit-id {:arm-count (count arms)
                                     :new-arm-count new-arm-count}])
