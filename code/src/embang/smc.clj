@@ -28,8 +28,7 @@
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
-                 (resample particles number-of-particles
-                           :outgoing-weight :mean)))
+                 (resample particles number-of-particles)))
 
      (every? #(instance? embang.trap.result %) particles)
      particles
@@ -53,35 +52,42 @@
 ;; Systematic resampling is used. All particles get the same
 ;; weight after resampling.
 
-(defn recover-weights
-  "recovers weights from log-weights"
-  [log-weights]
-  (let [max-log-weight (reduce max log-weights)]
-    (map (fn [log-weight]
-           ;; avoid NaN and Infinity
-           (cond
-            (= log-weight max-log-weight) 1.
-            (= log-weight (Math/log 0.)) 0.
-            :else (Math/exp (- log-weight max-log-weight))))
-         log-weights)))
+(defn particle-weights
+  "computes normalized particle weights;
+  returns tuple [weights/max-weight max-log-weight]"
+  [particles]
+  (let [log-weights (map (comp get-log-weight :state)
+                         particles)
+        max-log-weight (reduce max log-weights)]
+    [(map (fn [log-weight]
+            ;; Avoid NaN and Infinity.
+            (cond
+              (= log-weight max-log-weight) 1.
+              (= log-weight (Math/log 0.)) 0.
+              :else (Math/exp (- log-weight max-log-weight))))
+          log-weights)
+     max-log-weight]))
 
 (defn resample
   "resamples particles proportionally to their current weights;
   returns a sequence of number-of-new-particles resampled
-  particles with the same weight (:outgoing-weight), either the
-  mean weight (:mean) or, by default, 1 (:one)"
-  [particles number-of-new-particles & {:keys [outgoing-weight]
-                                        :or {outgoing-weight :one}}]
+  particles with the weight set to the average weight"
+  [particles number-of-new-particles]
   ;; Invariant bindings for sampling
-  (let [weights (recover-weights
-                  (map (comp get-log-weight :state) particles))
+  (let [;; The roulette wheel
+        [weights max-log-weight] (particle-weights particles)
         total-weight (reduce + weights)
-        step (/ total-weight number-of-new-particles)
+        step (/ total-weight (double number-of-new-particles))
+
         ;; After resampling, all particles have the same weight.
-        log-weight (case outgoing-weight
-                     :one 0.
-                     :mean (Math/log step))
-        ;; The particle sequence is circular.
+        log-weight (if (< (/ -1. 0.) max-log-weight (/ 1. 0))
+                     (+ (Math/log step) max-log-weight)
+                     ;; If the weight is not usable, set it
+                     ;; to -Infinity so that the sweep dies out
+                     ;; if possible.
+                     (/ -1. 0.))
+
+        ;; Particle sequence is circular.
         all-weights weights
         all-particles particles]
 

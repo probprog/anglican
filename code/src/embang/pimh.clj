@@ -19,42 +19,45 @@
   [algorithm prog value number-of-particles]
   (loop [particles (repeatedly number-of-particles
                                #(exec algorithm
-                                      prog value initial-state))
-         log-Z 0.]
+                                      prog value initial-state))]
     (cond
      (every? #(instance? embang.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
-                 (resample particles number-of-particles))
-            (- (+ log-Z (Math/log
-                          (reduce
-                            + (recover-weights
-                                (map (comp get-log-weight :state)
-                                     particles)))))
-               (Math/log number-of-particles)))
+                 (resample particles number-of-particles)))
 
      (every? #(instance? embang.trap.result %) particles)
-     [particles log-Z]
+     particles
 
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
 (defmethod infer :pimh [_ prog value & {:keys [number-of-particles]
-                                 :or {number-of-particles 1}}]
+                                        :or {number-of-particles 1}}]
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
-  (letfn [(add-particles [particles log-Z]
-            (concat (map :state particles)
-                    (sample-seq particles log-Z)))
-          (sample-seq [particles log-Z]
-            (lazy-seq
-              ;; Run a new sweep.
-              (let [[new-particles new-log-Z]
-                    (sweep ::algorithm prog value number-of-particles)]
-                ;; And accept with MH probability.
-                (if (> (- new-log-Z log-Z) (Math/log (rand)))
-                  (add-particles new-particles new-log-Z)
-                  (add-particles particles log-Z)))))]
+  (letfn
+    [;; Compute normalization factor, required for MH.
+     (get-log-Z [particles]
+       (let [[weights max-log-weight] (particle-weights particles)]
+         (+ (Math/log (reduce + weights)) max-log-weight)))
+
+     ;; Add samples produced by the particles to the sample sequence.
+     (add-samples [particles log-Z]
+       (concat (map (comp #(set-log-weight % 0.) :state) particles)
+               (sample-seq particles log-Z)))
+
+     (sample-seq [particles log-Z]
+       (lazy-seq
+         ;; Run a new sweep.
+         (let [next-particles (sweep ::algorithm
+                                     prog value number-of-particles)
+               next-log-Z (get-log-Z next-particles)]
+           ;; And accept with MH probability.
+           (if (> (- next-log-Z log-Z) (Math/log (rand)))
+             (add-samples next-particles next-log-Z)
+             (add-samples particles log-Z)))))]
+
     ;; Run the first sweep to initialize the process.
-    (let [[particles log-Z]
-          (sweep ::algorithm prog value number-of-particles)]
-      (sample-seq particles log-Z))))
+    (let [particles (sweep ::algorithm
+                           prog value number-of-particles)]
+      (sample-seq particles (get-log-Z particles)))))
