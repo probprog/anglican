@@ -53,7 +53,7 @@
 ;; weight after resampling.
 
 (defn particle-weights
-  "computes normalized particle weights;
+  "computes relative particle weights;
   returns tuple [weights/max-weight max-log-weight]"
   [particles]
   (let [log-weights (map (comp get-log-weight :state)
