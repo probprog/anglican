@@ -45,7 +45,7 @@
       (is (= (cps-of-expression '(let [x dec] (x 1)) 'ret)
              '(let [x (fn dec [C $state & P]
                         (C (apply dec P) $state))]
-                (fn trampoline [] (x ret $state 1))))
+                (fn call [] (x ret $state 1))))
           "primitive procedure can be locally bound")
       (is (= (cps-of-expression '(list inc dec) 'ret)
              '(ret (list
@@ -74,7 +74,7 @@
              '(fn fn [C $state x] (C x $state)))
           "anonymous function")
       (is (= (fn-cps '(foo [x] (bar)))
-             '(fn foo [C $state x] (fn trampoline [] (bar C $state))))
+             '(fn foo [C $state x] (fn call [] (bar C $state))))
           "named function with compound body"))))
 
 (deftest test-cps-of-let
@@ -84,7 +84,7 @@
              '(let [x 1] (let [y 2] (ret (+ x y) $state))))
           "simple let")
       (is (= (cps-of-let '([x (foo 1)] x) 'ret)
-             '(fn trampoline []
+             '(fn call []
                 (foo (fn let [x $state] (ret x $state))
                      $state 1)))
           "compound value in let"))))
@@ -102,11 +102,11 @@
              '(if 1 (ret 2 $state) (ret 3 $state)))
           "simple if")
       (is (= (cps-of-if '((a) (b) (c)) 'ret)
-             '(fn trampoline []
+             '(fn call []
                 (a (fn if [I $state]
                      (if I
-                       (fn trampoline [] (b ret $state))
-                       (fn trampoline [] (c ret $state))))
+                       (fn call [] (b ret $state))
+                       (fn call [] (c ret $state))))
                    $state)))
           "compound if")
       (is (= (cps-of-if '(1 2) 'ret)
@@ -120,15 +120,15 @@
     (testing "cps-of-cond"
       (is (= (cps-of-cond '(1 2 3 4) 'ret)
              '(if 1 (ret 2 $state)
-                (ret (cond 3 4) $state)))
+                (if 3 (ret 4 $state) (ret nil $state))))
           "cond via if"))
 
     (testing "cps-of-case"
       (is (= (cps-of-case '(x 1 (foo 2)) 'ret)
-             '(case x 1 (fn trampoline [] (foo ret $state 2))))
+             '(case x 1 (fn call [] (foo ret $state 2))))
           "opaque key")
       (is (= (cps-of-case '((foo x) 1 2) 'ret)
-             '(fn trampoline []
+             '(fn call []
                 (foo (fn case [K $state] (ret (case K 1 2) $state))
                      $state x)))
           "translucent key"))
@@ -138,11 +138,11 @@
              '(ret true $state))
           "empty")
       (is (= (cps-of-and '((y)) 'ret)
-             '(fn trampoline [] (y ret $state)))
+             '(fn call [] (y ret $state)))
           "single argument")
       (is (= (cps-of-and '(x (y)) 'ret)
              '((fn and [I $state]
-                 (if I (fn trampoline [] (y ret $state))
+                 (if I (fn call [] (y ret $state))
                    (ret I $state)))
                x $state))
           "multiple arguments"))
@@ -152,12 +152,12 @@
              '(ret false $state))
           "empty")
       (is (= (cps-of-or '((y)) 'ret)
-             '(fn trampoline [] (y ret $state)))
+             '(fn call [] (y ret $state)))
           "single argument")
       (is (= (cps-of-or '(x (y)) 'ret)
              '((fn or [I $state]
                 (if I (ret I $state)
-                  (fn trampoline [] (y ret $state))))
+                  (fn call [] (y ret $state))))
                x $state))
           "multiple arguments"))))
 
@@ -168,7 +168,7 @@
              '((fn elist [_ $state] (ret 2 $state)) 1 $state))
           "list of simple expressions")
       (is (= (cps-of-do '((a) 1) 'ret)
-             '(fn trampoline []
+             '(fn call []
                 (a (fn elist [_ $state] (ret 1 $state)) $state)))
           "list of compound and simple"))))
 
@@ -189,7 +189,7 @@
              '(ret nil (embang.state/add-predict $state 'x x)))
           "simple predict")
       (is (= (cps-of-predict '('(foo) (foo)) 'ret)
-             '(fn trampoline []
+             '(fn call []
                 (foo (fn arg [A $state]
                        (ret nil (embang.state/add-predict $state
                                                           '(foo) A)))
@@ -199,7 +199,7 @@
   (binding [*gensym* symbol]
     (testing "cps-of-sample"
       (is (= (cps-of-sample '((foo 2)) 'ret)
-             '(fn trampoline []
+             '(fn call []
                 (foo (fn arg [A $state]
                        (embang.trap/->sample 'S A ret $state))
                      $state
@@ -273,7 +273,7 @@
              '(ret 1 (embang.state/store $state 1)))
           "simple store")
       (is (= (cps-of-store [:a '(foo)] 'ret)
-             '(fn trampoline []
+             '(fn call []
                 (foo (fn arg [A $state]
                        (ret A (embang.state/store $state :a A)))
                      $state)))
@@ -299,7 +299,7 @@
     (testing "(cps-of-expression compound-expression)"
       (is (= (cps-of-expression '(if x (foo) (bar)) 'ret)
              '(if x
-                (fn trampoline [] (foo ret $state))
-                (fn trampoline [] (bar ret $state))))
+                (fn call [] (foo ret $state))
+                (fn call [] (bar ret $state))))
           "cps of compound if"))))
 

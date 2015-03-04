@@ -68,9 +68,7 @@
     (case (first expr)
       quote true
       fn false
-      (begin
-       if when cond 
-       and or do) (every? simple? (rest expr))
+      (do if) (every? simple? (rest expr))
       case (if (even? (count expr))
              ;; No default clause.
              (every? simple? (take-nth 2 (rest expr)))
@@ -81,13 +79,10 @@
                    (and (every? simple?
                                 (take-nth 2 (rest bindings)))
                         (every? simple? body)))
-      (recur
-       predict
-       observe
-       sample
-       mem
-       store
-       retrieve
+      (when cond and or
+       recur
+       predict observe sample
+       mem store retrieve
        apply) false
       ;; application
       (and (primitive-procedure? (first expr))
@@ -178,11 +173,11 @@
   (if (vector? (first args))
     (fn-cps `[nil ~@args])
     (let [[name parms & body] args
-          fncont (*gensym* "C")]
+          cont (*gensym* "C")]
       (shading-primitive-procedures parms
         `(~'fn ~(or name (*gensym* "fn"))
-           [~fncont ~'$state ~@parms]
-           ~(cps-of-elist body fncont))))))
+           [~cont ~'$state ~@parms]
+           ~(cps-of-elist body cont))))))
 
 (defn cps-of-let
   "transforms let to CPS"
@@ -466,11 +461,11 @@
   (make-of-args args :first-is-rator
                 (fn [acall]
                   (let [[rator & rands] acall]
-                    `(~'fn ~(*gensym* "apply") []
-                       ~(if (primitive-procedure? rator)
-                          `(~cont (apply ~@acall) ~'$state)
-                          `(apply ~rator
-                                  ~cont ~'$state ~@rands)))))))
+                    (if (primitive-procedure? rator)
+                      `(~cont (apply ~@acall) ~'$state)
+                      `(~'fn ~(*gensym* "apply") []
+                         (apply ~rator
+                                ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-application
   "transforms application to CPS;
@@ -480,20 +475,20 @@
   (make-of-args exprs :first-is-rator
                 (fn [call]
                   (let [[rator & rands] call]
-                    `(~'fn ~(*gensym* "call") []
-                       ~(if (primitive-procedure? rator)
-                          `(~cont ~call ~'$state)
-                          `(~rator ~cont ~'$state ~@rands)))))))
+                    (if (primitive-procedure? rator)
+                      `(~cont ~call ~'$state)
+                      `(~'fn ~(*gensym* "call") []
+                         (~rator ~cont ~'$state ~@rands)))))))
 
 ;;; Primitive procedures in value postition
 
 (defn primitive-procedure-cps
   "wraps primitive procedure as a CPS form"
   [expr]
-  (let [fncont (*gensym* "C")
+  (let [cont (*gensym* "C")
         parms (*gensym* "P")]
-    `(~'fn ~(*gensym* expr) [~fncont ~'$state & ~parms]
-       (~fncont (~'apply ~expr ~parms) ~'$state))))
+    `(~'fn ~(*gensym* expr) [~cont ~'$state & ~parms]
+       (~cont (~'apply ~expr ~parms) ~'$state))))
 
 ;;; Transformation dispatch
     
