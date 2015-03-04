@@ -22,30 +22,35 @@
     (letfn
       [(sample-seq [particles]
          (lazy-seq
-             (cond
-               (every? #(instance? embang.trap.observe %) particles)
-               (concat
-                 (keep
-                   (fn [particle]
-                     (let [state (:state particle)]
-                       ;; Skip states without predicts.
-                       (when (seq (get-predicts state))
-                         ;; The state is after `observe' and before
-                         ;; resampling, restore the weight to 1.
-                         (set-log-weight state 0))))
-                   particles)
-                 (sample-seq 
-                   (map #(exec ::algorithm (:cont %) nil 
-                               (clear-predicts (:state %)))
-                        (resample particles))))
+           (concat
+             ;; Keep only states which contain predicts.
+             (keep
+               (fn [particle]
+                 (let [state (:state particle)]
+                   ;; Skip states without predicts.
+                   (when (seq (get-predicts state))
+                     ;; The state is after `observe' and before
+                     ;; resampling, restore the weight to 1, so
+                     ;; that all predicts have the same weight.
+                     (set-log-weight state 0))))
+               particles)
+             
+             ;; Continue running the program infinitely.
+             (sample-seq 
+               (cond
+                 (every? #(instance? embang.trap.observe %) particles)
+                 ;; Resample and continue.
+                 (map #(exec ::algorithm (:cont %) nil 
+                             (clear-predicts (:state %)))
+                      (resample particles number-of-particles))
 
-               (every? #(instance? embang.trap.result %) particles)
-               (concat 
-                 (map :state particles)
-                 (sample-seq initial-particles))
+                 (every? #(instance? embang.trap.result %) particles)
+                 ;; Restart the particles.
+                 initial-particles
 
-               :else (do
-                       (throw (AssertionError.
-                                (str "some `observe' directives "
-                                     "are not global")))))))]
+                 :else (do
+                         (throw (AssertionError.
+                                  (str "some `observe' directives "
+                                       "are not global")))))))))]
+
       (sample-seq initial-particles))))
