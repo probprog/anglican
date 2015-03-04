@@ -195,9 +195,9 @@
             `(~'let [~name ~(opaque-cps value)]
                ~rst)
             (cps-of-expression
-              value
-                `(~'fn ~(*gensym* "let") [~name ~'$state]
-                   ~rst))))))
+             value
+             `(~'fn ~(*gensym* "let") [~name ~'$state]
+                ~rst))))))
     (cps-of-elist body cont)))
 
 ;; `loop' is translated into an application of recursive
@@ -460,30 +460,30 @@
 
 (defn cps-of-apply
   "transforms apply to CPS;
-  apply of user-defined (not primitive) procedures
-  is trampolined --- wrapped into a parameterless closure"
+  сalls of procedures are trampolined
+  --- wrapped into a parameterless closure"
   [args cont]
   (make-of-args args :first-is-rator
                 (fn [acall]
                   (let [[rator & rands] acall]
-                    (if (primitive-procedure? rator)
-                      `(~cont (apply ~@acall) ~'$state)
-                      `(~'fn ~(*gensym* "apply") []
-                         (apply ~rator
-                                ~cont ~'$state ~@rands)))))))
+                    `(~'fn ~(*gensym* "apply") []
+                       ~(if (primitive-procedure? rator)
+                          `(~cont (apply ~@acall) ~'$state)
+                          `(apply ~rator
+                                  ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-application
   "transforms application to CPS;
-  application of user-defined (not primitive) procedures
-  is trampolined --- wrapped into a parameterless closure"
+  applications of procedures are trampolined
+  --- wrapped into a parameterless closure"
   [exprs cont]
   (make-of-args exprs :first-is-rator
                 (fn [call]
                   (let [[rator & rands] call]
-                    (if (primitive-procedure? rator)
-                      `(~cont ~call ~'$state)
-                      `(~'fn ~(*gensym* "trampoline") []
-                         (~rator ~cont ~'$state ~@rands)))))))
+                    `(~'fn ~(*gensym* "call") []
+                       ~(if (primitive-procedure? rator)
+                          `(~cont ~call ~'$state)
+                          `(~rator ~cont ~'$state ~@rands)))))))
 
 ;;; Primitive procedures in value postition
 

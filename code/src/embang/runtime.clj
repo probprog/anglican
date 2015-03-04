@@ -114,7 +114,6 @@
 (defn discrete
   "discrete distribution, accepts unnormalized weights"
   [weights]
-        
   (let [weights (mapv double weights)
         total-weight (reduce + weights)
         dist (cern.jet.random.Uniform. 0. total-weight RNG)]
