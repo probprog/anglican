@@ -94,6 +94,7 @@
   (= value +not-a-value+))
 
 (defn select-value
+  "selects value corresponding to the best arm"
   [bandit log-p]
   ;; If the best arm happens to be a new arm,
   ;; return nil. checkpoint [::algorithm sample]
@@ -174,6 +175,8 @@
         [bandit-id state] (bandit-id smp state)
         bandit ((state ::bandits) bandit-id fresh-bandit)
 
+        ;; Select value:
+
         ;; Select a value as a bandit arm.
         value (select-value bandit #(observe (:dist smp) %))
         ;; Remember whether a new arm was drawn;
@@ -184,22 +187,18 @@
                 (sample (:dist smp))
                 value)
 
-        ;; Past reward is the reward collected upto
-        ;; the current sampling point.
-        past-reward (get-log-weight state)
-        ;; Edge reward is the probability of the sample
-        ;; conditioned on the prefix
-        edge-reward (observe (:dist smp) value)
-        ;; Update the state:
-        state (-> state
-                  ;; Increment the log weight by the probability
-                  ;; of the sampled value.
-                  (add-log-weight edge-reward)
-                  ;; Re-insert the bandit, the bandit may be fresh,
-                  ;; and the new-arm-drawn flag may have been updated.
-                  (assoc-in [::bandits bandit-id] bandit)
-                  ;; Insert an entry for the random choice into the trace.
-                  (record-choice bandit-id value past-reward))]
+        ;; Update state:
+
+        ;; Increment the log weight by the probability
+        ;; of the sampled value.
+        state (add-log-weight state (observe (:dist smp) value))
+        ;; Re-insert the bandit; the bandit may be fresh,
+        ;; and the new-arm-drawn flag may have been updated.
+        state (assoc-in state [::bandits bandit-id] bandit)
+        ;; Insert an entry for the random choice into the trace.
+        state (record-choice
+               state bandit-id value (get-log-weight state))]
+
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
 
