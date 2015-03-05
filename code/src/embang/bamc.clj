@@ -67,11 +67,10 @@
 
 ;;;; Bandit
 
-(defrecord multiarmed-bandit [arms 
-                              new-arm-belief 
-                              new-arm-count 
+(defrecord multiarmed-bandit [arms
+                              new-arm-belief
+                              new-arm-count
                               new-arm-drawn])
-
 (def fresh-bandit
   "bandit with no arm pulls"
   (map->multiarmed-bandit
@@ -97,7 +96,7 @@
   "selects value corresponding to the best arm"
   [bandit log-p]
   ;; If the best arm happens to be a new arm,
-  ;; return nil. checkpoint [::algorithm sample]
+  ;; return +not-a-value+. Checkpoint [::algorithm sample]
   ;; accounts for this and samples a new value
   ;; from the prior.
   (if (empty? (seq (:arms bandit))) +not-a-value+
@@ -106,7 +105,7 @@
            best-value +not-a-value+
            best-belief nil]
       (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
-        (let [reward (+ (log-p value) 
+        (let [reward (+ (log-p value)
                         (reduce max
                                 (repeatedly
                                   count #(bb-sample belief))))]
@@ -118,15 +117,25 @@
         (loop [arms (:arms bandit)
                best-reward (+ (log-p best-value)
                               (bb-sample best-belief))
-               best-value +not-a-value+]
+               best-value +not-a-value+
+               parity 0.] ; number of 
           (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
             (let [reward (+ (log-p value)
                             (reduce max
                                     (repeatedly
                                       count #(bb-sample belief))))]
-              (if (> reward best-reward)
-                (recur arms reward value)
-                (recur arms best-reward best-value)))
+              (cond
+                (> reward best-reward)
+                (recur arms reward value parity)
+
+                (= reward best-reward)
+                (let [parity (+ parity (double count))]
+                  (if (> (/ parity) (rand))
+                    (recur arms reward value parity)
+                    (recur arms best-reward best-value parity)))
+
+                :else
+                (recur arms best-reward best-value parity)))
             best-value))))))
 
 (defn update-bandit
@@ -135,7 +144,7 @@
   (let [bandit (if (:new-arm-drawn bandit)
                  ;; A new arm was drawn, which may or may not
                  ;; coincide with an existing arm.
-                 (-> bandit 
+                 (-> bandit
                      (update-in [:new-arm-belief] bb-update reward)
                      (update-in [:new-arm-count] inc)
                      (update-in [:arms value :count]
@@ -268,7 +277,7 @@
   (letfn
     [(sample-seq [state]
        (lazy-seq
-         (let [state (:state (exec ::algorithm prog value 
+         (let [state (:state (exec ::algorithm prog value
                                    (backpropagate state)))
                state (if predict-trace
                        (add-trace-predict state)
