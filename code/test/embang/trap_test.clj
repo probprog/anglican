@@ -40,20 +40,27 @@
              '(ret (fn fn [C $state dec] (C dec $state)) $state))
           "primitive procedure name can be used as parameter")
       (is (= (cps-of-expression '(let [dec 1] dec) 'ret)
-             '(let [dec 1] (ret dec $state)))
+             '(fn call []
+                ((fn let [C $state dec]
+                   (C dec $state))
+                 ret $state 1)))
           "primitive procedure name can be locally rebound")
       (is (= (cps-of-expression '(let [x dec] (x 1)) 'ret)
-             '(let [x (fn dec [C $state & P]
-                        (C (apply dec P) $state))]
-                (fn call [] (x ret $state 1))))
+             '(fn call []
+                ((fn let [C $state x]
+                   (fn call [] (x C $state 1)))
+                 ret $state
+                 (fn dec [C $state & P] 
+                   (C (apply dec P) $state)))))
           "primitive procedure can be locally bound")
       (is (= (cps-of-expression '(list inc dec) 'ret)
-             '(ret (list
+             '(fn call []
+                (ret (list
                       (fn inc [C $state & P]
                         (C (apply inc P) $state))
                       (fn dec [C $state & P] 
                         (C (apply dec P) $state)))
-                   $state))
+                     $state)))
           "primitive procedure can be passed as an argument"))))
 
 (deftest test-of-literal
@@ -81,11 +88,21 @@
   (binding [*gensym* symbol]
     (testing "cps-of-let"
       (is (= (cps-of-let '([x 1 y 2] (+ x y)) 'ret)
-             '(let [x 1] (let [y 2] (ret (+ x y) $state))))
+             '(fn call []
+                ((fn let [C $state x]
+                   (fn call []
+                     ((fn let [C $state y]
+                       (C (+ x y) $state))
+                      C $state 2)))
+                 ret $state 1)))
           "simple let")
       (is (= (cps-of-let '([x (foo 1)] x) 'ret)
              '(fn call []
-                (foo (fn let [x $state] (ret x $state))
+                (foo (fn arg [A $state]
+                       (fn call []
+                         ((fn let [C $state x]
+                            (C x $state))
+                          ret $state A)))
                      $state 1)))
           "compound value in let"))))
 
@@ -115,12 +132,12 @@
 
     (testing "cps-of-when"
       (is (= (cps-of-when '(a b c) 'ret)
-             '(if a (ret (do b c) $state) (ret nil $state)))))
+             (cps-of-expression '(if a (do b c)) 'ret))
+          "when via if"))
 
     (testing "cps-of-cond"
-      (is (= (cps-of-cond '(1 2 3 4) 'ret)
-             '(if 1 (ret 2 $state)
-                (if 3 (ret 4 $state) (ret nil $state))))
+      (is (= (cps-of-cond '(1 2 3 (foo 4)) 'ret)
+             (cps-of-expression '(if 1 2 (if 3 (foo 4) nil)) 'ret))
           "cond via if"))
 
     (testing "cps-of-case"
@@ -176,7 +193,7 @@
   (binding [*gensym* symbol]
     (testing "cps-of-apply"
       (is (= (cps-of-apply '(+ terms) 'ret)
-             '(ret (clojure.core/apply + terms) $state))
+             '(fn apply [] (ret (clojure.core/apply + terms) $state)))
           "simple apply")
       (is (= (cps-of-apply '(foo xs) 'ret)
              '(fn apply [] (clojure.core/apply foo ret $state xs)))
@@ -302,4 +319,3 @@
                 (fn call [] (foo ret $state))
                 (fn call [] (bar ret $state))))
           "cps of compound if"))))
-

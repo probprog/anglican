@@ -68,19 +68,15 @@
     (case (first expr)
       quote true
       fn false
-      (do if) (every? simple? (rest expr))
+      (if and or) (every? simple? (rest expr))
       case (if (even? (count expr))
              ;; No default clause.
              (every? simple? (take-nth 2 (rest expr)))
              ;; Default clause is a single expression.
              (and (every? simple? (take-nth 2 (rest expr)))
                   (simple? (last expr))))
-      (let loop) (let [[_ bindings & body] expr]
-                   (and (every? simple?
-                                (take-nth 2 (rest bindings)))
-                        (every? simple? body)))
-      (when cond and or
-       recur
+      (when cond
+       do let loop recur
        predict observe sample
        mem store retrieve
        apply) false
@@ -182,22 +178,19 @@
 (defn cps-of-let
   "transforms let to CPS"
   [[bindings & body] cont]
-  (if (seq bindings)
-    (let [[name value & bindings] bindings]
-      (shading-primitive-procedures [name]
-        (let [rst (cps-of-let `(~bindings ~@body) cont)]
-          (if (opaque? value)
-            `(~'let [~name ~(opaque-cps value)]
-               ~rst)
-            (cps-of-expression
-             value
-             `(~'fn ~(*gensym* "let") [~name ~'$state]
-                ~rst))))))
-    (cps-of-elist body cont)))
+    (cps-of-expression
+     (if (seq bindings)
+       `((~'fn ~(*gensym* "let") [~(first bindings)] 
+           (~'let [~@(drop 2 bindings)]
+             ~@body))
+         ~(second bindings))
+       `(~'do ~@body))
+     cont))
 
 ;; `loop' is translated into an application of recursive
 ;; function, due to the trampolining of all calls, there
 ;; is no need for loop/recur.
+
 (defn cps-of-loop
   "transforms loop"
   [[bindings & body] cont]
@@ -253,7 +246,9 @@
 (defn cps-of-when
   "transforms when to CPS"
   [args cont]
-  (cps-of-if `(~(first args) (~'do ~@(rest args))) cont))
+  (cps-of-if [(first args) `(~'do ~@(rest args))] cont))
+
+;; `cond' is translated into nested `if's.
 
 (defn-with-named-cont
   cps-of-cond
@@ -461,11 +456,11 @@
   (make-of-args args :first-is-rator
                 (fn [acall]
                   (let [[rator & rands] acall]
-                    (if (primitive-procedure? rator)
-                      `(~cont (apply ~@acall) ~'$state)
-                      `(~'fn ~(*gensym* "apply") []
-                         (apply ~rator
-                                ~cont ~'$state ~@rands)))))))
+                    `(~'fn ~(*gensym* "apply") []
+                       ~(if (primitive-procedure? rator)
+                          `(~cont (apply ~@acall) ~'$state)
+                          `(apply ~rator
+                                  ~cont ~'$state ~@rands)))))))
 
 (defn cps-of-application
   "transforms application to CPS;
@@ -475,10 +470,10 @@
   (make-of-args exprs :first-is-rator
                 (fn [call]
                   (let [[rator & rands] call]
-                    (if (primitive-procedure? rator)
-                      `(~cont ~call ~'$state)
-                      `(~'fn ~(*gensym* "call") []
-                         (~rator ~cont ~'$state ~@rands)))))))
+                    `(~'fn ~(*gensym* "call") []
+                       ~(if (primitive-procedure? rator)
+                          `(~cont ~call ~'$state)
+                          `(~rator ~cont ~'$state ~@rands)))))))
 
 ;;; Primitive procedures in value postition
 
