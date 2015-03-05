@@ -175,6 +175,9 @@
            [~cont ~'$state ~@parms]
            ~(cps-of-elist body cont))))))
 
+;; `let' is rewritten as nested application to re-use
+;; trampolining logic.
+
 (defn cps-of-let
   "transforms let to CPS"
   [[bindings & body] cont]
@@ -243,6 +246,8 @@
                ~(cps-of-expression thn cont)
                ~(cps-of-expression els cont))))))))
 
+;; `when' is translated into `if'.
+
 (defn cps-of-when
   "transforms when to CPS"
   [args cont]
@@ -250,8 +255,7 @@
 
 ;; `cond' is translated into nested `if's.
 
-(defn-with-named-cont
-  cps-of-cond
+(defn cps-of-cond
   "transforms cond to CPS"
   [clauses cont]
   (if (seq clauses)
@@ -266,11 +270,18 @@
   (let [[key & clauses] args]
     (if (opaque? key)
       `(~'case ~(opaque-cps key)
-         ~@(mapcat (fn [[tag expr :as clause]]
+         ~@(mapcat (fn [clause]
                      (if (= (count clause) 2)
-                       [tag (cps-of-expression expr cont)]
-                       [(cps-of-expression expr cont)]))
-                   (partition 2 clauses)))
+                       (let [[tag expr] clause]
+                         [tag (cps-of-expression expr cont)])
+                       ;; The last clause is the default clause.
+                       (let [[expr] clause]
+                         [(cps-of-expression expr cont)])))
+                   ;; This magic call to `partition' breaks clauses
+                   ;; into two-element tuples, with the last tuple
+                   ;; containing a single element if the number of
+                   ;; clauses is odd (default clause is specified).
+                   (partition 2 2 nil clauses)))
       (cps-of-expression
         key
         (let [key (*gensym* "K")]
