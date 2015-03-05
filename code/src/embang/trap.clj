@@ -68,26 +68,17 @@
     (case (first expr)
       quote true
       fn false
-      (begin
-       if when cond 
-       and or do) (every? simple? (rest expr))
+      (if and or) (every? simple? (rest expr))
       case (if (even? (count expr))
              ;; No default clause.
              (every? simple? (take-nth 2 (rest expr)))
              ;; Default clause is a single expression.
              (and (every? simple? (take-nth 2 (rest expr)))
                   (simple? (last expr))))
-      (let loop) (let [[_ bindings & body] expr]
-                   (and (every? simple?
-                                (take-nth 2 (rest bindings)))
-                        (every? simple? body)))
-      (recur
-       predict
-       observe
-       sample
-       mem
-       store
-       retrieve
+      (when cond
+       do let loop recur
+       predict observe sample
+       mem store retrieve
        apply) false
       ;; application
       (and (primitive-procedure? (first expr))
@@ -178,31 +169,28 @@
   (if (vector? (first args))
     (fn-cps `[nil ~@args])
     (let [[name parms & body] args
-          fncont (*gensym* "C")]
+          cont (*gensym* "C")]
       (shading-primitive-procedures parms
         `(~'fn ~(or name (*gensym* "fn"))
-           [~fncont ~'$state ~@parms]
-           ~(cps-of-elist body fncont))))))
+           [~cont ~'$state ~@parms]
+           ~(cps-of-elist body cont))))))
 
 (defn cps-of-let
   "transforms let to CPS"
   [[bindings & body] cont]
-  (if (seq bindings)
-    (let [[name value & bindings] bindings]
-      (shading-primitive-procedures [name]
-        (let [rst (cps-of-let `(~bindings ~@body) cont)]
-          (if (opaque? value)
-            `(~'let [~name ~(opaque-cps value)]
-               ~rst)
-            (cps-of-expression
-             value
-             `(~'fn ~(*gensym* "let") [~name ~'$state]
-                ~rst))))))
-    (cps-of-elist body cont)))
+    (cps-of-expression
+     (if (seq bindings)
+       `((~'fn ~(*gensym* "let") [~(first bindings)] 
+           (~'let [~@(drop 2 bindings)]
+             ~@body))
+         ~(second bindings))
+       `(~'do ~@body))
+     cont))
 
 ;; `loop' is translated into an application of recursive
 ;; function, due to the trampolining of all calls, there
 ;; is no need for loop/recur.
+
 (defn cps-of-loop
   "transforms loop"
   [[bindings & body] cont]
@@ -258,7 +246,9 @@
 (defn cps-of-when
   "transforms when to CPS"
   [args cont]
-  (cps-of-if `(~(first args) (~'do ~@(rest args))) cont))
+  (cps-of-if [(first args) `(~'do ~@(rest args))] cont))
+
+;; `cond' is translated into nested `if's.
 
 (defn-with-named-cont
   cps-of-cond
@@ -490,10 +480,10 @@
 (defn primitive-procedure-cps
   "wraps primitive procedure as a CPS form"
   [expr]
-  (let [fncont (*gensym* "C")
+  (let [cont (*gensym* "C")
         parms (*gensym* "P")]
-    `(~'fn ~(*gensym* expr) [~fncont ~'$state & ~parms]
-       (~fncont (~'apply ~expr ~parms) ~'$state))))
+    `(~'fn ~(*gensym* expr) [~cont ~'$state & ~parms]
+       (~cont (~'apply ~expr ~parms) ~'$state))))
 
 ;;; Transformation dispatch
     
