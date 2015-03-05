@@ -274,8 +274,13 @@
                      (if (= (count clause) 2)
                        (let [[tag expr] clause]
                          [tag (cps-of-expression expr cont)])
+                       ;; The last clause is the default clause.
                        (let [[expr] clause]
                          [(cps-of-expression expr cont)])))
+                   ;; This magic call to `partition' breaks clauses
+                   ;; into two-element tuples, with the last tuple
+                   ;; containing a single element if the number of
+                   ;; clauses is odd (default clause is specified).
                    (partition 2 2 nil clauses)))
       (cps-of-expression
         key
