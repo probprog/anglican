@@ -104,16 +104,21 @@
            best-reward (/ -1. 0.)
            best-value +not-a-value+
            best-belief nil]
+      ;; First, we choose the new arm candidate proportional
+      ;; to the probability that the reward drawn from the
+      ;; arm is the maximum one.
       (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
-        (let [reward (+ (log-p value)
+        (let [prior-belief (bb-as-prior belief)
+              reward (+ (log-p value)
                         (reduce max
                                 (repeatedly
-                                  count #(bb-sample belief))))]
+                                  count #(bb-sample prior-belief))))]
           (if (>= reward best-reward)
             (recur arms reward value belief)
             (recur arms best-reward best-value best-belief)))
-        ;; Select a new arm with the probability
-        ;; that the arm has the highest mean reward.
+        ;; Then, we select an arm with the probability
+        ;; that the arm has the highest *average* reward,
+        ;; including the new arm candidate.
         (loop [arms (:arms bandit)
                best-reward (+ (log-p best-value)
                               (bb-sample best-belief))
