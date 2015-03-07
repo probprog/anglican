@@ -22,7 +22,7 @@
           vocabulary (distinct data)
           model-prior (dirichlet (repeat (count vocabulary) 1.))
 
-          alpha 5.
+          alpha 10.
           top-level (crp alpha)
 
           alpha0 10.
