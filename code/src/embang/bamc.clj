@@ -38,12 +38,10 @@
 (defn reward-belief
   "returns reification of bayesian belief
   about the mean reward of an arm"
-  [sum sum2 cnt]
-  ;; Bayesian belief about the mean reward (log-weight).
-  ;; Currently, the normal distribution with empirical
-  ;; mean and variance is used.
+  [sum sum2 ^double cnt]
+  ;; Bayesian belief about the reward (log-weight).
   (let [mean (/ sum cnt)
-        sd (Math/sqrt (/ (- (/ sum2 cnt)) (* mean mean)))
+        sd (Math/sqrt (- (/ sum2 cnt) (* mean mean)))
         mean-sd (/ sd (Math/sqrt cnt))
         dist (normal mean sd)
         mean-dist (normal mean mean-sd)]
@@ -55,8 +53,9 @@
       (bb-sample-mean [mr] (sample mean-dist))
       (bb-as-prior [mr]
         ;; The current belief is converted to a prior belief
-        ;; by setting the sample count to 1 and preserving mean and variance.
-        (if (<= cnt 1) mr
+        ;; by setting the sample count to 1 and preserving
+        ;; the mean and variance.
+        (if (<= cnt 1.) mr
           (reward-belief (/ sum cnt) (/ sum2 cnt) 1.))))))
 
 (def initial-reward-belief
@@ -106,7 +105,7 @@
       ;; to the probability that the reward drawn from the
       ;; arm is the maximum one.
       (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
-        (let [eward (+ (log-p value)
+        (let [reward (+ (log-p value)
                         (reduce max
                                 (repeatedly
                                   count #(bb-sample belief))))]
