@@ -28,42 +28,40 @@
     "updates belief based on the evidence")
   (bb-sample [belief]
     "returns a random sample from the belief distribution")
+  (bb-sample-mean [belief]
+    "returns a random sample from the mean belief distribution")
   (bb-as-prior [belief]
     "returns a belief for use as a prior belief"))
 
 ;;;; Mean reward belief
 
-(defn mean-reward-belief
+(defn reward-belief
   "returns reification of bayesian belief
   about the mean reward of an arm"
   [sum sum2 cnt]
   ;; Bayesian belief about the mean reward (log-weight).
   ;; Currently, the normal distribution with empirical
   ;; mean and variance is used.
-  (let [dist (delay
-               ;; The distribution object is lazy because
-               ;; the parameters are updated many times,
-               ;; but the object itself is only used when
-               ;; a value is sampled.
-               (let [mean (/ sum cnt)
-                     sd (Math/sqrt (/ (- (/ sum2 cnt) (* mean mean))
-                                      cnt))] ; Var(E(X)) = Var(X)/n
-                 (normal mean sd)))]
-    (reify bayesian-belief
+  (let [mean (/ sum cnt)
+        sd (Math/sqrt (/ (- (/ sum2 cnt)) (* mean mean)))
+        mean-sd (/ sd (Math/sqrt cnt))
+        dist (normal mean sd)
+        mean-dist (normal mean mean-sd)]
+  (reify bayesian-belief
       (bb-update [mr reward]
-        (mean-reward-belief
+        (reward-belief
           (+ sum reward) (+ sum2 (* reward reward)) (+ cnt 1.)))
-      (bb-sample [mr] {:pre [(pos? cnt)]}
-        (sample @dist))
+      (bb-sample [mr] (sample dist))
+      (bb-sample-mean [mr] (sample mean-dist))
       (bb-as-prior [mr]
         ;; The current belief is converted to a prior belief
-        ;; by setting the sample count to 1.
+        ;; by setting the sample count to 1 and preserving mean and variance.
         (if (<= cnt 1) mr
-          (mean-reward-belief (/ sum cnt) (/ sum2 cnt) 1.))))))
+          (reward-belief (/ sum cnt) (/ sum2 cnt) 1.))))))
 
-(def initial-mean-reward-belief
+(def initial-reward-belief
   "uninformative mean reward belief"
-  (mean-reward-belief 0. 0. 0.))
+  (reward-belief 0. 0. 0.))
 
 ;;;; Bandit
 
@@ -75,7 +73,7 @@
   "bandit with no arm pulls"
   (map->multiarmed-bandit
    {:arms {}
-    :new-arm-belief initial-mean-reward-belief
+    :new-arm-belief initial-reward-belief
     :new-arm-count 0}))
 
 ;; An arm has two fields, :belief and :count. :count is the number
@@ -108,11 +106,10 @@
       ;; to the probability that the reward drawn from the
       ;; arm is the maximum one.
       (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
-        (let [prior-belief (bb-as-prior belief)
-              reward (+ (log-p value)
+        (let [eward (+ (log-p value)
                         (reduce max
                                 (repeatedly
-                                  count #(bb-sample prior-belief))))]
+                                  count #(bb-sample belief))))]
           (if (>= reward best-reward)
             (recur arms reward value belief)
             (recur arms best-reward best-value best-belief)))
@@ -121,14 +118,14 @@
         ;; including the new arm candidate.
         (loop [arms (:arms bandit)
                best-reward (+ (log-p best-value)
-                              (bb-sample best-belief))
+                              (bb-sample-mean best-belief))
                best-value +not-a-value+
                parity 0.] ; number of 
           (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
             (let [reward (+ (log-p value)
                             (reduce max
                                     (repeatedly
-                                      count #(bb-sample belief))))]
+                                      count #(bb-sample-mean belief))))]
               (cond
                 (> reward best-reward)
                 (recur arms reward value parity)
