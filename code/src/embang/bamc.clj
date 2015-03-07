@@ -46,16 +46,16 @@
         dist (normal mean sd)
         mean-dist (normal mean mean-sd)]
   (reify bayesian-belief
-      (bb-update [mr reward]
+      (bb-update [rb reward]
         (reward-belief
           (+ sum reward) (+ sum2 (* reward reward)) (+ cnt 1.)))
-      (bb-sample [mr] (sample dist))
-      (bb-sample-mean [mr] (sample mean-dist))
-      (bb-as-prior [mr]
+      (bb-sample [rb] (sample dist))
+      (bb-sample-mean [rb] (sample mean-dist))
+      (bb-as-prior [rb]
         ;; The current belief is converted to a prior belief
         ;; by setting the sample count to 1 and preserving
         ;; the mean and variance.
-        (if (<= cnt 1.) mr
+        (if (<= cnt 1.) rb
           (reward-belief (/ sum cnt) (/ sum2 cnt) 1.))))))
 
 (def initial-reward-belief
