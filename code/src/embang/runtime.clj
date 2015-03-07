@@ -305,8 +305,9 @@
      (absorb [this sample] 
        (CRP alpha
             (-> counts
-                ;; Fill the counts with zeroes until the new sample.
-                (into (repeat (+ (- sample (count counts)) 1) 0))
+                ;; Fill the counts with alpha (corresponding to
+                ;; the zero count) until the new sample.
+                (into (repeat (+ (- sample (count counts)) 1) alpha))
                 (update-in [sample] inc)))))))
 
 (defn DP

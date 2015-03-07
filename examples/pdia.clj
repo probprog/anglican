@@ -17,7 +17,7 @@
   (defquery pdia data-source
     "Probabilistic Deterministic Infinite Automata"
     (let [data (if data-source 
-                 (read-data data-source)
+                 (read-data (str data-source))
                  '(\A \B \B \A \B \A \B \B \A \B \A \B \B))
           vocabulary (distinct data)
           model-prior (dirichlet (repeat (count vocabulary) 1.))
