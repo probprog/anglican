@@ -53,4 +53,4 @@
                 (state-symbol->next-state state symbol))
               0 data)
 
-      (predict (join (sample-words 0))))))
+      (predict 'words (join (sample-words 0))))))
