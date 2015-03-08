@@ -1,0 +1,113 @@
+\documentclass[a4paper,oneside]{article}
+\usepackage[]{geometry}
+% Other packages
+\usepackage{color}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{hyperref}
+\usepackage[ruled]{algorithm}
+\usepackage{algpseudocode}
+\usepackage{graphicx}
+\usepackage{colortbl}
+\usepackage{arydshln}
+\usepackage{minted}
+
+% illustrations
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{shapes.symbols}
+\usetikzlibrary{shadows}
+\usetikzlibrary{arrows}
+
+\newcommand{\diff}[1] {{\color{blue} #1}}
+
+\renewcommand{\topfraction}{0.9}
+
+\newtheorem{dfn}{Definition}
+\newtheorem{thm}{Theorem}
+\newtheorem{lmm}{Lemma}
+\newtheorem{crl}{Corollary}
+
+\title{Probabilistic Program}
+\author {}
+
+\begin{document}
+
+\maketitle
+
+\section*{Intuition}
+
+Probabilistic programs are regular programs extended by two
+constructs~\cite{GHNR14}:
+\begin{itemize}
+	\item The ability to draw random values from probability
+		distributions.
+	\item The ability to condition values computed in the
+		programs on probability distributions.
+\end{itemize}
+A probabilistic program implicitly defines a probability
+distribution over program output.
+
+\section*{Definition}
+
+A probabilistic program is a stateful deterministic
+computation $\mathcal{P}(\theta)$ with the following properties:
+
+\begin{itemize}
+	\item Initially, $\mathcal{P}$ expects a value of $\theta$
+		as the argument.
+	\item On every invocation, $\mathcal{P}$ returns either a
+		distribution $F$, a distribution and a value $(G, y)$, a
+		value $z$, or $\bot$.
+	\item Upon returning $F$, $\mathcal{P}$ expects a value $x$
+		drawn from $F$ as the argument to continue.
+	\item Upon returning $(G, y)$ or $z$, $\mathcal{P}$ is
+		invoked again without arguments.
+	\item Upon returning $\bot$, $\mathcal{P}$ terminates.
+\end{itemize}
+
+A program is run by calling $\mathcal{P}$ repeatedly until
+termination. Every run of the program implicitly produces a
+sequence of pairs $(F_i, x_i)$ of distributions and values drawn
+from them. We call this sequence a \textit{trace} and denote it
+by $\pmb{x}$.  A trace induces a sequence of pairs $(G_j, y_j)$
+of observed random variables and their values.  We call this
+sequence an \textit{image} and denote it by $\pmb{y}$. We call a
+sequence of values $z_k$ an \textit{output} of the program and
+denote it by $\pmb{z}$.  Program output is deterministic given
+the trace.
+
+\emph{By definition,} the probability of a trace is proportional
+to the product of the probability of all random choices
+$\pmb{x}$ and the likelihood of all observations $\pmb{y}$:
+\begin{equation}
+	p_{\mathcal{P}}(\pmb{x}|\theta) \propto \prod_{i=1}^{\left|\pmb{x}\right|}
+	p_{F_i}(x_i) \prod_{j=1}^{\left|\pmb{y}\right|}p_{G_j}(y_{j})
+  \label{eqn:p-trace}
+\end{equation}
+$p_{\mathcal{P}}(\pmb{x}|\theta)$ has the interpretation of the
+posterior probability $p(\pmb{x}|\pmb{y})$ given the prior
+probability $p(\pmb{x}) = \prod_{i=1}^{\left|\pmb{x}\right|}
+p_{F_i}(x_i)$ and the likelihood $p(\pmb{y}|\pmb{x}) =
+\prod_{j=1}^{\left|\pmb{y}\right|} p_{G_j}(y_{j})$.
+
+The objective of inference in probabilistic program
+$\mathcal{P}$ is to discover the distribution
+$p_{\mathcal{P}}(\pmb{z}|\theta)$ of program output $\pmb{z}$.
+
+\section*{Implementation}
+
+Several implementations of general probabilistic programming
+languages are available~\cite{GMR+08,MSP14,WVM14} and the list
+is growing: \url{http://probabilistic-programming.org/wiki/Home}.
+Inference is usually performed using Monte Carlo sampling
+algorithms for probabilistic programs~\cite{WSG11,WVM14,PWD+14}.
+While some algorithms are better suited for certain problem
+types, most can be used with any valid probabilistic program.
+
+\bibliographystyle{alpha}
+\bibliography{refs}
+
+\end{document}
