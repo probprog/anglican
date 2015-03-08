@@ -1,4 +1,4 @@
-(defproject embang "0.4.6-SNAPSHOT"
+(defproject embang "0.4.7-SNAPSHOT"
   :description "MAP inference in anglican programs"
   :url "http://bitbucket.org/dtolpin/mappp"
   :license {:name "Eclipse Public License"
@@ -18,7 +18,4 @@
   :target-path "target/%s"
   :java-source-paths ["src"]
   :resource-paths ["../examples"]
-  :profiles {:uberjar { ;; Prevent compilation of Anglican source code,
-                        ;; generated class names are too long for 
-                        ;; file names.
-                       :aot :all}})
+  :profiles {:uberjar {:aot :all}})
