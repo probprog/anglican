@@ -123,10 +123,13 @@
 
 (defmacro
   with-primitive-procedures
-  "binds primitive procedure names to their CPS versions"
+  "binds primitive procedure names to their CPS versions;
+  if procedure name is qualified, it becomes unqualified in
+  the scope of the macro"
   [procedures & body]
   `(let [~@(mapcat (fn [proc] 
-                     [proc (primitive-procedure-cps proc)])
+                     [(symbol (name proc))
+                      (primitive-procedure-cps proc)])
                    procedures)]
      ~@body))
 
