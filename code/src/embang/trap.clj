@@ -493,7 +493,7 @@
   [expr]
   (let [cont (*gensym* "C")
         parms (*gensym* "P")]
-    `(~'fn ~(*gensym* expr) [~cont ~'$state & ~parms]
+    `(~'fn ~(*gensym* (name expr)) [~cont ~'$state & ~parms]
        (~cont (~'apply ~expr ~parms) ~'$state))))
 
 ;;; Transformation dispatch
