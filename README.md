@@ -1,6 +1,6 @@
 # Embedded Anglican
 
-We have re-implemented Anglican as an embedded language. An
+[We](https://bitbucket.org/dtolpin/embang/wiki/Contributors) have re-implemented Anglican as an embedded language. An
 Anglican program is translated into Clojure through a Clojure
 macro, and then the code (converted into CPS) is executed
 natively. The points where inference algorithms must intervene
