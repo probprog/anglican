@@ -175,20 +175,24 @@
            [~cont ~'$state ~@parms]
            ~(cps-of-elist body cont))))))
 
-;; `let' is rewritten as nested application to re-use
-;; trampolining logic.
-
 (defn cps-of-let
-  "transforms let to CPS"
+  "transforms let to CPS;
+  body of let is trampolined
+  --- wrapped in a parameterless closure"
   [[bindings & body] cont]
-    (cps-of-expression
-     (if (seq bindings)
-       `((~'fn ~(*gensym* "let") [~(first bindings)] 
-           (~'let [~@(drop 2 bindings)]
-             ~@body))
-         ~(second bindings))
-       `(~'do ~@body))
-     cont))
+  (if (seq bindings)
+    (let [[name value & bindings] bindings]
+      (shading-primitive-procedures [name]
+        (let [rst (cps-of-let `(~bindings ~@body) cont)]
+          (if (opaque? value)
+            `(~'let [~name ~(opaque-cps value)]
+               ~rst)
+            (cps-of-expression
+             value
+             `(~'fn ~(*gensym* "var") [~name ~'$state]
+                ~rst))))))
+    `(~'fn ~(*gensym* "let") []
+       ~(cps-of-elist body cont))))
 
 ;; `loop' is translated into an application of recursive
 ;; function, due to the trampolining of all calls, there
