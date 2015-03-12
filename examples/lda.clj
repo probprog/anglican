@@ -5,7 +5,7 @@
 (def-cps-fn subset 
   "subsets psychreview-data keeping ndocs first documents"
   [ndocs]
-  (let [docs (set (take ndocs (range 100)))]
+  (let [docs (set (range ndocs))]
     (filter (fn [[doc pos word]]
               (contains? docs doc))
             psychreview-data)))
@@ -26,7 +26,7 @@
   (defquery lda 
     "Latent Dirichlet Allocation on PsychReview"
     ndocs 
-    (let [ndocs (or ndocs 100)
+    (let [ndocs (or ndocs 1281)
           corpus (subset ndocs)
           K 50
           V 9244
