@@ -1,5 +1,5 @@
 (defproject embang "0.4.9-SNAPSHOT"
-  :description "MAP inference in anglican programs"
+  :description "Anglican, a probabilistic programming system"
   :url "http://bitbucket.org/dtolpin/embang"
   :license {:name "GNU General Public License Version 3"
             :url "http://www.gnu.org/licenses/gpl.html"}
