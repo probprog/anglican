@@ -1,4 +1,4 @@
-(defproject embang "0.4.7-SNAPSHOT"
+(defproject embang "0.4.7"
   :description "MAP inference in anglican programs"
   :url "http://bitbucket.org/dtolpin/embang"
   :license {:name "GNU General Public License Version 3"
