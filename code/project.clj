@@ -12,6 +12,8 @@
                  [org.clojure/math.combinatorics "0.0.8"]
                  [net.mikera/core.matrix "0.32.1"]
                  [net.mikera/vectorz-clj "0.28.0"]]
+  :scm {:name "git"
+        :url "https://bitbucket.org/dtolpin/embang"}
   :repl-options {:timeout 600000}
   :jvm-opts ["-Xmx1024m" "-Xss1024k"]
   :main ^:skip-aot embang.core
