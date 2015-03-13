@@ -1,8 +1,8 @@
 (defproject embang "0.4.7-SNAPSHOT"
   :description "MAP inference in anglican programs"
-  :url "http://bitbucket.org/dtolpin/mappp"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :url "http://bitbucket.org/dtolpin/embang"
+  :license {:name "GNU General Public License Version 3"
+            :url "http://www.gnu.org/licenses/gpl.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.cli "0.3.1"]
                  [org.clojure/data.priority-map "0.0.5"]
