@@ -40,26 +40,21 @@
              '(ret (fn fn [C $state dec] (C dec $state)) $state))
           "primitive procedure name can be used as parameter")
       (is (= (cps-of-expression '(let [dec 1] dec) 'ret)
-             '(fn call []
-                ((fn let [C $state dec]
-                   (C dec $state))
-                 ret $state 1)))
+             '(let [dec 1]
+                (fn let [] (ret dec $state))))
           "primitive procedure name can be locally rebound")
       (is (= (cps-of-expression '(let [x dec] (x 1)) 'ret)
-             '(fn call []
-                ((fn let [C $state x]
-                   (fn call [] (x C $state 1)))
-                 ret $state
-                 (fn dec [C $state & P] 
-                   (C (apply dec P) $state)))))
+             '(let [x (fn dec [C $state & P]
+                        (C (apply dec P) $state))]
+                (fn let [] (fn call [] (x ret $state 1)))))
           "primitive procedure can be locally bound")
       (is (= (cps-of-expression '(list inc dec) 'ret)
              '(fn call []
                 (ret (list
-                      (fn inc [C $state & P]
-                        (C (apply inc P) $state))
-                      (fn dec [C $state & P] 
-                        (C (apply dec P) $state)))
+                       (fn inc [C $state & P]
+                         (C (apply inc P) $state))
+                       (fn dec [C $state & P] 
+                         (C (apply dec P) $state)))
                      $state)))
           "primitive procedure can be passed as an argument"))))
 
@@ -88,21 +83,14 @@
   (binding [*gensym* symbol]
     (testing "cps-of-let"
       (is (= (cps-of-let '([x 1 y 2] (+ x y)) 'ret)
-             '(fn call []
-                ((fn let [C $state x]
-                   (fn call []
-                     ((fn let [C $state y]
-                       (C (+ x y) $state))
-                      C $state 2)))
-                 ret $state 1)))
+             '(let [x 1]
+                (let [y 2]
+                  (fn let [] (ret (+ x y) $state)))))
           "simple let")
       (is (= (cps-of-let '([x (foo 1)] x) 'ret)
              '(fn call []
-                (foo (fn arg [A $state]
-                       (fn call []
-                         ((fn let [C $state x]
-                            (C x $state))
-                          ret $state A)))
+                (foo (fn var [x $state]
+                       (fn let [] (ret x $state)))
                      $state 1)))
           "compound value in let"))))
 

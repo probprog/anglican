@@ -25,9 +25,9 @@
 (deftest test-CRP
   (testing  "CRP"
     (let [proc (CRP 1.0)]
-      (is (= (observe (produce (absorb proc 3)) 3) (Math/log 0.5))
+      (is (= (observe (produce (absorb proc 3)) 3) (Math/log 1/3))
           "observing absorbed value")
-      (is (= (observe (produce (absorb proc 1)) 0) (Math/log 0.))
+      (is (= (observe (produce (absorb proc 1)) 0) (Math/log 1/4))
           "observing unabsorbed value less than count")
       (is (= (observe (produce proc) 2) (Math/log 1.))
           "observing any new value"))))
