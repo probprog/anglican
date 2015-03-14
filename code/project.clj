@@ -1,4 +1,4 @@
-(defproject embang "0.4.10"
+(defproject embang "0.4.11"
   :description "Anglican, a probabilistic programming system"
   :url "http://bitbucket.org/dtolpin/embang"
   :license {:name "GNU General Public License Version 3"
@@ -21,4 +21,6 @@
   :target-path "target/%s"
   :java-source-paths ["src"]
   :resource-paths ["../examples"]
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}}
+  :deploy-branches ["master"]
+  :aliases {"publish" ["do" ["clean"] ["test"] ["uberjar"]]})
