@@ -21,4 +21,6 @@
   :target-path "target/%s"
   :java-source-paths ["src"]
   :resource-paths ["../examples"]
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}}
+  :deploy-branches ["master"]
+  :aliases {"publish" ["do" ["clean"] ["test"] ["uberjar"]]})
