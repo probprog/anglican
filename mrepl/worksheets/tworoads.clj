@@ -1,17 +1,14 @@
 ;; gorilla-repl.fileformat = 1
 
 ;; **
-;;; Boiler-plate code -- importing necessary things from Anglican.
-;;; Should be wrapped nicely in the MREPL namespace in the future.
+;;; Boiler-plate code --- importing necessary things.
 ;; **
 
 ;; @@
 (ns tworoads
-  (:require [gorilla-plot.core :as plot]
-   			[embang lmh
-                    [state :refer [get-predicts]]
-                    [inference :refer [infer warmup]]])
-  (:use [embang emit runtime]))
+  (:require [gorilla-plot.core :as plot]) ; visualizing results
+  (:use [mrepl core]             ; performing inference and handling results
+        [embang emit runtime]))  ; defining Anglican programs
 ;; @@
 ;; =>
 ;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
@@ -45,25 +42,20 @@
                      (if o2 c2 (+ c1 cb)))]
       (observe (flip (exp (- (* gas-cost distance)))) true)
       (predict :q q))))
-
-
-
 ;; @@
 ;; =>
 ;;; {"type":"html","content":"<span class='clj-var'>#&#x27;tworoads/tworoads</span>","value":"#'tworoads/tworoads"}
 ;; <=
 
 ;; **
-;;; Now we want to run (lazily some inference). We'll use LMH (Lightweight Metropolis-Hastings) for that. Since in LMH all samples have the same weight, we'll ignore the weights and only keep the predicts. Before running the program, we 'warm it up' --- force all deterministic computations in the beginning.
+;;; Now we want to run (lazily some inference). We'll use LMH (Lightweight Metropolis-Hastings) for that.
 ;; **
 
 ;; @@
-(def tworoads (warmup tworoads nil))
-
-(def predicts (map get-predicts (infer :lmh tworoads nil)))
+(def states (doquery :lmh tworoads nil))
 ;; @@
 ;; =>
-;;; {"type":"html","content":"<span class='clj-var'>#&#x27;tworoads/predicts</span>","value":"#'tworoads/predicts"}
+;;; {"type":"html","content":"<span class='clj-var'>#&#x27;tworoads/states</span>","value":"#'tworoads/states"}
 ;; <=
 
 ;; **
@@ -78,25 +70,24 @@
 ;; <=
 
 ;; **
-;;; Then, take these samples, extract the distance and the policy, and plot them.
+;;; Then, take these samples, extract the policy, and plot the policy distribution. Since in LMH all samples have the same weight, we'll ignore the weights and only keep the predicts.
 ;; **
 
 ;; @@
-(def predicts (map (partial into {}) (take N predicts)))
+(def predicts (map get-predicts (take N states)))
 (def policy (map :q predicts))
 (plot/histogram policy)
 
 ;; @@
 ;; =>
-;;; {"type":"vega","content":{"axes":[{"scale":"x","type":"x"},{"scale":"y","type":"y"}],"scales":[{"name":"x","type":"linear","range":"width","zero":false,"domain":{"data":"38eb9f04-e6ce-4de9-911b-8bb61e9a9194","field":"data.x"}},{"name":"y","type":"linear","range":"height","nice":true,"zero":false,"domain":{"data":"38eb9f04-e6ce-4de9-911b-8bb61e9a9194","field":"data.y"}}],"marks":[{"type":"line","from":{"data":"38eb9f04-e6ce-4de9-911b-8bb61e9a9194"},"properties":{"enter":{"x":{"scale":"x","field":"data.x"},"y":{"scale":"y","field":"data.y"},"interpolate":{"value":"step-before"},"fill":{"value":"steelblue"},"fillOpacity":{"value":0.4},"stroke":{"value":"steelblue"},"strokeWidth":{"value":2},"strokeOpacity":{"value":1}}}}],"data":[{"name":"38eb9f04-e6ce-4de9-911b-8bb61e9a9194","values":[{"x":4.5181834138929844E-4,"y":0},{"x":0.0667214694277694,"y":1329.0},{"x":0.1329911205141495,"y":1060.0},{"x":0.19926077160052957,"y":1081.0},{"x":0.2655304226869097,"y":973.0},{"x":0.3318000737732898,"y":1057.0},{"x":0.3980697248596699,"y":596.0},{"x":0.46433937594605,"y":663.0},{"x":0.5306090270324301,"y":718.0},{"x":0.5968786781188101,"y":748.0},{"x":0.6631483292051902,"y":637.0},{"x":0.7294179802915702,"y":334.0},{"x":0.7956876313779503,"y":357.0},{"x":0.8619572824643303,"y":242.0},{"x":0.9282269335507104,"y":146.0},{"x":0.9944965846370905,"y":55.0},{"x":1.0607662357234706,"y":4.0},{"x":1.1270358868098507,"y":0}]}],"width":400,"height":247.2187957763672,"padding":{"bottom":20,"top":10,"right":10,"left":50}},"value":"#gorilla_repl.vega.VegaView{:content {:axes [{:scale \"x\", :type \"x\"} {:scale \"y\", :type \"y\"}], :scales [{:name \"x\", :type \"linear\", :range \"width\", :zero false, :domain {:data \"38eb9f04-e6ce-4de9-911b-8bb61e9a9194\", :field \"data.x\"}} {:name \"y\", :type \"linear\", :range \"height\", :nice true, :zero false, :domain {:data \"38eb9f04-e6ce-4de9-911b-8bb61e9a9194\", :field \"data.y\"}}], :marks [{:type \"line\", :from {:data \"38eb9f04-e6ce-4de9-911b-8bb61e9a9194\"}, :properties {:enter {:x {:scale \"x\", :field \"data.x\"}, :y {:scale \"y\", :field \"data.y\"}, :interpolate {:value \"step-before\"}, :fill {:value \"steelblue\"}, :fillOpacity {:value 0.4}, :stroke {:value \"steelblue\"}, :strokeWidth {:value 2}, :strokeOpacity {:value 1}}}}], :data [{:name \"38eb9f04-e6ce-4de9-911b-8bb61e9a9194\", :values ({:x 4.5181834138929844E-4, :y 0} {:x 0.0667214694277694, :y 1329.0} {:x 0.1329911205141495, :y 1060.0} {:x 0.19926077160052957, :y 1081.0} {:x 0.2655304226869097, :y 973.0} {:x 0.3318000737732898, :y 1057.0} {:x 0.3980697248596699, :y 596.0} {:x 0.46433937594605, :y 663.0} {:x 0.5306090270324301, :y 718.0} {:x 0.5968786781188101, :y 748.0} {:x 0.6631483292051902, :y 637.0} {:x 0.7294179802915702, :y 334.0} {:x 0.7956876313779503, :y 357.0} {:x 0.8619572824643303, :y 242.0} {:x 0.9282269335507104, :y 146.0} {:x 0.9944965846370905, :y 55.0} {:x 1.0607662357234706, :y 4.0} {:x 1.1270358868098507, :y 0})}], :width 400, :height 247.2188, :padding {:bottom 20, :top 10, :right 10, :left 50}}}"}
+;;; {"type":"vega","content":{"axes":[{"scale":"x","type":"x"},{"scale":"y","type":"y"}],"scales":[{"name":"x","type":"linear","range":"width","zero":false,"domain":{"data":"c32d26c9-5752-4761-a36a-094601bff497","field":"data.x"}},{"name":"y","type":"linear","range":"height","nice":true,"zero":false,"domain":{"data":"c32d26c9-5752-4761-a36a-094601bff497","field":"data.y"}}],"marks":[{"type":"line","from":{"data":"c32d26c9-5752-4761-a36a-094601bff497"},"properties":{"enter":{"x":{"scale":"x","field":"data.x"},"y":{"scale":"y","field":"data.y"},"interpolate":{"value":"step-before"},"fill":{"value":"steelblue"},"fillOpacity":{"value":0.4},"stroke":{"value":"steelblue"},"strokeWidth":{"value":2},"strokeOpacity":{"value":1}}}}],"data":[{"name":"c32d26c9-5752-4761-a36a-094601bff497","values":[{"x":2.7038343250751495E-4,"y":0},{"x":0.06637863665819169,"y":1012.0},{"x":0.13248688988387586,"y":1059.0},{"x":0.19859514310956003,"y":1219.0},{"x":0.2647033963352442,"y":1140.0},{"x":0.33081164956092834,"y":765.0},{"x":0.3969199027866125,"y":954.0},{"x":0.46302815601229663,"y":809.0},{"x":0.5291364092379808,"y":610.0},{"x":0.5952446624636649,"y":606.0},{"x":0.6613529156893491,"y":616.0},{"x":0.7274611689150332,"y":408.0},{"x":0.7935694221407174,"y":320.0},{"x":0.8596776753664015,"y":240.0},{"x":0.9257859285920856,"y":159.0},{"x":0.9918941818177698,"y":77.0},{"x":1.058002435043454,"y":6.0},{"x":1.1241106882691383,"y":0}]}],"width":400,"height":247.2187957763672,"padding":{"bottom":20,"top":10,"right":10,"left":50}},"value":"#gorilla_repl.vega.VegaView{:content {:axes [{:scale \"x\", :type \"x\"} {:scale \"y\", :type \"y\"}], :scales [{:name \"x\", :type \"linear\", :range \"width\", :zero false, :domain {:data \"c32d26c9-5752-4761-a36a-094601bff497\", :field \"data.x\"}} {:name \"y\", :type \"linear\", :range \"height\", :nice true, :zero false, :domain {:data \"c32d26c9-5752-4761-a36a-094601bff497\", :field \"data.y\"}}], :marks [{:type \"line\", :from {:data \"c32d26c9-5752-4761-a36a-094601bff497\"}, :properties {:enter {:x {:scale \"x\", :field \"data.x\"}, :y {:scale \"y\", :field \"data.y\"}, :interpolate {:value \"step-before\"}, :fill {:value \"steelblue\"}, :fillOpacity {:value 0.4}, :stroke {:value \"steelblue\"}, :strokeWidth {:value 2}, :strokeOpacity {:value 1}}}}], :data [{:name \"c32d26c9-5752-4761-a36a-094601bff497\", :values ({:x 2.7038343250751495E-4, :y 0} {:x 0.06637863665819169, :y 1012.0} {:x 0.13248688988387586, :y 1059.0} {:x 0.19859514310956003, :y 1219.0} {:x 0.2647033963352442, :y 1140.0} {:x 0.33081164956092834, :y 765.0} {:x 0.3969199027866125, :y 954.0} {:x 0.46302815601229663, :y 809.0} {:x 0.5291364092379808, :y 610.0} {:x 0.5952446624636649, :y 606.0} {:x 0.6613529156893491, :y 616.0} {:x 0.7274611689150332, :y 408.0} {:x 0.7935694221407174, :y 320.0} {:x 0.8596776753664015, :y 240.0} {:x 0.9257859285920856, :y 159.0} {:x 0.9918941818177698, :y 77.0} {:x 1.058002435043454, :y 6.0} {:x 1.1241106882691383, :y 0})}], :width 400, :height 247.2188, :padding {:bottom 20, :top 10, :right 10, :left 50}}}"}
 ;; <=
 
 ;; **
 ;;; As we would expect, the policy distribution is linear, reaching its mode at either q=0 or q=1:
 ;;; 
-;;; @@q = \arg \max\limits_q \left[q(p_1c_1+(1-p_1)(c_b+c_2))+(1-q)(p_2c_2+(1-p_2)(c_b+c_1))\right]@@
+;;; @@q = \arg \max\limits_q \left[q\color{blue}{(p_1c_1+(1-p_1)(c_b+c_2))} + (1-q)\color{brown}{(p_2c_2+(1-p_2)(c_b+c_1))}\right]@@
 ;;; 
-;;; If @@(p_1c_1+(1-p_1)(c_b+c_2)) < (p_2c_2+(1-p_2)(c_b+c_1)@@
-;;; 
+;;; If @@\color{blue} {(p_1c_1+(1-p_1)(c_b+c_2))}@@ is less than @@\color{brown} {(p_2c_2+(1-p_2)(c_b+c_1)}@@,
 ;;; q must be 1, that is, the first road should always be checked first. Otherwise, q must  be 0.
 ;; **
