@@ -16,6 +16,7 @@
         :url "https://bitbucket.org/dtolpin/embang"}
   :repl-options {:timeout 600000}
   :jvm-opts ["-Xmx1024m" "-Xss1024k"]
+  :javac-options ["-target" "1.6" "-source" "1.6"]
   :main ^:skip-aot embang.core
   :target-path "target/%s"
   :java-source-paths ["src"]
