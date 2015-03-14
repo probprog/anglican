@@ -1,4 +1,4 @@
-(defproject embang "0.4.11-SNAPSHOT"
+(defproject embang "0.4.12-SNAPSHOT"
   :description "Anglican, a probabilistic programming system"
   :url "http://bitbucket.org/dtolpin/embang"
   :license {:name "GNU General Public License Version 3"
