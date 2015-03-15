@@ -8,11 +8,12 @@
   "X.Y.Z"] (with a recent version instead of "X.Y.Z") into your project.
 
 * Proposing patches:
-	1. [Fork embang](https://bitbucket.org/dtolpin/embang/fork).
-	1. Make changes in the fork.
-	1. Create pull request to the *candidate* branch.
-	1. If the pull request resolves an issue, refer to the issue
-	   in the comment.
+    1. [Fork embang](https://bitbucket.org/dtolpin/embang/fork).
+    1. Make changes in the fork. The [code map](codemap.md)
+       explains the source tree layout and module contents.
+    1. Create pull request to the *candidate* branch.
+    1. If the pull request resolves an issue, refer to the issue
+       in the comment.
 
 ## Reporting bugs
 
