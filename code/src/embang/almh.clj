@@ -73,7 +73,7 @@
 ;; Choice reward is a tuple [sum count] of normalized
 ;; total reward and total weight.
 
-(def ^:private  +prior-choice-reward+
+(def ^:private +prior-choice-reward+
   "reward of an unseen arm"
   [1. 1.])
 
