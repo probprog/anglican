@@ -242,7 +242,7 @@ lmh
 pgibbs
 :   Particle Gibbs. Options: 
 
-      * `:number-of-particles` (2 by default) -- number of
+      * `:number-of-particles` (2 by default) --- number of
 	    particles per sweep.
 
 pcascade
