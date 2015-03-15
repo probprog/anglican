@@ -241,6 +241,7 @@ lmh
 
 pgibbs
 :   Particle Gibbs. Options: 
+
       * `:number-of-particles` (2 by default).
 
 ## __m!__ in Gorilla REPL
