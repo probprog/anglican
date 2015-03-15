@@ -1,6 +1,6 @@
 # __m!__
 
-embang, or __m!__, is a probabilistic programming system
+_embang_, or __m!__, is a probabilistic programming system
 implemented in Clojure, both the programming environment and
 the language. [Introduction to __m!__](doc/intro.md) explains
 how to write and run programs in __m!__.
