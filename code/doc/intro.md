@@ -242,7 +242,13 @@ lmh
 pgibbs
 :   Particle Gibbs. Options: 
 
-      * `:number-of-particles` (2 by default).
+      * `:number-of-particles` (2 by default) -- number of
+	    particles per sweep.
+
+pcascade
+:   Particle Cascade. Options:
+      * `:number-of-threads
+      * `:number-of-particles` 
 
 ## __m!__ in Gorilla REPL
 
