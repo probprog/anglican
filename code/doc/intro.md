@@ -13,6 +13,8 @@ conditioning the posterior distribution on a value, and
 There are other special forms --- `mem`, `store`, and `retrieve`
 --- which make writing probabilistic programs easier.
 
+[TOC]
+
 ## First program
 
 ### Writing a program
