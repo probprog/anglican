@@ -136,7 +136,7 @@ initial value (which will be `nil` for basic examples).
     (def samples (doquery :lmh example nil))
 
 Take a look at
-[worksheets/tworoads.clj](../mrepl/worksheets/tworoads.clj),
+[worksheets/tworoads.clj](../../mrepl/worksheets/tworoads.clj),
 as well as at [Gorilla REPL
 documentation](http://gorilla-repl.org/start.html) to get
 inspired.
