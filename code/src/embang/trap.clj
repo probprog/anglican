@@ -117,7 +117,8 @@
   [expr]
   (or (simple? expr)
       (primitive-procedure? expr)
-      (fn-form? expr)))
+      (fn-form? expr)
+      (mem-form? expr)))
  
 ;; Simple expressions, primitive procedure wrappers
 ;; and fn forms are opaque.
@@ -197,8 +198,8 @@
 
 (defn mem-cps
   "transforms mem to CPS"
-  [[arg & _ :as args] cont] {:pre [(= (count args) 1)]}
-  (let [mcont (*gensym* "C")
+  [[arg & _ :as args]] {:pre [(= (count args) 1)]}
+  (let [cont (*gensym* "C")
         id (*gensym* "M")
         value (*gensym* "V")
         mparms (*gensym* "P")
@@ -213,19 +214,19 @@
 
     `(~'let [~id (~'gensym "M")]
        (~'fn ~(or name (*gensym* "mem"))
-         [~mcont ~'$state & ~mparms]
+         [~cont ~'$state & ~mparms]
          (~'if (in-mem? ~'$state ~id ~mparms)
            ;; continue with stored value
-           (~mcont (get-mem ~'$state ~id ~mparms) ~'$state)
+           ~(continue cont `(get-mem ~'$state ~id ~mparms) '$state)
            ;; apply the function to the arguments with
            ;; continuation that intercepts the value
            ;; and updates the state
            ~(cps-of-expression
               `(~'apply ~expr ~mparms)
               `(~'fn ~(*gensym* "set-mem") [~value ~'$state]
-                 (~mcont ~value
-                         (set-mem ~'$state
-                                  ~id ~mparms ~value)))))))))
+                 ~(continue cont value
+                            `(set-mem ~'$state
+                                      ~id ~mparms ~value)))))))))
 
 (defn cps-of-let
   "transforms let to CPS;
