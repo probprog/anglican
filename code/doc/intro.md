@@ -107,5 +107,34 @@ REPL and on the command line, correspondingly:
     (m! -n 1000 branching)
 	lein run -- -n 1000 branching
 
-
 ## __m!__ in Gorilla REPL
+
+Yet another way to run __m!__ programs is [Gorilla
+REPL](http://gorilla-repl.org). __m!__ distribution contains
+a wrapper for gorilla REPL, in `mrepl` directory of the
+repository. Go `mrepl` and run `lein gorilla`. 
+Open the REPL URL in the browser, and either start a new
+worksheet, or load a sample worksheet from `worksheets/`
+subfolder. `worksheets/tworoads.clj` is provided as a starting
+point.
+
+A worksheet should start with a namespace declaration that
+imports necessary and useful symbols into the worksheet's
+namespace:
+
+	(ns tworoads
+	  (:require [gorilla-plot.core :as plot])
+		(:use [mrepl core]
+				[embang emit runtime])) 
+
+An __m!__ program is defined in the usual way using `defquery`.
+The inference is initiated by a call to `doquery` which accepts
+the algorithm (for example, :lmh), the program name, and the
+initial value (which will be `nil` for basic examples).
+`doquery` returns a lazy sequence of samples.
+
+    (def samples (doquery :lmh example nil))
+
+Take a look at `worksheets/tworoads.clj`, as well as at [Gorilla
+REPL documentation](http://gorilla-repl.org/start.html) to get
+inspired.
