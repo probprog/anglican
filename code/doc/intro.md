@@ -227,6 +227,22 @@ __m!__ programs. The constructors of user-defined distributions
 and processes must be declared primitive using
 `with-primitive-procedures`.
 
+## Inference Algorithms
+
+__m!__ provides a range of inference algorithms, and the list
+is growing. The most up-to-date list of available algorithms
+is in the [code map](codemap.md); algorithm options are keyword
+arguments of their `infer` methods.
+
+Below are some algorithms of general interest:
+
+lmh
+:   Lightweight Metropolis-Hastings. No options.
+
+pgibbs
+:   Particle Gibbs. Options: 
+      * `:number-of-particles` (2 by default).
+
 ## __m!__ in Gorilla REPL
 
 Yet another way to run __m!__ programs is [Gorilla
