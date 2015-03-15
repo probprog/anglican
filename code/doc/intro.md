@@ -108,4 +108,4 @@ REPL and on the command line, correspondingly:
 	lein run -- -n 1000 branching
 
 
-## Gorilla REPL
+## __m!__ in Gorilla REPL
