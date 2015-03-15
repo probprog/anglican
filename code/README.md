@@ -33,3 +33,19 @@ GNU General Public License for more details.
 You should have received a copy of the [GNU General Public
 License](gpl-3.0.txt) along with Anglican.  If not, see
 <http://www.gnu.org/licenses/>.
+
+# __m!__ contributors
+
+The list of contributors to the development of __m!__, sorted
+alphabetically by the last name. If you are a contributor
+but your name does not appear in the list, send an e-mail
+to [David Tolpin](mailto:dvd@offtopia.net).
+
+* [Tuan Anh Le](https://bitbucket.org/tuananhle)
+* [Jan Willem van de Meent](https://bitbucket.org/jwvdm)
+* [Brooks Paige](https://bitbucket.org/brx)
+* [Yura Perov](https://bitbucket.org/perov)
+* [David Tolpin](https://bitbucket.org/dtolpin)
+* [Frank Wood](https://bitbucket.org/fwood)
+* [Hongseok Yang](https://bitbucket.org/hongseok_yang)
+
