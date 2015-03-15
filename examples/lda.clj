@@ -2,7 +2,7 @@
   (:use [embang emit runtime]
         psychreview-data))
 
-(def-cps-fn subset 
+(defm subset 
   "subsets psychreview-data keeping ndocs first documents"
   [ndocs]
   (let [docs (set (range ndocs))]
