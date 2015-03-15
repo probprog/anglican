@@ -37,7 +37,7 @@ License](gpl-3.0.txt) along with Anglican.  If not, see
 # __m!__ contributors
 
 The list of contributors to the development of __m!__, sorted
-alphabetically by the last name. If you are a contributor
+alphabetically by the last name. If you are a contributor,
 but your name does not appear in the list, send an e-mail
 to [David Tolpin](mailto:dvd@offtopia.net).
 
