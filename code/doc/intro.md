@@ -212,7 +212,7 @@ will predict ':age' to be 18.
 ### Distributions
 
 Distributions are defined in
-[../src/embang/runtime.clj](../src/embang.runtime.clj) and
+[../src/embang/runtime.clj](../src/embang/runtime.clj) and
 include `bernoulli`, `beta`, `binomial`, `discrete`,
 `dirichlet`, `exponential`, `gamma`, `normal`, `poisson`,
 `uniform-continuous`, `uniform-discrete`, `mvn`, `wishart`.
