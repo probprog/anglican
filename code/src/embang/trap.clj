@@ -136,22 +136,13 @@
 ;;; General CPS transformation rules
 
 (declare cps-of-expression
+         cps-of-do
          cps-of-application)
 
 (def ^:dynamic *gensym* 
   "customized gensym for code generation,
   bound to `symbol' in tests"
   gensym)
-
-(defn ^:private cps-of-elist
-  [exprs cont]
-  (let [[fst & rst] exprs]
-    (cps-of-expression
-      fst
-      (if (seq rst)
-        `(~'fn ~(*gensym* "elist") [~'_ ~'$state]
-           ~(cps-of-elist rst cont))
-        cont))))
 
 ;;; Literal data structures --- vectors, maps and sets.
 
@@ -194,7 +185,7 @@
       (shading-primitive-procedures parms
         `(~'fn ~(or name (*gensym* "fn"))
            [~cont ~'$state ~@parms]
-           ~(cps-of-elist body cont))))))
+           ~(cps-of-do body cont))))))
 
 (defn mem-cps
   "transforms mem to CPS"
@@ -244,7 +235,7 @@
               value
               `(~'fn ~(*gensym* "var") [~name ~'$state]
                  ~rst))))))
-    (cps-of-elist body cont)))
+    (cps-of-do body cont)))
 
 ;; `loop' is translated into an application of recursive
 ;; function, due to the trampolining of all calls, there
@@ -265,7 +256,7 @@
 
 ;;; Flow control.
 
-(defmacro ^:private defn-with-named-cont
+(defmacro defn-with-named-cont
   "binds the continuation to a name to make the code
   slightly easier to reason about"
   [cps-of & args]
@@ -378,11 +369,17 @@
 (defn cps-of-do
   "transforms do to CPS"
   [exprs cont]
-  (cps-of-elist exprs cont))
+  (let [[fst & rst] exprs]
+    (cps-of-expression
+      fst
+      (if (seq rst)
+        `(~'fn ~(*gensym* "do") [~'_ ~'$state]
+           ~(cps-of-do rst cont))
+        cont))))
 
-;;;; Special forms and applications
+;;; Applications and applicative forms
 
-(defn ^:private make-of-args
+(defn make-of-args
   "builds lexical bindings for all compound args
   and then calls `make' to build expression
   out of the args; used by predict, observe, sample, application"

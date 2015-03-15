@@ -183,12 +183,12 @@
   (binding [*gensym* symbol]
     (testing "cps-of-do"
       (is (= (cps-of-do '(1 2) 'ret)
-             '(fn [] ((fn elist [_ $state] 
+             '(fn [] ((fn do [_ $state] 
                         (fn [] (ret 2 $state)))
                       1 $state)))
           "list of simple expressions")
       (is (= (cps-of-do '((a) 1) 'ret)
-             '(a (fn elist [_ $state] (fn [] (ret 1 $state)))
+             '(a (fn do [_ $state] (fn [] (ret 1 $state)))
                  $state))
           "list of compound and simple"))))
 
