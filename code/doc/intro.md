@@ -43,7 +43,7 @@ in a file `example.clj` to create your first __m!__ program.
 ### Running the program
 
 __m!__ can be run from the command line, in the Clojure REPL,
-as well in [other ways](doc/mrepl.md). To run __m!__ from the
+as well in [other ways](#mrepl). To run __m!__ from the
 command line or in the REPL, use git to download from 
 https://bitbucket.org/dtolpin/embang:
 
@@ -106,3 +106,6 @@ REPL and on the command line, correspondingly:
 
     (m! -n 1000 branching)
 	lein run -- -n 1000 branching
+
+<a name="mrepl" />	
+## __m!__ in Gorilla REPL
