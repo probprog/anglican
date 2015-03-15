@@ -250,7 +250,7 @@ pcascade
 :   Particle Cascade. Options:
 
       * `:number-of-threads` (16 by default) — number of threads.
-      * `:number-of-particles` (number-of-threads/2 by defaults)
+      * `:number-of-particles` (number-of-threads/2 by default)
 	   — number of initial particles.
 
 ## __m!__ in Gorilla REPL
