@@ -43,7 +43,7 @@ in a file `example.clj` to create your first __m!__ program.
 ### Running the program
 
 __m!__ can be run from the command line, in the Clojure REPL,
-as well in [other ways](#mrepl). To run __m!__ from the
+as well in [other ways](#markdown-header-m-in-gorilla-repl). To run __m!__ from the
 command line or in the REPL, use git to download from 
 https://bitbucket.org/dtolpin/embang:
 
