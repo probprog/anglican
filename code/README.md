@@ -34,7 +34,7 @@ You should have received a copy of the [GNU General Public
 License](gpl-3.0.txt) along with Anglican.  If not, see
 <http://www.gnu.org/licenses/>.
 
-# __m!__ Contributors
+## Contributors
 
 The list of contributors to the development of __m!__, sorted
 alphabetically by the last name. If you are a contributor,
