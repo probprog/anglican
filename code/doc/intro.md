@@ -10,8 +10,8 @@ introducing randomness into programs. The forms are `sample`
 for drawing a sample from distribution, `observe` for
 conditioning the posterior distribution on a value, and
 `predict`, for including a value into the output sample.
-There are other special forms --- `mem`, `store`, and `retrieve`
---- which make writing probabilistic programs easier.
+There are other special forms — `mem`, `store`, and `retrieve`
+— which make writing probabilistic programs easier.
 
 ## First program
 
@@ -240,15 +240,18 @@ lmh
 :   Lightweight Metropolis-Hastings. No options.
 
 pgibbs
-:   Particle Gibbs. Options: 
+:   Particle Gibbs.
+Options: 
 
-      * `:number-of-particles` (2 by default) --- number of
+      * `:number-of-particles` (2 by default) — number of
 	    particles per sweep.
 
 pcascade
 :   Particle Cascade. Options:
-      * `:number-of-threads
-      * `:number-of-particles` 
+
+      * `:number-of-threads` (16 by default) — number of threads.
+      * `:number-of-particles` (number-of-threads/2 by defaults)
+	   — number of initial particles.
 
 ## __m!__ in Gorilla REPL
 
