@@ -17,7 +17,7 @@ There are other special forms — `mem`, `store`, and `retrieve`
 
 ### Writing a program
 
-__m!__ programs reside in Clojure source code modules, 
+__m!__ programs reside in Clojure source code modules,
 and are defined by the `defquery` macro. In order to
 enable the __m!__ language in the namespace, namespaces
 `embang.runtime` and `embang.emit` must be used. A simple way to
@@ -44,7 +44,7 @@ in a file `example.clj` to create your first __m!__ program.
 
 __m!__ can be run from the command line, in the Clojure REPL,
 as well in [other ways](#markdown-header-m-in-gorilla-repl). To run __m!__ from the
-command line or in the REPL, use git to download from 
+command line or in the REPL, use git to download from
 https://bitbucket.org/dtolpin/embang:
 
     $ git clone https://bitbucket.org/dtolpin/embang
@@ -52,7 +52,7 @@ https://bitbucket.org/dtolpin/embang:
 __m!__ is in `code`. Change the current directory to `code`,
 open `project.clj` and add the path to the directory in which
 `example.clj` resides to `:resource-paths`.
-For example, if example.clj is in '/home/user/embang', the 
+For example, if example.clj is in '/home/user/embang', the
 `:resource-paths` line might look like:
 
     :resource-paths ["/home/user/embang" "../examples"]
@@ -84,11 +84,11 @@ beginning of the output. These lines are 'comment lines'
 providing general information about the program, the inference
 algorithm, and the invocation options.
 
-Run 
+Run
 
     lein run -- --help
 
-from the command line, or 
+from the command line, or
 
     (m! --help)
 
@@ -138,7 +138,7 @@ functions are available: `map`, `reduce`, `filter`, `some`,
 ### Definitions outside of `defquery`
 
 Data variables may be defined outside of `defquery` using
-`def` and used inside `defquery`. __m!__ functions outside 
+`def` and used inside `defquery`. __m!__ functions outside
 of `defquery` may be defined using `defm` (with the same syntax
 as `defn`). Their bodies may use the same subset of Clojure
 as `defquery`, as well as probabilistic and state access forms.
@@ -160,14 +160,14 @@ lexical scope of the form. For example,
        (defquery foo
           (predict :hello (capitalize "hello"))))
 
-Will predict `:hello` as `Hello` (capitalized). 
+Will predict `:hello` as `Hello` (capitalized).
 
 ### Probabilistic forms
 
 There are three probabilistic forms: `sample`, `observe`, and
 `predict`.
 
-* `(sample distribution)` returns a sample from 
+* `(sample distribution)` returns a sample from
   `distribution`.
 * `(observe distribution value)` conditions the posterior
   distribution  by observing `value` from  `distribution`.
@@ -201,7 +201,7 @@ during the same run of the program can be retrieved using
 * `(retrieve key ...)` retrieves and returns the value stored at
   `key ...`. `key ...` can be a sequence of any length.
 
-For example:  
+For example:
 
     (defquery customer
       (store :customer 4 :age 18)
@@ -241,7 +241,7 @@ lmh
 
 pgibbs
 :   Particle Gibbs.
-Options: 
+Options:
 
       * `:number-of-particles` (2 by default) — number of
 	    particles per sweep.
@@ -258,7 +258,7 @@ pcascade
 Yet another way to run __m!__ programs is [Gorilla
 REPL](http://gorilla-repl.org). __m!__ distribution contains
 a wrapper for gorilla REPL, in `mrepl` directory of the
-repository. Go `mrepl` and run `lein gorilla`. 
+repository. Go `mrepl` and run `lein gorilla`.
 Open the REPL URL in the browser, and either start a new
 worksheet, or load a sample worksheet from `worksheets/`
 subfolder. `worksheets/tworoads.clj` is provided as a starting
@@ -271,7 +271,7 @@ namespace:
     (ns tworoads
       (:require [gorilla-plot.core :as plot])
         (:use [mrepl core]
-                [embang emit runtime])) 
+                [embang emit runtime]))
 
 An __m!__ program is defined in the usual way using `defquery`.
 The inference is initiated by a call to `doquery` which accepts
