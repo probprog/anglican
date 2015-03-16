@@ -100,7 +100,7 @@
 ;;; @@q = \arg \max\limits_q \left[q\color{blue}{(p_1c_1+(1-p_1)(c_b+c_2))} + (1-q)\color{brown}{(p_2c_2+(1-p_2)(c_b+c_1))}\right]@@
 ;;; 
 ;;; If @@\color{blue} {(p_1c_1+(1-p_1)(c_b+c_2))}@@ is less than @@\color{brown} {(p_2c_2+(1-p_2)(c_b+c_1)}@@,
-;;; q must be 1, that is, the first road should always be checked first. Otherwise, q must  be 0.k
+;;; q must be 1, that is, the first road should always be checked first. Otherwise, q must  be 0.
 ;; **
 
 ;; **
