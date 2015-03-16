@@ -33,7 +33,7 @@ rules, or discuss before breaking them knowingly.
   LightTable) suggests is most probably good enough, but do
   not override the indentation manually on a case-by-case
   basis.
-* In Lisp, a closing bracket or parentheses does not
+* In Lisp, a closing bracket or parenthesis does not
   traditionally start a line. Put closing brackets/parentheses
   at the end of expressions they close.
 
