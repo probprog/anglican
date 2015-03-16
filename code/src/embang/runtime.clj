@@ -75,13 +75,13 @@
 (defmacro ^:private defdist
   "defines distribution"
   [name docstring parameters bindings & methods]
-  (let [record-name (format "%s-distribution" name)
+  (let [record-name (symbol (format "%s-distribution" name))
         variables (take-nth 2 bindings)]
     `(do
-       (defrecord ~(symbol record-name) [~@parameters ~@variables]
+       (defrecord ~record-name [~@parameters ~@variables]
          distribution
          ~@methods)
-       (defn ~(symbol name) ~docstring ~parameters
+       (defn ~name ~docstring ~parameters
          (let ~bindings
            (~(symbol (format "->%s" record-name))
                      ~@parameters ~@variables))))))
@@ -266,6 +266,23 @@
   (absorb [this sample]
     "absorbs the sample and returns a new process"))
 
+(defmacro ^:private defproc
+  "defines random process"
+  [name docstring parameters bindings & methods]
+  (let [record-name (symbol (format "%s-process" name))
+        variables (take-nth 2 bindings)
+        values (take-nth 2 (rest bindings))]
+    `(do
+       (declare ~name)
+       (defrecord ~record-name [~@parameters ~@variables]
+         random-process
+         ~@methods)
+       (defn ~name ~docstring 
+         (~parameters (~name ~@parameters ~@values))
+         ([~@parameters ~@variables]
+          (~(symbol (format "->%s" record-name))
+                     ~@parameters ~@variables))))))
+
 ;; Random processes can accept and return functions,
 ;; and translations in and out of CPS form must be performed.
 ;; To avoid circular dependencies (emit<trap<runtime<emit),
@@ -275,94 +292,89 @@
   "reconstructs value-returning function from CPS form"
   [f]
   (fn [& args]
-    (apply f (fn [v _] v) nil args)))
+    (trampoline (apply f (fn [v _] v) nil args))))
 
 (defn ^:private cps
   "wrap value-returning function into CPS form"
   [f]
   (fn [cont $state & args]
-    (cont (apply f args) $state)))
+    (fn [] (cont (apply f args) $state))))
 
 ;; random processes, in alphabetical order
 
-(defn CRP
-  "Chinese Restaurant process"
-  ([alpha] (CRP alpha []))
-  ([alpha counts]
-   {:pre [(vector? counts)]}
-   (reify
-     random-process
-     (produce [this]
-       (let [dist (discrete (conj counts alpha))]
-         (reify distribution
-           (sample [this] (sample dist))
-           (observe [this sample]
-             ;; Observing any new sample has the same probability.
-             (observe dist (min (count counts) sample))))))
-     (absorb [this sample] 
-       (CRP alpha
-            (-> counts
-                ;; Fill the counts with alpha (corresponding to
-                ;; the zero count) until the new sample.
-                (into (repeat (+ (- sample (count counts)) 1) alpha))
-                (update-in [sample] inc)))))))
+(defdist discrete-crp
+  "discrete distribution extended 
+  by a random sample, for use with CRP"
+  [counts alpha] [dist (discrete (conj counts alpha))]
+  (sample [this] (sample dist))
+  (observe [this value]
+    ;; Observing any new sample has the same probability.
+    (observe dist (min (count counts) value))))
 
-(defn DP
+(defproc CRP
+  "Chinese Restaurant process"
+  [alpha] [counts []]
+  (produce [this] (discrete-crp counts alpha))
+  (absorb [this sample] 
+    (CRP alpha
+         (-> counts
+             ;; Fill the counts with alpha (corresponding to
+             ;; the zero count) until the new sample.
+             (into (repeat (+ (- sample (count counts)) 1) alpha))
+             (update-in [sample] inc)))))
+
+(defdist categorical-dp
+  "categorical distribution extended
+  by a random sample, for use with DP"
+  [counts H alpha] [dist (categorical
+                           (vec (conj counts [::new alpha])))]
+  (sample [this] 
+    (let [s (sample dist)]
+      ;; When a `new' value is drawn, sample the actual
+      ;; value from the base measure.
+      (if (= s ::new) (sample H) s)))
+  (observe [this value]
+    (log-sum-exp
+      ;; The value is one of absorbed values.
+      (observe dist value)
+      ;; The value is drawn from the base distribution.
+      (+ (observe dist ::new) (observe H value)))))
+
+(defproc DP
   "Dirichlet process"
-  ([alpha H] (DP alpha H {}))
-  ([alpha H counts]
-   {:pre [(map? counts)]}
-   (reify
-     random-process
-     (produce [this]
-       ;; Sample from the categorical distribution of realized
-       ;; samples extended with a `new' value.
-       (let [dist (categorical (vec (conj counts [::new alpha])))]
-         (reify distribution
-           (sample [this] 
-             (let [s (sample dist)]
-               ;; When a `new' value is drawn, sample the actual
-               ;; value from the base measure.
-               (if (= s ::new) (sample H) s)))
-           (observe [this sample]
-             (log-sum-exp
-               ;; The sample is one of absorbed samples.
-               (observe dist sample)
-               ;; The sample is drawn from the base distribution.
-               (+ (observe dist ::new) (observe H sample)))))))
-     (absorb [this sample]
-       (DP alpha H (update-in counts [sample] (fnil inc 0)))))))
+  [alpha H] [counts {}]
+  (produce [this] (categorical-dp counts H alpha))
+  (absorb [this sample]
+          (DP alpha H (update-in counts [sample] (fnil inc 0)))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"
   [k xs ys]
   (for [x xs] (for [y ys] (k x y))))
 
-(defn GP
+(defproc GP
   "Gaussian process"
-  ([m$ k$]
-     ;; two-parameter call is intended for
-     ;; use from inside m! programs, where
-     ;; CPS-transformed functions are passed
-     (GP (uncps m$) (uncps k$) []))
-  ([m k points]
-     (reify random-process
-       (produce [this]
-         (cps
-          (if (seq points)
-            (let [xs (mapv first points)
-                  isgm (m/inverse (m/matrix (cov k xs xs)))
-                  zs (let [ys (mapv second points)
-                           ms (mapv m xs)]
-                       (m/mmul isgm (m/sub ys ms)))]
-              (fn [x]
-                (let [mx (m x)
-                      sgm* (cov k xs [x])
-                      tsgm* (m/transpose sgm*)]
-                  (normal (+ mx (first (m/mmul tsgm* zs)))
-                          (sqrt (- (k x x)
-                                   (ffirst
-                                    (m/mmul tsgm* isgm sgm*))))))))
-            (fn [x] (normal (m x) (sqrt (k x x)))))))
-       (absorb [this sample]
-         (GP m k (conj points sample))))))
+  ;; GP is intended to be called from inside m! programs,
+  ;; where CPS-transformed functions are passed.
+  [m$ k$] [m (uncps m$) 
+           k (uncps k$) 
+           points []]
+  (produce [this]
+    (cps
+      (if (seq points)
+        (let [xs (mapv first points)
+              isgm (m/inverse (m/matrix (cov k xs xs)))
+              zs (let [ys (mapv second points)
+                       ms (mapv m xs)]
+                   (m/mmul isgm (m/sub ys ms)))]
+          (fn [x]
+            (let [mx (m x)
+                  sgm* (cov k xs [x])
+                  tsgm* (m/transpose sgm*)]
+              (normal (+ mx (first (m/mmul tsgm* zs)))
+                      (sqrt (- (k x x)
+                               (ffirst
+                                 (m/mmul tsgm* isgm sgm*))))))))
+        (fn [x] (normal (m x) (sqrt (k x x)))))))
+  (absorb [this sample]
+    (GP m$ k$ m k (conj points sample))))
