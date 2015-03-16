@@ -72,19 +72,23 @@
 ;; distribution has its own type. The distribution arguments
 ;; are available as the record fields.
 
-(defmacro ^:private defdist
+(defmacro defdist
   "defines distribution"
-  [name docstring parameters bindings & methods]
-  (let [record-name (symbol (format "%s-distribution" name))
-        variables (take-nth 2 bindings)]
-    `(do
-       (defrecord ~record-name [~@parameters ~@variables]
-         distribution
-         ~@methods)
-       (defn ~name ~docstring ~parameters
-         (let ~bindings
-           (~(symbol (format "->%s" record-name))
-                     ~@parameters ~@variables))))))
+  [name & args]
+  (let [[docstring parameters bindings & methods]
+        (if (string? (first args))
+          args
+          `(~(format "%s distribution" name) ~@args))]
+    (let [record-name (symbol (format "%s-distribution" name))
+          variables (take-nth 2 bindings)]
+      `(do
+         (defrecord ~record-name [~@parameters ~@variables]
+           distribution
+           ~@methods)
+         (defn ~name ~docstring ~parameters
+           (let ~bindings
+             (~(symbol (format "->%s" record-name))
+                       ~@parameters ~@variables)))))))
 
 ;; Many distributions are available in the Colt library and
 ;; imported automatically.
@@ -266,22 +270,26 @@
   (absorb [this sample]
     "absorbs the sample and returns a new process"))
 
-(defmacro ^:private defproc
+(defmacro defproc
   "defines random process"
-  [name docstring parameters bindings & methods]
-  (let [record-name (symbol (format "%s-process" name))
-        variables (take-nth 2 bindings)
-        values (take-nth 2 (rest bindings))]
-    `(do
-       (declare ~name)
-       (defrecord ~record-name [~@parameters ~@variables]
-         random-process
-         ~@methods)
-       (defn ~name ~docstring 
-         (~parameters (~name ~@parameters ~@values))
-         ([~@parameters ~@variables]
-          (~(symbol (format "->%s" record-name))
-                     ~@parameters ~@variables))))))
+  [name & args]
+  (let [[docstring parameters bindings & methods]
+        (if (string? (first args))
+          args
+          `(~(format "%s distribution" name) ~@args))]
+    (let [record-name (symbol (format "%s-process" name))
+          variables (take-nth 2 bindings)
+          values (take-nth 2 (rest bindings))]
+      `(do
+         (declare ~name)
+         (defrecord ~record-name [~@parameters ~@variables]
+           random-process
+           ~@methods)
+         (defn ~name ~docstring 
+           (~parameters (~name ~@parameters ~@values))
+           ([~@parameters ~@variables]
+            (~(symbol (format "->%s" record-name))
+                      ~@parameters ~@variables)))))))
 
 ;; Random processes can accept and return functions,
 ;; and translations in and out of CPS form must be performed.

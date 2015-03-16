@@ -10,17 +10,13 @@
               (contains? docs doc))
             psychreview-data)))
 
-(defn DSD
+(defproc DSD
   "discrete-symmetric-dirichlet process"
-  ([alpha N] (DSD (vec (repeat N (double alpha)))))
-  ([counts]
-     {:pre [(vector? counts)]}
-     (reify
-       random-process
-       (produce [this]
-         (discrete counts))
-       (absorb [this sample]
-         (DSD (update-in counts [sample] + 1.))))))
+  [alpha N] [counts (vec (repeat N (double alpha)))]
+  (produce [this]
+    (discrete counts))
+  (absorb [this sample]
+    (DSD alpha N (update-in counts [sample] + 1.))))
 
 (with-primitive-procedures [DSD]
   (defquery lda 
