@@ -89,7 +89,7 @@
       `(do
          (defrecord ~record-name [~@parameters ~@variables]
            Object
-           (toString [this]
+           (toString [~'this]
              (str (list '~(qualify name) ~@parameters)))
            distribution
            ~@methods)
@@ -287,7 +287,7 @@
   (let [[docstring parameters bindings & methods]
         (if (string? (first args))
           args
-          `(~(format "%s distribution" name) ~@args))]
+          `(~(format "%s random process" name) ~@args))]
     (let [record-name (symbol (format "%s-process" name))
           variables (take-nth 2 bindings)
           values (take-nth 2 (rest bindings))]
@@ -295,7 +295,7 @@
          (declare ~name)
          (defrecord ~record-name [~@parameters ~@variables]
            Object
-           (toString [this]
+           (toString [~'this]
              (str (list '~(qualify name) ~@parameters)))
            random-process
            ~@methods)
