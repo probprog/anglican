@@ -12,8 +12,9 @@
 
 (derive ::algorithm :embang.smc/algorithm)
 
-(defmethod infer :pfilter [_ prog value & {:keys [number-of-particles]
-                                           :or {number-of-particles 1}}]
+(defmethod infer :pfilter [_ prog value
+                           & {:keys [number-of-particles]  ; per sweep
+                              :or {number-of-particles 1}}]
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
   (let [initial-particles

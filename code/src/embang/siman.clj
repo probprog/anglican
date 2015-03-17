@@ -89,7 +89,7 @@
   "produces next state given current state
   and the trace entry to resample"
   [state entry]
-  (:state (exec ::algorithm (:cont entry) nil 
+  (:state (exec ::algorithm (:cont entry) nil
                 ;; Remove the selected entry from RDB.
                 {::rdb (dissoc (rdb (state ::trace))
                                (:choice-id entry))})))
@@ -102,7 +102,7 @@
   (add-predict state
                '$trace (map :value (::trace state))))
 
-(defmulti next-temperature 
+(defmulti next-temperature
   "returns decreased temperature"
   (fn [schedule temperature rate] schedule))
 
@@ -115,19 +115,28 @@
   ;; T' = T/(1+(1-b)T), see [M Lundy and A Mees. 1986. Convergence of
   ;; an annealing algorithm. Math. Program. 34, 1 (January 1986),
   ;; 111-124] for details.
-  [_ temperature rate] 
+  [_ temperature rate]
   (/ temperature (+ 1. (* (- 1. rate) temperature))))
 
-(defmethod infer :siman [_ prog value 
-                         & {:keys [cooling-rate
-                                   cooling-schedule
-                                   predict-trace
-                                   predict-candidates
-                                   number-of-samples]
-                            :or {cooling-rate 0.99
-                                 cooling-schedule :exponential
-                                 predict-trace false
-                                 predict-candidates false}}]
+(defmethod infer :siman
+  [_ prog value
+   & {:keys [;; A real number slightly smaller than 1.,
+             ;; the closer to 1., the slower the convergence.
+             cooling-rate
+             ;; The algorithm to compute subsequent temperatures,
+             ;; currently, :exponential or :lundy-mees.
+             cooling-schedule
+             ;; Add the trace as a predict.
+             predict-trace
+             ;; Output all states rather than just states
+             ;; with increasing log-weight.
+             predict-candidates
+             ;; Total number of samples to produce.
+             number-of-samples]
+      :or {cooling-rate 0.99
+           cooling-schedule :exponential
+           predict-trace false
+           predict-candidates false}}]
   ;; The MAP inference consists of two chained transformations,
   ;; `sample-seq', followed by `map-seq'.
   (letfn
