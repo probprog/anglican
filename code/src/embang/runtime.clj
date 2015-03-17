@@ -72,7 +72,8 @@
 ;; are available as the record fields.
 
 (defn ^:private qualify
-  "returns qualified symbol"
+  "accepts a symbol, returns the qualified symbol;
+  intended to be called from a macro"
   [s]
   (symbol (format "%s/%s" *ns* s)))
 
