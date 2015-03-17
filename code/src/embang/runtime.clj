@@ -31,7 +31,7 @@
 (defn sqrt [x] (Math/sqrt x))
 (defn pow [x y] (Math/pow x y))
 
-;;; Random distributions
+;;; Distributions
 
 (defprotocol distribution
   "random distribution"
@@ -60,7 +60,7 @@
                       (Math/exp (- log-y log-max)))))
       log-max)))
 
-;; distributions, in alphabetical order
+;; Distribution types, in alphabetical order.
 
 (def ^:private RNG
   "random number generator;
@@ -328,7 +328,7 @@
   (fn [cont $state & args]
     (fn [] (cont (apply f args) $state))))
 
-;; random processes, in alphabetical order
+;; Random process types, in alphabetical order.
 
 (defdist discrete-crp
   "discrete distribution extended 
@@ -388,6 +388,11 @@
            k (uncps k$) 
            points []]
   (produce [this]
+    ;; The formulae are taken from
+    ;;   http://mlg.eng.cam.ac.uk/pub/pdf/Ras04.pdf
+    ;; Carl Edward Rasmussen. Gaussian processes in machine learning. 
+    ;; In Revised Lectures, volume 3176 of Lecture Notes in Computer
+    ;; Science (LNCS), pages 63-71. Springer-Verlag, Heidelberg, 2004.
     (cps
       (if (seq points)
         (let [xs (mapv first points)
