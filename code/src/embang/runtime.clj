@@ -71,6 +71,11 @@
 ;; distribution has its own type. The distribution arguments
 ;; are available as the record fields.
 
+(defn ^:private qualify
+  "returns qualified symbol"
+  [s]
+  (symbol (format "%s/%s" *ns* s)))
+
 (defmacro defdist
   "defines distribution"
   [name & args]
@@ -84,7 +89,8 @@
          (declare ~name)
          (defrecord ~record-name [~@parameters ~@variables]
            Object
-           (toString [~'this] (str (list '~name ~@parameters)))
+           (toString [~'this]
+             (str (list '~(qualify name) ~@parameters)))
            distribution
            ~@methods)
          (defn ~name ~docstring ~parameters
@@ -289,7 +295,8 @@
          (declare ~name)
          (defrecord ~record-name [~@parameters ~@variables]
            Object
-           (toString [~'this] (str (list '~name ~@parameters)))
+           (toString [~'this]
+             (str (list '~(qualify name) ~@parameters)))
            random-process
            ~@methods)
          (defn ~name ~docstring 
