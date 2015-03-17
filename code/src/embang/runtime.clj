@@ -67,10 +67,15 @@
   used by colt distribution objects"
   (embang.MTMersenneTwister. (java.util.Date.)))
 
-
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
 ;; are available as the record fields.
+
+(defn ^:private qualify
+  "returns qualified symbol"
+  [s]
+  (let [sm (meta (resolve s))]
+    (symbol (str (:ns sm)) (str (:name sm)))))
 
 (defmacro defdist
   "defines distribution"
@@ -83,12 +88,18 @@
           variables (take-nth 2 bindings)]
       `(do
          (defrecord ~record-name [~@parameters ~@variables]
+           Object
+           (toString [this]
+             (str (list '~(qualify name) ~@parameters)))
            distribution
            ~@methods)
          (defn ~name ~docstring ~parameters
            (let ~bindings
              (~(symbol (format "->%s" record-name))
-                       ~@parameters ~@variables)))))))
+                       ~@parameters ~@variables)))
+         (defmethod print-method ~record-name 
+           [~'o ~'m]
+           (print-simple (str ~'o) ~'m))))))
 
 ;; Many distributions are available in the Colt library and
 ;; imported automatically.
@@ -283,13 +294,22 @@
       `(do
          (declare ~name)
          (defrecord ~record-name [~@parameters ~@variables]
+           Object
+           (toString [this]
+             (str (list '~(qualify name) ~@parameters)))
            random-process
            ~@methods)
          (defn ~name ~docstring 
-           (~parameters (~name ~@parameters ~@values))
+           ;; Include parameters-only overload only if variables
+           ;; are not empty.
+           ~@(when (seq variables)
+               `((~parameters (~name ~@parameters ~@values))))
            ([~@parameters ~@variables]
             (~(symbol (format "->%s" record-name))
-                      ~@parameters ~@variables)))))))
+                      ~@parameters ~@variables)))
+         (defmethod print-method ~record-name 
+           [~'o ~'m]
+           (print-simple (str ~'o) ~'m))))))
 
 ;; Random processes can accept and return functions,
 ;; and translations in and out of CPS form must be performed.
