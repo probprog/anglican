@@ -1,7 +1,5 @@
 (ns embang.bamc
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require [clojure.data.priority-map
-             :refer [priority-map-keyfn-by]])
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [sample observe normal]]))
