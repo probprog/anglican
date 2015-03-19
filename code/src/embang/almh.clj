@@ -269,8 +269,9 @@
                      (reduce + (map second
                                     (state ::choice-counts)))))))
 
-(defmethod infer :almh [_ prog value & {:keys [predict-choices]
-                                        :or {predict-choices false}}]
+(defmethod infer :almh [_ prog value
+                        & {:keys [predict-choices] ; report statistics
+                           :or {predict-choices false}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq

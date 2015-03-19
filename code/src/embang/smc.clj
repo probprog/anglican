@@ -36,8 +36,9 @@
      :else (throw (AssertionError.
                    "some `observe' directives are not global")))))
 
-(defmethod infer :smc [_ prog value & {:keys [number-of-particles]
-                                       :or {number-of-particles 1}}]
+(defmethod infer :smc [_ prog value
+                       & {:keys [number-of-particles]   ; per sweep
+                          :or {number-of-particles 1}}]
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
   (letfn [(sample-seq []

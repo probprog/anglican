@@ -31,7 +31,7 @@
 (defn sqrt [x] (Math/sqrt x))
 (defn pow [x y] (Math/pow x y))
 
-;;; Random distributions
+;;; Distributions
 
 (defprotocol distribution
   "random distribution"
@@ -60,31 +60,47 @@
                       (Math/exp (- log-y log-max)))))
       log-max)))
 
-;; distributions, in alphabetical order
+;; Distribution types, in alphabetical order.
 
 (def ^:private RNG
   "random number generator;
   used by colt distribution objects"
   (embang.MTMersenneTwister. (java.util.Date.)))
 
-
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
 ;; are available as the record fields.
 
-(defmacro ^:private defdist
+(defn ^:private qualify
+  "accepts a symbol, returns the qualified symbol;
+  intended to be called from a macro"
+  [s]
+  (symbol (format "%s/%s" *ns* s)))
+
+(defmacro defdist
   "defines distribution"
-  [name docstring parameters bindings & methods]
-  (let [record-name (symbol (format "%s-distribution" name))
-        variables (take-nth 2 bindings)]
-    `(do
-       (defrecord ~record-name [~@parameters ~@variables]
-         distribution
-         ~@methods)
-       (defn ~name ~docstring ~parameters
-         (let ~bindings
-           (~(symbol (format "->%s" record-name))
-                     ~@parameters ~@variables))))))
+  [name & args]
+  (let [[docstring parameters bindings & methods]
+        (if (string? (first args))
+          args
+          `(~(format "%s distribution" name) ~@args))]
+    (let [record-name (symbol (format "%s-distribution" name))
+          variables (take-nth 2 bindings)]
+      `(do
+         (declare ~name)
+         (defrecord ~record-name [~@parameters ~@variables]
+           Object
+           (toString [~'this]
+             (str (list '~(qualify name) ~@parameters)))
+           distribution
+           ~@methods)
+         (defn ~name ~docstring ~parameters
+           (let ~bindings
+             (~(symbol (format "->%s" record-name))
+                       ~@parameters ~@variables)))
+         (defmethod print-method ~record-name 
+           [~'o ~'m]
+           (print-simple (str ~'o) ~'m))))))
 
 ;; Many distributions are available in the Colt library and
 ;; imported automatically.
@@ -266,22 +282,35 @@
   (absorb [this sample]
     "absorbs the sample and returns a new process"))
 
-(defmacro ^:private defproc
+(defmacro defproc
   "defines random process"
-  [name docstring parameters bindings & methods]
-  (let [record-name (symbol (format "%s-process" name))
-        variables (take-nth 2 bindings)
-        values (take-nth 2 (rest bindings))]
-    `(do
-       (declare ~name)
-       (defrecord ~record-name [~@parameters ~@variables]
-         random-process
-         ~@methods)
-       (defn ~name ~docstring 
-         (~parameters (~name ~@parameters ~@values))
-         ([~@parameters ~@variables]
-          (~(symbol (format "->%s" record-name))
-                     ~@parameters ~@variables))))))
+  [name & args]
+  (let [[docstring parameters bindings & methods]
+        (if (string? (first args))
+          args
+          `(~(format "%s random process" name) ~@args))]
+    (let [record-name (symbol (format "%s-process" name))
+          variables (take-nth 2 bindings)
+          values (take-nth 2 (rest bindings))]
+      `(do
+         (declare ~name)
+         (defrecord ~record-name [~@parameters ~@variables]
+           Object
+           (toString [~'this]
+             (str (list '~(qualify name) ~@parameters)))
+           random-process
+           ~@methods)
+         (defn ~name ~docstring 
+           ;; Include parameters-only overload only if variables
+           ;; are not empty.
+           ~@(when (seq variables)
+               `((~parameters (~name ~@parameters ~@values))))
+           ([~@parameters ~@variables]
+            (~(symbol (format "->%s" record-name))
+                      ~@parameters ~@variables)))
+         (defmethod print-method ~record-name 
+           [~'o ~'m]
+           (print-simple (str ~'o) ~'m))))))
 
 ;; Random processes can accept and return functions,
 ;; and translations in and out of CPS form must be performed.
@@ -300,7 +329,7 @@
   (fn [cont $state & args]
     (fn [] (cont (apply f args) $state))))
 
-;; random processes, in alphabetical order
+;; Random process types, in alphabetical order.
 
 (defdist discrete-crp
   "discrete distribution extended 
@@ -360,6 +389,11 @@
            k (uncps k$) 
            points []]
   (produce [this]
+    ;; The formulae are taken from
+    ;;   http://mlg.eng.cam.ac.uk/pub/pdf/Ras04.pdf
+    ;; Carl Edward Rasmussen. Gaussian processes in machine learning. 
+    ;; In Revised Lectures, volume 3176 of Lecture Notes in Computer
+    ;; Science (LNCS), pages 63-71. Springer-Verlag, Heidelberg, 2004.
     (cps
       (if (seq points)
         (let [xs (mapv first points)

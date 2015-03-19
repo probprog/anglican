@@ -101,7 +101,7 @@
                    "some `observe' directives are not global")))))
 
 (defmethod infer :pgibbs [_ prog value
-                          & {:keys [number-of-particles]
+                          & {:keys [number-of-particles]   ; per sweep
                              :or {number-of-particles 2}}]
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")

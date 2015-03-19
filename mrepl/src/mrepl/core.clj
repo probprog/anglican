@@ -14,9 +14,15 @@
     ;; Use the auto-loading machine in embang.core to load
     ;; the inference algorithm on demand.
     (load-algorithm algorithm)
-    ;; Then, call the inference to create a lazy sequence
-    ;; of states.
-    (apply infer algorithm (warmup program value) nil options)))
+    ;; Optionally, warm up the program by pre-evaluating
+    ;; the determenistic prefix.
+    (let [[program value] (if (:warmup (apply hash-map options)
+                                       true)
+                            [(warmup program value) nil]
+                            [program value])]
+      ;; Finally, call the inference to create
+      ;; a lazy sequence of states.
+      (apply infer algorithm program value options))))
 
 ;; State readers
 
