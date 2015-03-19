@@ -4,7 +4,7 @@
 
 ;;;; Trampoline-ready Anglican program
 
-;; The input to this ransformations is an Anglican program in
+;; The input to this transformations is an Anglican program in
 ;; clojure syntax (embang.xlat). The output is a Clojure function
 ;; that returns either the next step as a structure incroprorating
 ;; continuations and parameters, or the state containing a vector of

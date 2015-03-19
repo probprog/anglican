@@ -63,6 +63,11 @@
     :default nil
     :parse-fn read-string]
 
+   ["-w" "--warmup FLAG" "Pre-evaluate the program"
+    :default true
+    :parse-fn read-string
+    :validate [#(contains? #{true false} %) "must be boolean"]]
+
    ["-h" "--help" "Print usage summary and exit"]])
 
 (defn usage [summary]
@@ -128,27 +133,28 @@ Options:
               algorithm-options (:algorithm-options options)]
 
           (println
-            (format (str ";; Program: %s/%s\n"
-                         ";; Inference algorithm: %s\n"
-                         ";; Initial value: %s\n"
-                         ";; Number of samples: %s (*%s+%s) \n"
-                         ";; Output format: %s\n"
-                         ";; Algorithm options: %s")
-                    nsname progname
+            (format (str ";; Program: %s/%s %s\n"
+                         ";; Inference algorithm: %s %s\n"
+                         ";; Number of samples: %s (*%s+%s)\n"
+                         ";; Output format: %s\n")
+                    nsname progname (if (some? (:value options))
+                                      (:value options)
+                                      "")
                     (:inference-algorithm options)
-                    (:value options)
+                    `(:warmup ~(:warmup options)
+                              ~@(:algorithm-options options))
+                    (or (seq (:algorithm-options options)) "")
                     (:number-of-samples options)
-                    (:thin options)
-                    (:burn options)
-                    (:output-format options)
-                    (str/join
-                      (map (fn [[name value]]
-                             (format "\n;;\t%s %s" name value))
-                           (partition 2 (:algorithm-options options))))))
+                    (:thin options) (:burn options)
+                    (:output-format options)))
 
           ;; Load the program.
           (try
-            (let [program (load-program nsname progname)]
+            (let [program (load-program nsname progname)
+                  value (:value options)
+                  [program value] (if (:warmup options) 
+                                    [(warmup program value) nil]
+                                    [program value])]
 
               ;; If loaded, run the inference.
               (try
@@ -156,8 +162,7 @@ Options:
                        states (as->
                                 (apply infer
                                        (:inference-algorithm options)
-                                       (warmup program (:value options))
-                                       nil
+                                       program value
                                        (:algorithm-options options))
                                 states
                                 ;; Burn samples.
