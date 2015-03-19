@@ -72,7 +72,7 @@ on a keyword. If the algorithm is defined in a namespace
 `embang.foo`, and the keyword is `:foo`, the algorithm's
 namespace will be loaded automatically by either
 `embang.core/m!` or `mrepl.core/doquery`.  However, an algorithm
-can be implemented in any namespace and loaded explicitly before
+may be implemented in any namespace and loaded explicitly before
 infer is called.
 
 The simplest algorithm to implement is importance sampling:
