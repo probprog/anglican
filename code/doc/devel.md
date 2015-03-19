@@ -61,3 +61,65 @@ rules, or discuss before breaking them knowingly.
   test/embang/foo_test.clj (namespace embang.foo-test).
 * All tests much pass (lein test) before a change to the public
   repository.
+
+## Implementing distributions and random processes
+
+Two abstractions of random sources used in Anglican, a
+_distribution_ and a _random process_, the former corresponding
+to 'elementary random procedure' (ERP), the latter 
+related to 'exchangeable random procedure (XRP).
+
+Distributions and random processes are defined through
+implementation of protocols `embang.runtime/distribution` and
+`embang.runtime/random-process`. In addition, a multivariate
+distribution may optionally implement protocol
+`embang.runtime/multivariate-distribution`. Several
+distributions are defined in `embang.runtime`, and other
+distributions may be defined in terms of the 'basic'
+distributions. 
+
+For example, the Bernoulli distribution can be defined in terms
+of uniform-continuous distribution:
+
+	(defn bernoulli
+	  "Bernoulli distribution"
+	  [p]
+	  (let [dist (uniform-continuous 0. 1.)]
+		(reify
+		  distribution
+		  (sample [this] (if (< (sample dist) p) 1 0))
+		  (observe [this value]
+				   (Math/log (case value
+							   1 p
+							   0 (- 1. p)
+							   0.))))))
+
+where `sample` and `observe` are two methods of the
+`distribution` protocol that must be provided.
+
+A better and easier way to implement a distribution is macro
+`defdist`.  In addition to defining the distribution function,
+`defdist` assigns each distribution a record type, as well
+as arranges for pretty-printing of the distribution objects.
+The above declaration using `defdist` is:
+
+	(defdist bernoulli
+	  "Bernoulli distribution"
+	  [p] [dist (uniform-continuous 0. 1.)]
+	  (sample [this] (if (< (sample dist) p) 1 0))
+	  (observe [this value]
+			   (Math/log (case value
+						   1 p
+						   0 (- 1. p)
+						   0.))))))
+
+The first square brackets define the parameter list of the
+function that creates the distribution object. The second square
+brackets define additional bindings (which may depend on the
+parameters) used by the methods. Behind the scenes, `defdist`
+does more than the `reify`-based definition above: it also 
+defines a record type `bernoulli-distribution`, and instantiates
+`print-method` for the type so that the distribution object is
+printed nicely. Consult the source code in
+[`embang.runtime`](../src/embang/runtime.clj) for the 
+implementation of `defdist`.
