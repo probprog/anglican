@@ -62,9 +62,9 @@ rules, or discuss before breaking them knowingly.
 * All tests much pass (lein test) before a change to the public
   repository.
 
-### Implementation Guides
+## Implementation Guides
 
-## Inference algorithms
+### Inference algorithms
 
 An inference algorithm must implement the
 `embang.inference/infer` multimethod. The method dispatches
@@ -97,7 +97,7 @@ map](codemap.md) points at the Clojure modules containing
 the implementations.
 
 
-## Distributions and random processes
+### Distributions and random processes
 
 Two abstractions of random sources are used in Anglican, a
 _distribution_ and a _random process_, the former corresponding
