@@ -121,5 +121,5 @@ does more than the `reify`-based definition above: it also
 defines a record type `bernoulli-distribution`, and instantiates
 `print-method` for the type so that the distribution object is
 printed nicely. Consult the source code in
-[`embang.runtime`](../src/embang/runtime.clj) for the 
+[`src/embang/runtime.clj`](../src/embang/runtime.clj) for the 
 implementation of `defdist`.
