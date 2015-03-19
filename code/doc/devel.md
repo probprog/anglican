@@ -91,6 +91,12 @@ The simplest algorithm to implement is importance sampling:
 						(sample-seq))))]
 				(sample-seq)))
 
+For more examples, look at implementations of SMC, Particle
+Gibbs, Lightweight Metropolis-Hastings. The [code
+map](codemap.md) points at the Clojure modules containing
+the implementations.
+
+
 ## Distributions and random processes
 
 Two abstractions of random sources are used in Anglican, a
