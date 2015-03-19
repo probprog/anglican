@@ -62,7 +62,36 @@ rules, or discuss before breaking them knowingly.
 * All tests much pass (lein test) before a change to the public
   repository.
 
-## Implementing distributions and random processes
+### Implementation Guides
+
+## Inference algorithms
+
+An inference algorithm must implement the
+`embang.inference/infer` multimethod. The method dispatches
+on a keyword. If the algorithm is defined in a namespace
+`embang.foo`, and the keyword is `:foo`, the algorithm's
+namespace will be loaded automatically by either
+`embang.core/m!` or `mrepl.core/doquery`.  However, an algorithm
+can be implemented in any namespace and loaded explicitly before
+infer is called.
+
+The simplest algorithm to implement is importance sampling:
+
+	(ns embang.importance
+	  (:refer-clojure :exclude [rand rand-int rand-nth])
+	  (:use [embang state inference]))
+
+	(derive ::algorithm :embang.inference/algorithm)
+
+	(defmethod infer :importance [_ prog value & {}]
+	  (letfn [(sample-seq []
+				(lazy-seq
+				  (cons (:state (exec ::algorithm
+				                      prog value initial-state))
+						(sample-seq))))]
+				(sample-seq)))
+
+## Distributions and random processes
 
 Two abstractions of random sources are used in Anglican, a
 _distribution_ and a _random process_, the former corresponding
