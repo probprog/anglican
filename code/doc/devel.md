@@ -64,7 +64,7 @@ rules, or discuss before breaking them knowingly.
 
 ## Implementing distributions and random processes
 
-Two abstractions of random sources used in Anglican, a
+Two abstractions of random sources are used in Anglican, a
 _distribution_ and a _random process_, the former corresponding
 to 'elementary random procedure' (ERP), the latter 
 related to 'exchangeable random procedure (XRP).
