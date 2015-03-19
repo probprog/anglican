@@ -100,7 +100,7 @@ where `sample` and `observe` are two methods of the
 A better and easier way to implement a distribution is macro
 `defdist`.  In addition to defining the distribution function,
 `defdist` assigns each distribution a record type, as well
-as arranges for pretty-printing of the distribution objects.
+as arranges for pretty-printing of the distribution instances.
 The above declaration using `defdist` is:
 
 	(defdist bernoulli
@@ -114,12 +114,43 @@ The above declaration using `defdist` is:
 						   0.))))))
 
 The first square brackets define the parameter list of the
-function that creates the distribution object. The second square
+function that creates the distribution instance. The second square
 brackets define additional bindings (which may depend on the
 parameters) used by the methods. Behind the scenes, `defdist`
 does more than the `reify`-based definition above: it also 
 defines a record type `bernoulli-distribution`, and instantiates
-`print-method` for the type so that the distribution object is
+`print-method` for the type so that the distribution instance is
 printed nicely. Consult the source code in
 [`src/embang/runtime.clj`](../src/embang/runtime.clj) for the 
 implementation of `defdist`.
+
+Likewise, `defproc` is the macro for implementing random
+processes. The two methods that must be implemented are
+`produce` and `absorb`. `produce` returns a distribution
+corresponding to the current state of the process instance.
+`absorb` receives a sample and returns a new process instance
+updated with the sample. For example, the Chinese Restaurant
+process can be defined in the following way:
+
+	(defproc CRP
+	  "Chinese Restaurant process"
+	  [alpha] [counts []]
+	  (produce [this] 
+		(let [dist (discrete (conj counts alpha))]
+		  (reify 
+			distribution
+			(sample [this] (sample dist))
+			(observe [this value]
+			  (observe dist (min (count counts) value))))))
+	  (absorb [this sample] 
+		(CRP alpha
+			 (-> counts
+				 ;; Fill the counts with alpha (corresponding to
+				 ;; the zero count) until the new sample.
+				 (into (repeat (+ (- sample (count counts)) 1) alpha))
+				 (update-in [sample] inc)))))
+
+Of course, instead of reifying the distribution inside the
+`produce` method, one can define a new distribution using
+`defdist` (as in the implementation of CRP in
+[src/embang/runtime.clj]('../src/embang/runtime.clj')).
