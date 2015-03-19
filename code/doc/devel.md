@@ -188,3 +188,22 @@ For more examples, look at implementations of SMC, Particle
 Gibbs, Lightweight Metropolis-Hastings. The [code
 map](codemap.md) points at the Clojure modules containing
 the implementations.
+
+Although not required, a convenient function for implementing
+an inference algorithm is `embang.inference/exec`. This function
+runs the probabilistic program until a so-called checkpoint,
+a point in execution that requires intervention of the inference
+algorithm. There are three types of checkpoints:
+
+    embang.trap.sample
+	embang.trap.observe
+	embang.trap.result
+
+corresponding to `sample` and `observe` probabilistic forms, as
+well as to returning the final result of a program execution,
+which encapsulates, among other things, the list of predicts
+and the log weight of the sample. The multimethod
+`embang.inference/checkpoint` should be used together with
+`exec`. Default implementations of the multimethod for each type
+of checkpoint are provided by the `embang.inference` namespace,
+and correspond to actions performed during importance sampling.
