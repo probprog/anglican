@@ -2,9 +2,9 @@
   (:require embang.runtime)
   (:use embang.state))
 
-;;; Trampoline-ready Anglican program
+;;;; Trampoline-ready Anglican program
 
-;; The input to this ransformations is an Anglican program in
+;; The input to this transformations is an Anglican program in
 ;; clojure syntax (embang.xlat). The output is a Clojure function
 ;; that returns either the next step as a structure incroprorating
 ;; continuations and parameters, or the state containing a vector of
@@ -26,7 +26,9 @@
              (reduce disj *primitive-procedures* (flatten ~names))]
      ~@body))
 
-;; Continuation access --- value and state
+;;; Continuation management
+
+;; Value and state access
 
 (defn value-cont "returns value" [v _] v)
 (defn state-cont "returns state" [_ s] s)
@@ -37,9 +39,21 @@
 (defrecord sample [id dist cont state])
 (defrecord result [state])
 
-;; Retrieval of final result.
+;; Retrieval of final result
 
 (defn result-cont [v s] (->result s))
+
+;; When a continuation is called, it is trampolined,
+;; that is, wrapped in a thunk. This collapses the stack
+;; and ensures that recursion of any depth does not cause
+;; stack overflow.
+
+(defn continue
+  "returns a trampolined call to continuation"
+  [cont value state]
+  `(~'fn [] (~cont ~value ~state)))
+
+;;; Expression predicates
 
 (defn primitive-procedure?
   "true if the procedure is primitive,
@@ -51,6 +65,11 @@
   "true when the argument is a fn form"
   [expr]
   (and (seq? expr) (= (first expr) 'fn)))
+
+(defn mem-form?
+  "true when the argument is a mem form"
+  [expr]
+  (and (seq? expr) (= (first expr) 'mem)))
 
 ;;; Simple expressions
 
@@ -67,7 +86,6 @@
     (and (seq? expr) (seq expr))
     (case (first expr)
       quote true
-      fn false
       (if and or) (every? simple? (rest expr))
       case (if (even? (count expr))
              ;; No default clause.
@@ -75,10 +93,11 @@
              ;; Default clause is a single expression.
              (and (every? simple? (take-nth 2 (rest expr)))
                   (simple? (last expr))))
-      (when cond
-       do let loop recur
+      (fn mem
+       let loop recur
+       when cond do 
        predict observe sample
-       mem store retrieve
+       store retrieve
        apply) false
       ;; application
       (and (primitive-procedure? (first expr))
@@ -98,39 +117,32 @@
   [expr]
   (or (simple? expr)
       (primitive-procedure? expr)
-      (fn-form? expr)))
+      (fn-form? expr)
+      (mem-form? expr)))
  
 ;; Simple expressions, primitive procedure wrappers
 ;; and fn forms are opaque.
 
-(declare primitive-procedure-cps fn-cps)
+(declare primitive-procedure-cps fn-cps mem-cps)
 (defn opaque-cps
   "return CPS form of an opaque expression"
   [expr] {:pre [(opaque? expr)]}
   (cond
    (simple? expr) expr
    (primitive-procedure? expr) (primitive-procedure-cps expr)
-   (fn-form? expr) (fn-cps (rest expr))))
+   (fn-form? expr) (fn-cps (rest expr))
+   (mem-form? expr) (mem-cps (rest expr))))
 
 ;;; General CPS transformation rules
 
 (declare cps-of-expression
+         cps-of-do
          cps-of-application)
 
 (def ^:dynamic *gensym* 
   "customized gensym for code generation,
   bound to `symbol' in tests"
   gensym)
-
-(defn ^:private cps-of-elist
-  [exprs cont]
-  (let [[fst & rst] exprs]
-    (cps-of-expression
-      fst
-      (if (seq rst)
-        `(~'fn ~(*gensym* "elist") [~'_ ~'$state]
-           ~(cps-of-elist rst cont))
-        cont))))
 
 ;;; Literal data structures --- vectors, maps and sets.
 
@@ -156,7 +168,7 @@
 (defn cps-of-opaque
   "transforms opaque expression to CPS"
   [expr cont]
-  `(~cont ~(opaque-cps expr) ~'$state))
+  (continue cont (opaque-cps expr) '$state))
 
 ;; Continuation is the first, rather than the last, parameter of a
 ;; function to support functions with variable arguments.
@@ -173,22 +185,57 @@
       (shading-primitive-procedures parms
         `(~'fn ~(or name (*gensym* "fn"))
            [~cont ~'$state ~@parms]
-           ~(cps-of-elist body cont))))))
+           ~(cps-of-do body cont))))))
 
-;; `let' is rewritten as nested application to re-use
-;; trampolining logic.
+(defn mem-cps
+  "transforms mem to CPS"
+  [[arg & _ :as args]] {:pre [(= (count args) 1)]}
+  (let [cont (*gensym* "C")
+        id (*gensym* "M")
+        value (*gensym* "V")
+        mparms (*gensym* "P")
+
+        ;; If the argument of mem is a named lambda,
+        ;; move the name to outer function.
+        [name expr] (if (and (seq? arg)
+                             (= (first arg) 'fn)
+                             (symbol? (second arg)))
+                      [(second arg) `(~'fn ~@(nnext arg))]
+                      [nil arg])]
+
+    `(~'let [~id (~'gensym "M")]
+       (~'fn ~(or name (*gensym* "mem"))
+         [~cont ~'$state & ~mparms]
+         (~'if (in-mem? ~'$state ~id ~mparms)
+           ;; continue with stored value
+           ~(continue cont `(get-mem ~'$state ~id ~mparms) '$state)
+           ;; apply the function to the arguments with
+           ;; continuation that intercepts the value
+           ;; and updates the state
+           ~(cps-of-expression
+              `(~'apply ~expr ~mparms)
+              `(~'fn ~(*gensym* "set-mem") [~value ~'$state]
+                 ~(continue cont value
+                            `(set-mem ~'$state
+                                      ~id ~mparms ~value)))))))))
 
 (defn cps-of-let
-  "transforms let to CPS"
+  "transforms let to CPS;
+  body of let is trampolined
+  --- wrapped in a parameterless closure"
   [[bindings & body] cont]
-    (cps-of-expression
-     (if (seq bindings)
-       `((~'fn ~(*gensym* "let") [~(first bindings)] 
-           (~'let [~@(drop 2 bindings)]
-             ~@body))
-         ~(second bindings))
-       `(~'do ~@body))
-     cont))
+  (if (seq bindings)
+    (let [[name value & bindings] bindings]
+      (shading-primitive-procedures [name]
+        (let [rst (cps-of-let `(~bindings ~@body) cont)]
+          (if (opaque? value)
+            `(~'let [~name ~(opaque-cps value)]
+               ~rst)
+            (cps-of-expression
+              value
+              `(~'fn ~(*gensym* "var") [~name ~'$state]
+                 ~rst))))))
+    (cps-of-do body cont)))
 
 ;; `loop' is translated into an application of recursive
 ;; function, due to the trampolining of all calls, there
@@ -209,7 +256,7 @@
 
 ;;; Flow control.
 
-(defmacro ^:private defn-with-named-cont
+(defmacro defn-with-named-cont
   "binds the continuation to a name to make the code
   slightly easier to reason about"
   [cps-of & args]
@@ -274,8 +321,13 @@
                      (if (= (count clause) 2)
                        (let [[tag expr] clause]
                          [tag (cps-of-expression expr cont)])
+                       ;; The last clause is the default clause.
                        (let [[expr] clause]
                          [(cps-of-expression expr cont)])))
+                   ;; This magic call to `partition' breaks clauses
+                   ;; into two-element tuples, with the last tuple
+                   ;; containing a single element if the number of
+                   ;; clauses is odd (default clause is specified).
                    (partition 2 2 nil clauses)))
       (cps-of-expression
         key
@@ -317,11 +369,17 @@
 (defn cps-of-do
   "transforms do to CPS"
   [exprs cont]
-  (cps-of-elist exprs cont))
+  (let [[fst & rst] exprs]
+    (cps-of-expression
+      fst
+      (if (seq rst)
+        `(~'fn ~(*gensym* "do") [~'_ ~'$state]
+           ~(cps-of-do rst cont))
+        cont))))
 
-;;;; Special forms and applications
+;;; Applications and applicative forms
 
-(defn ^:private make-of-args
+(defn make-of-args
   "builds lexical bindings for all compound args
   and then calls `make' to build expression
   out of the args; used by predict, observe, sample, application"
@@ -365,8 +423,9 @@
                         (if (= (count args*) 2)
                           args*
                           `['~(first args) ~@args*])]
-                    `(~cont nil (add-predict ~'$state
-                                             ~label ~value))))))
+                    (continue cont nil 
+                              `(add-predict ~'$state
+                                            ~label ~value))))))
 
 ;; `observe' and `select' may accept an optional argument at
 ;; the first position. If the argument is specified, then
@@ -400,40 +459,7 @@
                           `['~(*gensym* "S") ~@args*])]
                     `(->sample ~id ~dist ~cont ~'$state)))))
 
-;;; Memoization and state access
-
-(defn cps-of-mem
-  "transforms mem to CPS"
-  [[arg & _ :as args] cont] {:pre [(= (count args) 1)]}
-  (let [mcont (*gensym* "C")
-        id (*gensym* "M")
-        value (*gensym* "V")
-        mparms (*gensym* "P")
-
-        ;; If the argument of mem is a named lambda,
-        ;; move the name to outer function.
-        [name expr] (if (and (seq? arg)
-                             (= (first arg) 'fn)
-                             (symbol? (second arg)))
-                      [(second arg) `(~'fn ~@(nnext arg))]
-                      [nil arg])]
-
-    `(~cont (~'let [~id (~'gensym "M")]
-              (~'fn ~(or name (*gensym* "mem"))
-                [~mcont ~'$state & ~mparms]
-                (~'if (in-mem? ~'$state ~id ~mparms)
-                  ;; continue with stored value
-                  (~mcont (get-mem ~'$state ~id ~mparms) ~'$state)
-                  ;; apply the function to the arguments with
-                  ;; continuation that intercepts the value
-                  ;; and updates the state
-                  ~(cps-of-expression
-                     `(~'apply ~expr ~mparms)
-                     `(~'fn ~(*gensym* "set-mem") [~value ~'$state]
-                        (~mcont ~value
-                                (set-mem ~'$state
-                                         ~id ~mparms ~value)))))))
-            ~'$state)))
+;;; State access
 
 (defn cps-of-store
   "transforms store to CPS;
@@ -441,16 +467,16 @@
   [args cont]
   (make-of-args args
                 (fn [args]
-                  `(~cont ~(last args)
-                          (store ~'$state ~@args)))))
+                  (continue cont (last args)
+                            `(store ~'$state ~@args)))))
 
 (defn cps-of-retrieve
   "transforms retrieve to CPS"
   [args cont]
   (make-of-args args
                 (fn [args]
-                  `(~cont (retrieve ~'$state ~@args)
-                          ~'$state))))
+                  (continue cont `(retrieve ~'$state ~@args)
+                            '$state))))
 
 ;;; Function applications
 
@@ -462,11 +488,10 @@
   (make-of-args args :first-is-rator
                 (fn [acall]
                   (let [[rator & rands] acall]
-                    `(~'fn ~(*gensym* "apply") []
-                       ~(if (primitive-procedure? rator)
-                          `(~cont (apply ~@acall) ~'$state)
-                          `(apply ~rator
-                                  ~cont ~'$state ~@rands)))))))
+                    (if (primitive-procedure? rator)
+                      (continue cont `(apply ~@acall) '$state)
+                      `(apply ~rator
+                              ~cont ~'$state ~@rands))))))
 
 (defn cps-of-application
   "transforms application to CPS;
@@ -476,10 +501,9 @@
   (make-of-args exprs :first-is-rator
                 (fn [call]
                   (let [[rator & rands] call]
-                    `(~'fn ~(*gensym* "call") []
-                       ~(if (primitive-procedure? rator)
-                          `(~cont ~call ~'$state)
-                          `(~rator ~cont ~'$state ~@rands)))))))
+                    (if (primitive-procedure? rator)
+                      (continue cont call '$state)
+                      `(~rator ~cont ~'$state ~@rands))))))
 
 ;;; Primitive procedures in value postition
 
@@ -488,8 +512,8 @@
   [expr]
   (let [cont (*gensym* "C")
         parms (*gensym* "P")]
-    `(~'fn ~(*gensym* expr) [~cont ~'$state & ~parms]
-       (~cont (~'apply ~expr ~parms) ~'$state))))
+    `(~'fn ~(*gensym* (name expr)) [~cont ~'$state & ~parms]
+       ~(continue cont `(~'apply ~expr ~parms) '$state))))
 
 ;;; Transformation dispatch
     
@@ -516,7 +540,6 @@
                      predict   (cps-of-predict args cont)
                      observe   (cps-of-observe args cont)
                      sample    (cps-of-sample args cont)
-                     mem       (cps-of-mem args cont)
                      store     (cps-of-store args cont)
                      retrieve  (cps-of-retrieve args cont)
                      apply     (cps-of-apply args cont)

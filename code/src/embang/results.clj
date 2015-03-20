@@ -25,24 +25,25 @@
   and the output is appended to the file."
   [[& {:keys [in out] :as args}]  & body]
   (cond
-   in
-   (let [rdr (gensym "rdr")]
-     `(with-open [~rdr (io/reader ~in)]
-        (binding [*in* ~rdr]
-          (redir [~@(flatten (seq (dissoc args :in)))]
-                 ~@body))))
+    in
+    (let [rdr (gensym "rdr")]
+      `(with-open [~rdr (io/reader ~in)]
+         (binding [*in* ~rdr]
+           (redir [~@(flatten (seq (dissoc args :in)))]
+                  ~@body))))
 
-   out
-   (let [wtr (gensym "wtr")]
-     `(with-open [~wtr ~(if (= (subs out 0 1) "+")
-                          `(io/writer ~(subs out 1) :append true)
-                          `(io/writer ~out))]
-        (binding [*out* ~wtr]
-          (redir [~@(flatten (seq (dissoc args :out)))]
-                 ~@body))))
+    out
+    (let [wtr (gensym "wtr")]
+      `(let [out# ~out]
+         (with-open [~wtr (if (= (subs out# 0 1) "+")
+                            (io/writer (subs out# 1) :append true)
+                            (io/writer out#))]
+           (binding [*out* ~wtr]
+             (redir [~@(flatten (seq (dissoc args :out)))]
+                    ~@body)))))
 
-   :else
-   `(do ~@body)))
+    :else
+    `(do ~@body)))
 
 ;;; Parsing inference output.
 
@@ -349,7 +350,6 @@
 
 (defmethod diff-seq :ks
   [_ truth & options]
-  (prn options)
   (apply distance-seq sm-seq KS truth (unmap options)))
 
 ;;; Diff: difference between prediction and truth
@@ -364,7 +364,7 @@
     :only [(get-state 1) (get-state 2)] ; predicts to account for
     :exclude []                         ; predicts to ignore
     :distance :ks                       ; type of distance
-    :truth "hhmm.truth")                ; resource with the truth
+    :truth "hmm.truth")                 ; resource with the truth
 
 (def default-config
      "default option values"

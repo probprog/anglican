@@ -5,7 +5,7 @@
                             cps-of-expression result-cont 
                             fn-cps primitive-procedure-cps]]))
 
-;;;; Top-level forms for anglican programs
+;;;; Top-level forms for Anglican programs
 
 ;;; Code manipulation
 
@@ -29,31 +29,9 @@
                        comp partial])]
      ~@body))
 
-(defmacro anglican 
-  "macro for embedding anglican programs"
-  [& args]
-  (let [[value source]
-        (if (symbol? (first args)) ; named argument?
-          [(first args) (rest args)]
-          ['$value args])]
-    (overriding-higher-order-functions
-      (shading-primitive-procedures [value]
-        `(~'fn ~(*gensym* "anglican") [~value ~'$state]
-           ~(cps-of-expression (program source) result-cont))))))
-
-(defmacro defanglican
-  "binds variable to anglican program"
-  [name & args]
-  (let [[docstring source]
-        (if (string? (first args))
-          [(first args) (rest args)]
-          [(format "anglican program '%s'" name) args])]
-    `(def ~(with-meta name {:doc docstring})
-       (anglican ~@source))))
-
-;; Programs can be written directly in a Clojure subset
-;; rather than in Anglican. Consult embang/trap.clj for
-;; the supported sublanguage.
+;; The main program (or query) is defined using the `query'
+;; macro and can also be immediately bound to a symbol
+;; using the `defquery' macro.
 
 (defmacro query
   "macro for embedding m! programs"
@@ -77,21 +55,47 @@
     `(def ~(with-meta name {:doc docstring})
        (query ~@source))))
 
+;; The original Scheme-like syntax is now deprecated, but
+;; supported for compatibility with older programs.  Programs
+;; written in the legacy syntax are defined using `anglican' and
+;; bound to a name using `defanglican'.
+
+(defmacro ^:deprecated anglican 
+  "macro for embedding anglican programs"
+  [& args]
+  (let [[value source]
+        (if (symbol? (first args)) ; named argument?
+          [(first args) (rest args)]
+          ['$value args])]
+    (overriding-higher-order-functions
+      (shading-primitive-procedures [value]
+        `(~'fn ~(*gensym* "anglican") [~value ~'$state]
+           ~(cps-of-expression (program source) result-cont))))))
+
+(defmacro ^:deprecated defanglican
+  "binds variable to anglican program"
+  [name & args]
+  (let [[docstring source]
+        (if (string? (first args))
+          [(first args) (rest args)]
+          [(format "anglican program '%s'" name) args])]
+    `(def ~(with-meta name {:doc docstring})
+       (anglican ~@source))))
+
 ;;; Auxiliary macros
 
-;; When a function is defined outside an Anglican 
-;; program, it must be in CPS form. cps-fn and def-cps-fn
-;; are like fn and defn but automatically transform functions
-;; into CPS.
+;; When a function is defined outside an Anglican program, it
+;; must be in CPS form. fm and defm are like fn and defn but
+;; automatically transform functions into CPS.
 
-(defmacro cps-fn
+(defmacro fm
   "converts function to CPS,
   useful for defining functions outside of defanglican"
   [& args]
   (overriding-higher-order-functions
     (fn-cps args)))
 
-(defmacro def-cps-fn
+(defmacro defm
   "binds variable to function in CPS form"
   [name & args]
   (let [[docstring source]
@@ -103,30 +107,47 @@
              {:doc docstring
               :arglists `'([~'$cont ~'$state
                             ~@(first source)])})
-       (cps-fn ~name ~@source))))
+       (fm ~name ~@source))))
 
-;; Functions can also be defined in Anglican rather
-;; than Clojure syntax. 
+;; The legacy names for fm and defm are cps-fn and def-cps-fn.
+;; These names are deprecated but preserved for compatibility.
 
-(defmacro lambda
+(defmacro ^:deprecated cps-fn
+  "legacy name for fm"
+  [& args]
+  `(fm ~@args))
+
+(defmacro ^:deprecated def-cps-fn
+  "legacy name for defm"
+  [& args]
+  `(defm ~@args))
+
+;; Functions can also be defined in Scheme-like rather
+;; than Clojure syntax. Again, this syntax is deprecated
+;; but preserved for compatibility.
+
+(defmacro ^:deprecated lambda
   "defines function in Anglican syntax"
   [& args]
-  `(cps-fn ~@(next (alambda nil args))))
+  `(fm ~@(next (alambda nil args))))
 
-(defmacro defun
+(defmacro ^:deprecated defun
   "binds variable to function in Anglican syntax"
   [name & args]
-  `(def-cps-fn ~@(next (alambda name args))))
+  `(defm ~@(next (alambda name args))))
 
 ;; Any non-CPS procedures can be used in the code,
 ;; but must be wrapped and re-bound.
 
 (defmacro
   with-primitive-procedures
-  "binds primitive procedure names to their CPS versions"
+  "binds primitive procedure names to their CPS versions;
+  if procedure name is qualified, it becomes unqualified in
+  the scope of the macro"
   [procedures & body]
   `(let [~@(mapcat (fn [proc] 
-                     [proc (primitive-procedure-cps proc)])
+                     [(symbol (name proc))
+                      (primitive-procedure-cps proc)])
                    procedures)]
      ~@body))
 
@@ -149,21 +170,21 @@
          $repeatedly
          $comp $partial)
 
-(def-cps-fn ^:private $map1 
+(defm ^:private $map1 
   "map on a single sequence"
   [fun lst]
   (if (empty? lst) nil
       (cons (fun (first lst))
             ($map1 fun (rest lst)))))
 
-(def-cps-fn ^:private $nils? 
+(defm ^:private $nils? 
   "true if the list contains nil"
   [lst]
   (and (seq lst)
        (or (nil? (first lst))
            ($nils? (rest lst)))))
 
-(def-cps-fn $map 
+(defm $map 
   "map in CPS"
   [fun & lsts]
   (let [tuple ($map1 first lsts)]
@@ -172,7 +193,7 @@
           (cons (apply fun tuple)
                 (apply $map fun lsts))))))
 
-(def-cps-fn ^:private $reduce1
+(defm ^:private $reduce1
   "reduce with explicit init in CPS"
   [fun init lst]
   (if (empty? lst) init
@@ -180,7 +201,7 @@
                 (fun init (first lst))
                 (rest lst))))
 
-(def-cps-fn $reduce
+(defm $reduce
   "reduce in CPS"
   [fun & args]
   (let [init (if (seq (rest args))
@@ -191,7 +212,7 @@
               (rest (first args)))]
     ($reduce1 fun init lst)))
 
-(def-cps-fn $filter
+(defm $filter
   "filter in CPS"
   [fun lst]
   (cond
@@ -199,7 +220,7 @@
    (fun (first lst)) (cons (first lst) ($filter fun (rest lst)))
    :else ($filter fun (rest lst))))
 
-(def-cps-fn $some
+(defm $some
   "some in CPS"
   [fun lst]
   (and (seq lst)
@@ -208,13 +229,13 @@
 
 ;; `repeatedly' is useful for sampling from multivariates
 ;; using `transform-sample'
-(def-cps-fn $repeatedly
+(defm $repeatedly
   "repeatedly in CPS"
   [n thunk]
   (if (zero? n) nil
     (cons (thunk) ($repeatedly (- n 1) thunk))))
 
-(def-cps-fn $comp
+(defm $comp
   "comp in CPS"
   [& funs]
   (if funs
@@ -224,7 +245,7 @@
                  (apply (first funs) args) (rest funs))))
     identity))
 
-(def-cps-fn $partial
+(defm $partial
   "partial in CPS"
   [fun & bound]
   (fn [& free] (apply fun (concat bound free))))

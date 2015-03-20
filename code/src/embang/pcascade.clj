@@ -28,7 +28,7 @@
          ::average-weights (atom {}) ; average weights
 
          ::multiplier 1N             ; number of collapsed particles
-         
+
          ;;; Maintaining observe identifiers.
          ::observe-counts {}
          ::observe-last-id nil}))
@@ -63,7 +63,7 @@
   "launch a particle in a new thread"
   [cont value state]
   (future (exec ::algorithm cont value
-                (assoc state 
+                (assoc state
                   ::particle-id (swap! (state ::last-particle-id) inc)
                   ::parent-id (state ::particle-id)))))
 
@@ -133,7 +133,7 @@
 
 (defmethod infer :pcascade [_ prog value
                             & {:keys [number-of-threads
-                                      number-of-particles
+                                      number-of-particles ; initial
                                       predict-cascade]
                                :or {number-of-threads 16
                                     predict-cascade false}}]

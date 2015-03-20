@@ -73,7 +73,7 @@
 ;; Choice reward is a tuple [sum count] of normalized
 ;; total reward and total weight.
 
-(def ^:private  +prior-choice-reward+
+(def ^:private +prior-choice-reward+
   "reward of an unseen arm"
   [1. 1.])
 
@@ -269,8 +269,9 @@
                      (reduce + (map second
                                     (state ::choice-counts)))))))
 
-(defmethod infer :almh [_ prog value & {:keys [predict-choices]
-                                        :or {predict-choices false}}]
+(defmethod infer :almh [_ prog value
+                        & {:keys [predict-choices] ; report statistics
+                           :or {predict-choices false}}]
   (letfn
     [(sample-seq [state]
        (lazy-seq

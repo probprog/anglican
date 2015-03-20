@@ -24,7 +24,7 @@
 (def NINSTANCE "problem instance" :50a)
 (def DETERMINISTIC "learn deterministic policy" false)
 
-(def-cps-fn travel [graph s t p-open policy deterministic]
+(defm travel [graph s t p-open policy deterministic]
   ;; All edges are open or blocked with the same probability.
   (let [open? (mem (fn [u v] 
                      (sample* (flip p-open))))
@@ -89,7 +89,7 @@
     (store ::visited (set ()))
     (dfs s t)))
 
-(def-cps-fn predict-policy
+(defm predict-policy
   "predict the memoized policy"
   [graph policy]
   ((fn for-nodes [nodes]
