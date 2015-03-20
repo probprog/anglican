@@ -31,7 +31,7 @@
 (defn sqrt [x] (Math/sqrt x))
 (defn pow [x y] (Math/pow x y))
 
-;;; Random distributions
+;;; Distributions
 
 (defprotocol distribution
   "random distribution"
@@ -60,77 +60,107 @@
                       (Math/exp (- log-y log-max)))))
       log-max)))
 
-;; distributions, in alphabetical order
+;; Distribution types, in alphabetical order.
 
 (def ^:private RNG
   "random number generator;
   used by colt distribution objects"
   (embang.MTMersenneTwister. (java.util.Date.)))
 
-(defmacro from-colt
+;; Distributions are defined as records so that every
+;; distribution has its own type. The distribution arguments
+;; are available as the record fields.
+
+(defn ^:private qualify
+  "accepts a symbol, returns the qualified symbol;
+  intended to be called from a macro"
+  [s]
+  (symbol (format "%s/%s" *ns* s)))
+
+(defmacro defdist
+  "defines distribution"
+  [name & args]
+  (let [[docstring parameters bindings & methods]
+        (if (string? (first args))
+          args
+          `(~(format "%s distribution" name) ~@args))]
+    (let [record-name (symbol (format "%s-distribution" name))
+          variables (take-nth 2 bindings)]
+      `(do
+         (declare ~name)
+         (defrecord ~record-name [~@parameters ~@variables]
+           Object
+           (toString [~'this]
+             (str (list '~(qualify name) ~@parameters)))
+           distribution
+           ~@methods)
+         (defn ~name ~docstring ~parameters
+           (let ~bindings
+             (~(symbol (format "->%s" record-name))
+                       ~@parameters ~@variables)))
+         (defmethod print-method ~record-name 
+           [~'o ~'m]
+           (print-simple (str ~'o) ~'m))))))
+
+;; Many distributions are available in the Colt library and
+;; imported automatically.
+
+(defmacro ^:private from-colt
   "wraps colt distribution"
   ([name args vtype]
    `(from-colt ~name ~args ~vtype (~(str/capitalize name) ~@args)))
   ([name args vtype [colt-name & colt-args]]
-   `(defn ~(with-meta  name {:doc (str name " distribution")})
+   `(defdist ~(symbol name) 
+      ~(format "%s distribution (imported from colt)" name)
       ~args
-      (let [~'dist (~(symbol (format "cern.jet.random.%s." colt-name))
-                             ~@colt-args RNG)]
-        (~'reify ~'distribution
-          (~'sample [~'this] (~(symbol (format ".next%s"
-                                               (str/capitalize vtype)))
-                                       ~'dist))
-          ~'(observe [this value] (log (.pdf dist value))))))))
+      [dist# (~(symbol (format "cern.jet.random.%s." colt-name))
+                       ~@colt-args RNG)]
+      (~'sample [~'this] (~(symbol (format ".next%s"
+                                           (str/capitalize vtype)))
+                                   dist#))
+      (~'observe [~'this ~'value] (log (~'.pdf dist# ~'value))))))
 
-(defn bernoulli
+(defdist bernoulli
   "Bernoulli distribution"
-  [p]
-  (let [dist (cern.jet.random.Uniform. RNG)]
-    (reify distribution
-      (sample [this] (if (< (.nextDouble dist) p) 1 0))
-      (observe [this value]
-        (Math/log (case value
-                    1 p
-                    0 (- 1. p)
-                    0.))))))
+  [p] [dist (cern.jet.random.Uniform. RNG)]
+  (sample [this] (if (< (.nextDouble dist) p) 1 0))
+  (observe [this value]
+    (Math/log (case value
+                1 p
+                0 (- 1. p)
+                0.))))
 
 (from-colt beta [alpha beta] double)
 (from-colt binomial [n p] int)
 
 (declare discrete)
-(defn categorical
+(defdist categorical
   "categorical distribution,
   convenience wrapper around discrete distribution;
   accepts a list of categories --- pairs [value weight]"
-  [categories]
-  (let [values (mapv first categories)
-        weights (mapv second categories)
-        indices (into {} (map-indexed (fn [i v] [v i]) values))
-        dist (discrete weights)]
-    (reify distribution
-      (sample [this] (values (sample dist)))
-      (observe [this value] (observe dist (indices value -1))))))
+  [categories] [values (mapv first categories)
+                index (into {} (map-indexed (fn [i v] [v i]) values))
+                dist (discrete (map second categories))]
+  (sample [this] (values (sample dist)))
+  (observe [this value] (observe dist (index value -1))))
 
-(defn discrete
+(defdist discrete
   "discrete distribution, accepts unnormalized weights"
-  [weights]
-  (let [weights (mapv double weights)
-        total-weight (reduce + weights)
-        dist (cern.jet.random.Uniform. 0. total-weight RNG)]
-    (reify distribution
-      (sample [this] 
-        (let [x (.nextDouble dist)]
-          (loop [[weight & weights] weights
-                 acc 0. value 0]
-            (let [acc (+ acc weight)]
-              (if (< x acc) value
-                (recur weights acc (inc value)))))))
-      (observe [this value] 
-        (Math/log
-          (try 
-            (/ (nth weights value) total-weight)
-            ;; any value not in the support has zero probability.
-            (catch IndexOutOfBoundsException _ 0.)))))))
+  [weights] [total-weight (double (reduce + weights))
+             dist (cern.jet.random.Uniform. 0. total-weight RNG)]
+  (sample [this] 
+    (let [x (.nextDouble dist)]
+      (loop [[weight & weights] weights
+             acc 0. value 0]
+        (let [acc (+ acc weight)]
+          (if (< x acc) value
+            (recur weights acc (inc value)))))))
+  (observe [this value] 
+    (Math/log
+      (try 
+        (/ (nth weights value) total-weight)
+        ;; any value not in the support has zero probability.
+        (catch IndexOutOfBoundsException _ 0.)))))
 
 (declare gamma) ; Gamma distribution used in Dirichlet distribution
 
@@ -139,60 +169,53 @@
   [x]
   (cern.jet.stat.Gamma/logGamma x))
 
-(defn dirichlet
+(defdist dirichlet
   "Diriclhet distribution"
   ;; borrowed from Anglican runtime
-  [alpha]
-  (let [Z (delay (- (reduce + (map log-gamma-fn alpha))
-                    (log-gamma-fn (reduce + alpha))))]
-    (reify distribution
-      (sample [this]
-        (let [g (map #(sample (gamma % 1)) alpha)
-              t (reduce + g)]
-          (map #(/ % t) g)))
-      (observe [this value]
-        (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1))) 
-                          value
-                          alpha))
-           @Z)))))
+  [alpha] [Z (delay (- (reduce + (map log-gamma-fn alpha))
+                       (log-gamma-fn (reduce + alpha))))]
+  (sample [this]
+          (let [g (map #(sample (gamma % 1)) alpha)
+                t (reduce + g)]
+            (map #(/ % t) g)))
+  (observe [this value]
+           (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1))) 
+                             value
+                             alpha))
+              @Z)))
 
 (from-colt exponential [rate] double)
 
-(defn flip
+(defdist flip
   "flip (Bernoulli boolean) distribution"
-  [p]
-  (let [dist (cern.jet.random.Uniform. RNG)]
-    (reify distribution
-      (sample [this] (< (.nextDouble dist) p))
-      (observe [this value]
-        (Math/log (case value
-                    true p
-                    false (- 1. p)
-                    0.))))))
+  [p] [dist (cern.jet.random.Uniform. RNG)]
+  (sample [this] (< (.nextDouble dist) p))
+  (observe [this value]
+           (Math/log (case value
+                       true p
+                       false (- 1. p)
+                       0.))))
 
 (from-colt gamma [shape rate] double)
 (from-colt normal [mean sd] double)
 (from-colt poisson [lambda] int)
 (from-colt uniform-continuous [min max] double
-           ;; The explicit type cast below is a fix to clojure
-           ;; constructor matching (clojure.lang.Reflector.isCongruent).
-           ;; If the constructor is overloaded with the same number of
-           ;; arguments, clojure refuses to extend numeric types.
-           (Uniform (double min) (double max)))
+  ;; The explicit type cast below is a fix to clojure
+  ;; constructor matching (clojure.lang.Reflector.isCongruent).
+  ;; If the constructor is overloaded with the same number of
+  ;; arguments, clojure refuses to extend numeric types.
+  (Uniform (double min) (double max)))
 
-(defn uniform-discrete
+(defdist uniform-discrete
   "uniform discrete distribution"
-  [min max]
-  {:pre [(integer? min) (integer? max)]}
-  (let [dist (uniform-continuous min max)
-        p (/ 1. (- max min))]
-    (reify distribution
-      (sample [this] (int (sample dist)))
-      (observe [this value] 
-        (Math/log 
-          (if (and (integer? value)
-                   (<= min value) (< value max))
-            p 0.))))))
+  [min max] [dist (uniform-continuous min max)
+             p (/ 1. (- max min))]
+  (sample [this] (int (sample dist)))
+  (observe [this value] 
+           (Math/log 
+             (if (and (integer? value)
+                      (<= min value) (< value max))
+               p 0.))))
 
 (defprotocol multivariate-distribution
   "additional methods for multivariate distributions"
@@ -200,28 +223,24 @@
     "accepts a vector of random values and generates
     a sample from the multivariate distribution"))
 
-(defn mvn
+(defdist mvn
   "multivariate normal"
-  [mean cov]
-  (let [k (count mean)     ; number of dimensions
-        {Lcov :L} (ml/cholesky (m/matrix cov) {:return [:L]})
-        ;; delayed because used only by one of the methods
-        unit-normal (normal 0 1)
-        Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
-                   (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
-                             (Math/log |Lcov|)))))
-        iLcov (delay (m/inverse Lcov))
-        transform-sample (fn [samples]
-                           (m/add mean (m/mmul Lcov samples)))]
-    (reify distribution
-      (sample [this] (transform-sample
-                       (repeatedly k #(sample unit-normal))))
-      (observe [this value]
-        (let [dx (m/mmul @iLcov (m/sub value mean))]
-          (- (* -0.5 (m/dot dx dx)) @Z)))
-
-      multivariate-distribution
-      (transform-sample [this samples] (transform-sample samples)))))
+  [mean cov] [k (count mean)     ; number of dimensions
+              Lcov (:L (ml/cholesky (m/matrix cov)))
+              unit-normal (normal 0 1)
+              Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
+                         (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
+                                  (Math/log |Lcov|)))))
+              iLcov (delay (m/inverse Lcov))
+              transform-sample (fn [samples]
+                                 (m/add mean (m/mmul Lcov samples)))]
+  (sample [this] (transform-sample
+                   (repeatedly k #(sample unit-normal))))
+  (observe [this value]
+           (let [dx (m/mmul @iLcov (m/sub value mean))]
+             (- (* -0.5 (m/dot dx dx)) @Z)))
+  multivariate-distribution
+  (transform-sample [this samples] (transform-sample samples)))
 
 (defn log-mv-gamma-fn
   "multivariate Gamma function"
@@ -231,33 +250,27 @@
                       (log-gamma-fn (- a (* 0.5 j))))
                     (range p)))))
 
-(defn wishart
+(defdist wishart
   "Wishart distribution"
   ;; http://en.wikipedia.org/wiki/Wishart_distribution
-  [n V] 
-  {:pre [(let [[p q] (m/shape V)] (= p q))
-         (integer? n)
-         (>= n (first (m/shape V)))]}
-  (let [p (first (m/shape V))
-        {L :L} (ml/cholesky (m/matrix V) {:return [:L]})
-        unit-normal (normal 0 1)
-        Z (delay (+ (* 0.5 n p (Math/log 2))
-                    (* 0.5 n (Math/log (m/det V)))
-                    (log-mv-gamma-fn p (* 0.5 n))))
-        transform-sample
-        (fn [samples]
-          (let [X (m/mmul L (m/reshape samples [p n]))]
-            (m/mmul X (m/transpose X))))]
-    (reify distribution
-      (sample [this] (transform-sample
-                       (repeatedly (* n p) #(sample unit-normal))))
-      (observe [this value]
-        (- (* 0.5 (- n p 1) (Math/log (m/det value)))
-           (* 0.5 (m/trace (m/mul (m/inverse (m/matrix V)) value)))
-           @Z))
-      
-      multivariate-distribution
-      (transform-sample [this samples] (transform-sample samples)))))
+  [n V] [p (first (m/shape V))
+         L (:L (ml/cholesky (m/matrix V)))
+         unit-normal (normal 0 1)
+         Z (delay (+ (* 0.5 n p (Math/log 2))
+                     (* 0.5 n (Math/log (m/det V)))
+                     (log-mv-gamma-fn p (* 0.5 n))))
+         transform-sample
+         (fn [samples]
+           (let [X (m/mmul L (m/reshape samples [p n]))]
+             (m/mmul X (m/transpose X))))]
+  (sample [this] (transform-sample
+                   (repeatedly (* n p) #(sample unit-normal))))
+  (observe [this value]
+           (- (* 0.5 (- n p 1) (Math/log (m/det value)))
+              (* 0.5 (m/trace (m/mul (m/inverse (m/matrix V)) value)))
+              @Z))
+  multivariate-distribution
+  (transform-sample [this samples] (transform-sample samples)))
 
 ;;; Random processes
 
@@ -269,6 +282,36 @@
   (absorb [this sample]
     "absorbs the sample and returns a new process"))
 
+(defmacro defproc
+  "defines random process"
+  [name & args]
+  (let [[docstring parameters bindings & methods]
+        (if (string? (first args))
+          args
+          `(~(format "%s random process" name) ~@args))]
+    (let [record-name (symbol (format "%s-process" name))
+          variables (take-nth 2 bindings)
+          values (take-nth 2 (rest bindings))]
+      `(do
+         (declare ~name)
+         (defrecord ~record-name [~@parameters ~@variables]
+           Object
+           (toString [~'this]
+             (str (list '~(qualify name) ~@parameters)))
+           random-process
+           ~@methods)
+         (defn ~name ~docstring 
+           ;; Include parameters-only overload only if variables
+           ;; are not empty.
+           ~@(when (seq variables)
+               `((~parameters (~name ~@parameters ~@values))))
+           ([~@parameters ~@variables]
+            (~(symbol (format "->%s" record-name))
+                      ~@parameters ~@variables)))
+         (defmethod print-method ~record-name 
+           [~'o ~'m]
+           (print-simple (str ~'o) ~'m))))))
+
 ;; Random processes can accept and return functions,
 ;; and translations in and out of CPS form must be performed.
 ;; To avoid circular dependencies (emit<trap<runtime<emit),
@@ -278,94 +321,94 @@
   "reconstructs value-returning function from CPS form"
   [f]
   (fn [& args]
-    (apply f (fn [v _] v) nil args)))
+    (trampoline (apply f (fn [v _] v) nil args))))
 
 (defn ^:private cps
   "wrap value-returning function into CPS form"
   [f]
   (fn [cont $state & args]
-    (cont (apply f args) $state)))
+    (fn [] (cont (apply f args) $state))))
 
-;; random processes, in alphabetical order
+;; Random process types, in alphabetical order.
 
-(defn CRP
+(defdist discrete-crp
+  "discrete distribution extended 
+  by a random sample, for use with CRP"
+  [counts alpha] [dist (discrete (conj counts alpha))]
+  (sample [this] (sample dist))
+  (observe [this value]
+    ;; Observing any new sample has the same probability.
+    (observe dist (min (count counts) value))))
+
+(defproc CRP
   "Chinese Restaurant process"
-  ([alpha] (CRP alpha []))
-  ([alpha counts]
-   {:pre [(vector? counts)]}
-   (reify
-     random-process
-     (produce [this]
-       (let [dist (discrete (conj counts alpha))]
-         (reify distribution
-           (sample [this] (sample dist))
-           (observe [this sample]
-             ;; Observing any new sample has the same probability.
-             (observe dist (min (count counts) sample))))))
-     (absorb [this sample] 
-       (CRP alpha
-            (-> counts
-                ;; Fill the counts with alpha (corresponding to
-                ;; the zero count) until the new sample.
-                (into (repeat (+ (- sample (count counts)) 1) alpha))
-                (update-in [sample] inc)))))))
+  [alpha] [counts []]
+  (produce [this] (discrete-crp counts alpha))
+  (absorb [this sample] 
+    (CRP alpha
+         (-> counts
+             ;; Fill the counts with alpha (corresponding to
+             ;; the zero count) until the new sample.
+             (into (repeat (+ (- sample (count counts)) 1) alpha))
+             (update-in [sample] inc)))))
 
-(defn DP
+(defdist categorical-dp
+  "categorical distribution extended
+  by a random sample, for use with DP"
+  [counts H alpha] [dist (categorical
+                           (vec (conj counts [::new alpha])))]
+  (sample [this] 
+    (let [s (sample dist)]
+      ;; When a `new' value is drawn, sample the actual
+      ;; value from the base measure.
+      (if (= s ::new) (sample H) s)))
+  (observe [this value]
+    (log-sum-exp
+      ;; The value is one of absorbed values.
+      (observe dist value)
+      ;; The value is drawn from the base distribution.
+      (+ (observe dist ::new) (observe H value)))))
+
+(defproc DP
   "Dirichlet process"
-  ([alpha H] (DP alpha H {}))
-  ([alpha H counts]
-   {:pre [(map? counts)]}
-   (reify
-     random-process
-     (produce [this]
-       ;; Sample from the categorical distribution of realized
-       ;; samples extended with a `new' value.
-       (let [dist (categorical (vec (conj counts [::new alpha])))]
-         (reify distribution
-           (sample [this] 
-             (let [s (sample dist)]
-               ;; When a `new' value is drawn, sample the actual
-               ;; value from the base measure.
-               (if (= s ::new) (sample H) s)))
-           (observe [this sample]
-             (log-sum-exp
-               ;; The sample is one of absorbed samples.
-               (observe dist sample)
-               ;; The sample is drawn from the base distribution.
-               (+ (observe dist ::new) (observe H sample)))))))
-     (absorb [this sample]
-       (DP alpha H (update-in counts [sample] (fnil inc 0)))))))
+  [alpha H] [counts {}]
+  (produce [this] (categorical-dp counts H alpha))
+  (absorb [this sample]
+          (DP alpha H (update-in counts [sample] (fnil inc 0)))))
 
 (defn cov
   "computes covariance matrix of xs and ys under k"
   [k xs ys]
   (for [x xs] (for [y ys] (k x y))))
 
-(defn GP
+(defproc GP
   "Gaussian process"
-  ([m$ k$]
-     ;; two-parameter call is intended for
-     ;; use from inside m! programs, where
-     ;; CPS-transformed functions are passed
-     (GP (uncps m$) (uncps k$) []))
-  ([m k points]
-     (reify random-process
-       (produce [this]
-         (cps
-          (if (seq points)
-            (let [xs (mapv first points)
-                  isgm (m/inverse (m/matrix (cov k xs xs)))
-                  zs (let [ys (mapv second points)
-                           ms (mapv m xs)]
-                       (m/mmul isgm (m/sub ys ms)))]
-              (fn [x]
-                (let [mx (m x)
-                      sgm* (cov k xs [x])
-                      tsgm* (m/transpose sgm*)]
-                  (normal (+ mx (first (m/mmul tsgm* zs)))
-                          (sqrt (- (k x x)
-                                   (ffirst
-                                    (m/mmul tsgm* isgm sgm*))))))))
-            (fn [x] (normal (m x) (sqrt (k x x)))))))
-       (absorb [this sample]
-         (GP m k (conj points sample))))))
+  ;; GP is intended to be called from inside m! programs,
+  ;; where CPS-transformed functions are passed.
+  [m$ k$] [m (uncps m$) 
+           k (uncps k$) 
+           points []]
+  (produce [this]
+    ;; The formulae are taken from
+    ;;   http://mlg.eng.cam.ac.uk/pub/pdf/Ras04.pdf
+    ;; Carl Edward Rasmussen. Gaussian processes in machine learning. 
+    ;; In Revised Lectures, volume 3176 of Lecture Notes in Computer
+    ;; Science (LNCS), pages 63-71. Springer-Verlag, Heidelberg, 2004.
+    (cps
+      (if (seq points)
+        (let [xs (mapv first points)
+              isgm (m/inverse (m/matrix (cov k xs xs)))
+              zs (let [ys (mapv second points)
+                       ms (mapv m xs)]
+                   (m/mmul isgm (m/sub ys ms)))]
+          (fn [x]
+            (let [mx (m x)
+                  sgm* (cov k xs [x])
+                  tsgm* (m/transpose sgm*)]
+              (normal (+ mx (first (m/mmul tsgm* zs)))
+                      (sqrt (- (k x x)
+                               (ffirst
+                                 (m/mmul tsgm* isgm sgm*))))))))
+        (fn [x] (normal (m x) (sqrt (k x x)))))))
+  (absorb [this sample]
+    (GP m$ k$ m k (conj points sample))))

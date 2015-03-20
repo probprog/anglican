@@ -1,7 +1,5 @@
 (ns embang.bamc
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require [clojure.data.priority-map
-             :refer [priority-map-keyfn-by]])
   (:use [embang.state :exclude [initial-state]]
         embang.inference
         [embang.runtime :only [sample observe normal]]))
@@ -265,14 +263,20 @@
 
 ;;; Inference method
 
-(defmethod infer :bamc [_ prog value
-                        & {:keys [predict-trace
-                                  predict-candidates
-                                  predict-bandits
-                                  number-of-samples]
-                           :or {predict-trace false
-                                predict-candidates false
-                                predict-bandits false}}]
+(defmethod infer :bamc
+  [_ prog value
+   & {:keys [;; Add the trace as a predict.
+             predict-trace
+             ;; Output all states rather than just states
+             ;; with increasing log-weight.
+             predict-candidates
+             ;; Report internal statistics.
+             predict-bandits
+             ;; Total number of samples to produce.
+             number-of-samples]
+      :or {predict-trace false
+           predict-candidates false
+           predict-bandits false}}]
   ;; The MAP inference consists of two chained transformations,
   ;; `sample-seq', followed by `map-seq'.
   (letfn

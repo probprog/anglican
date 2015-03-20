@@ -13,7 +13,7 @@
   returning a lazy sequence of results"
   [thunk n]
   (letfn [(result-seq [running]
-            (lazy-seq 
+            (lazy-seq
               (cons (deref (peek running))
                     (result-seq (conj (pop running)
                                       (future (thunk)))))))]
@@ -27,8 +27,9 @@
                 [entry (next-state state entry)])
            number-of-threads))
 
-(defmethod infer :plmh [_ prog value & {:keys [number-of-threads]
-                                        :or {number-of-threads 2}}]
+(defmethod infer :plmh [_ prog value
+                        & {:keys [number-of-threads]
+                           :or {number-of-threads 2}}]
   (letfn
     [(next-seq [state] (next-state-seq state number-of-threads))
      (sample-seq [state next-states]
