@@ -62,7 +62,9 @@ rules, or discuss before breaking them knowingly.
 * All tests much pass (lein test) before a change to the public
   repository.
 
-## Implementing distributions and random processes
+## Implementation Guides
+
+### Distributions and random processes
 
 Two abstractions of random sources are used in Anglican, a
 _distribution_ and a _random process_, the former corresponding
@@ -154,3 +156,54 @@ Of course, instead of reifying the distribution inside the
 `produce` method, one can define a new distribution using
 `defdist` (as in the implementation of CRP in
 [src/embang/runtime.clj]('../src/embang/runtime.clj')).
+
+### Inference algorithms
+
+An inference algorithm must implement the
+`embang.inference/infer` multimethod. The method dispatches
+on a keyword. If the algorithm is defined in a namespace
+`embang.foo`, and the keyword is `:foo`, the algorithm's
+namespace will be loaded automatically by either
+`embang.core/m!` or `mrepl.core/doquery`.  However, an algorithm
+may be implemented in any namespace and loaded explicitly before
+infer is called.
+
+The simplest algorithm to implement is importance sampling:
+
+	(ns embang.importance
+	  (:refer-clojure :exclude [rand rand-int rand-nth])
+	  (:use [embang state inference]))
+
+	(derive ::algorithm :embang.inference/algorithm)
+
+	(defmethod infer :importance [_ prog value & {}]
+	  (letfn [(sample-seq []
+				(lazy-seq
+				  (cons (:state (exec ::algorithm
+				                      prog value initial-state))
+						(sample-seq))))]
+				(sample-seq)))
+
+For more examples, look at implementations of SMC, Particle
+Gibbs, Lightweight Metropolis-Hastings. The [code
+map](codemap.md) points at the Clojure modules containing
+the implementations.
+
+Although not required, a convenient function for implementing
+an inference algorithm is `embang.inference/exec`. This function
+runs the probabilistic program until a so-called checkpoint,
+a point in execution that requires intervention of the inference
+algorithm. There are three types of checkpoints:
+
+    embang.trap.sample
+	embang.trap.observe
+	embang.trap.result
+
+corresponding to `sample` and `observe` probabilistic forms, as
+well as to returning the final result of a program execution,
+which encapsulates, among other things, the list of predicts
+and the log weight of the sample. The multimethod
+`embang.inference/checkpoint` should be used together with
+`exec`. Default implementations of the multimethod for each type
+of checkpoint are provided by the `embang.inference` namespace,
+and correspond to actions performed during importance sampling.
