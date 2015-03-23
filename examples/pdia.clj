@@ -14,8 +14,9 @@
       seq))
 
 (with-primitive-procedures [read-data join]
-  (defquery pdia data-source
+  (defquery pdia
     "Probabilistic Deterministic Infinite Automata"
+    data-source
     (let [data (if data-source 
                  (read-data (str data-source))
                  '(\A \B \B \A \B \A \B \B \A \B \A \B \B))
