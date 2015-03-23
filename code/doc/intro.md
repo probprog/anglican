@@ -5,7 +5,7 @@ system, built in tradition and as evolutionary development
 of [Anglican](http://www.robots.ox.ac.uk/~fwood/anglican/).
 
 __m!__ is based on Clojure. The programming language of __m!__
-is a subset of Clojure, extended with a few special form
+is a subset of Clojure, extended with a few special forms
 introducing randomness into programs. The forms are `sample`
 for drawing a sample from distribution, `observe` for
 conditioning the posterior distribution on a value, and
@@ -280,6 +280,16 @@ initial value (which will be `nil` for basic examples).
 `doquery` returns a lazy sequence of samples.
 
     (def samples (doquery :lmh example nil))
+
+Optionally, `doquery` accepts algorithm options as keyword
+arguments, as well as the following additional options:
+
+* `:warmup`, boolean and `true` by default. When `false`, the
+program is not pre-evaluated. May be useful for tricks and
+debugging. 
+* `:debug`, boolean and `false` by default. When `true`, the
+stack trace of exception thrown during inference is printed
+on the standard output.
 
 Take a look at
 [worksheets/tworoads.clj](../../mrepl/worksheets/tworoads.clj),
