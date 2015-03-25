@@ -10,6 +10,7 @@
                  [colt "1.2.0"]
                  [net.mikera/core.matrix "0.33.2"]
                  [net.mikera/vectorz-clj "0.29.0"]]
+  :plugins [[codox "0.8.11"]]
   :scm {:name "git"
         :url "https://bitbucket.org/dtolpin/embang"}
   :repl-options {:timeout 600000}
