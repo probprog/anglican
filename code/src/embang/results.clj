@@ -320,7 +320,7 @@
 
 (defmethod diff-seq :fq
   [_ _ & options]
-  (read-summaries fq-seq (unmap options)))
+  (apply read-summaries fq-seq (unmap options)))
 
 (defmethod get-truth :kl [_ & options]
   (apply totals fq-seq options (unmap options)))
