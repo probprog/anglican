@@ -1,4 +1,6 @@
 (ns anglib.crp
+  "crp and DPmem implementation for easy porting
+  of legacy Anglican code"
   (:use [embang emit runtime]))
 
 ;;; Wrappers to ease porting code from original Anglican.
