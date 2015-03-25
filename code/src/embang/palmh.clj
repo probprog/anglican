@@ -1,6 +1,7 @@
 (ns embang.palmh
-  "Parallel Adaptive LMH. Options:
-    :number-of-threads (2 by default) - number of threads"
+  "Parallel Adaptive LMH
+   Options:
+     :number-of-threads (2 by default) - number of threads"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :only [set-log-weight]]
         embang.inference

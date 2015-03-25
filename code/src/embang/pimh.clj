@@ -1,7 +1,8 @@
 (ns embang.pimh
-  "Particle Independent Metropolis-Hastings. Options:
-    :number-of-particles (2 by default)
-      - number of particles per sweep"
+  "Particle Independent Metropolis-Hastings
+   Options:
+     :number-of-particles (2 by default)
+       - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use embang.state
         embang.inference

@@ -1,7 +1,8 @@
 (ns embang.pgibbs
-  "Particles Gibbs (Iterative Conditional SMC). Options:
-    :number-of-particles (2 by default)
-      - number of particles per sweep"
+  "Particles Gibbs (Iterated Conditional SMC)
+   Options:
+     :number-of-particles (2 by default)
+       - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference
