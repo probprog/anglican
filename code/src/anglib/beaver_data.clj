@@ -1,4 +1,5 @@
-(ns anglib.beaver-data)
+(ns anglib.beaver-data
+  "Beaver data from R")
 
 ;; Record field accessors for beaver datasets
 
