@@ -1,5 +1,5 @@
 (ns embang.pfilter
-  "Particle Filter.
+  "Particle Filter
    Options:
      :number-of-particles (1 by default)
        - number of particles per sweep"
