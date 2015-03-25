@@ -39,6 +39,8 @@ rules, or discuss before breaking them knowingly.
 
 ### Documenting the code
 
+* Every namespace must have a documentation describing the
+  purpose and essential functionality of the namespace.
 * Every function must have a documentation string explaining
   what the function does and returns.
 
