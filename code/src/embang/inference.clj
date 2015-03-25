@@ -1,4 +1,5 @@
 (ns embang.inference
+  "Inference abstractions"
   (:refer-clojure :exclude [rand rand-nth rand-int])
   (:require [clojure.string :as str]
             [clojure.data.json :as json]
