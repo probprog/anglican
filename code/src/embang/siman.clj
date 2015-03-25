@@ -1,12 +1,13 @@
 (ns embang.siman
-  "MAP estimation via Simulated Annealing. Options:
-    :cooling-rate (0.99 by default)
-       - cooling rate, should less than 1
-    :cooling-schedule (:exponential by default)
-       - cooling schedule, :exponential or :lundy-mees
-    :predict-candidates (false by default)
-       - output all samples rather than those with increasing
-         log-weight"
+  "MAP estimation via Simulated Annealing
+   Options:
+     :cooling-rate (0.99 by default)
+        - cooling rate, should less than 1
+     :cooling-schedule (:exponential by default)
+        - cooling schedule, :exponential or :lundy-mees
+     :predict-candidates (false by default)
+        - output all samples rather than those with increasing
+          log-weight"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference

@@ -1,5 +1,6 @@
 (ns embang.bamc
-  "Bayesian ascent Monte Carlo. Options:
+  "Bayesian ascent Monte Carlo
+   Options:
      :predict-candidates (false by default)
        - output all samples rather than just those
          with increasing log-weight"

@@ -1,7 +1,8 @@
 (ns embang.plmh
-  "Parallel Lighweight Metropolis-Hastings. Options:
-    :number-of-threads (2 by default) 
-      - number of threads to use"
+  "Parallel Lighweight Metropolis-Hastings
+   Options:
+     :number-of-threads (2 by default) 
+       - number of threads to use"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :only [set-log-weight]]
         embang.inference
