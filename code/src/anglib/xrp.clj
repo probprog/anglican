@@ -1,4 +1,6 @@
 (ns anglib.xrp
+  "Sample wrappers for OBSERVE and SAMPLE
+  treating ERP and XRP in the same way"
   (:use [embang runtime emit]))
 
 (defm XRP

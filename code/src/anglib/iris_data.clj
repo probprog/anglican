@@ -1,4 +1,5 @@
-(ns anglib.iris-data)
+(ns anglib.iris-data
+  "Fisher's Iris dataset")
 
 (def iris-setosa :setosa)
 (def iris-virginica :virginica)
