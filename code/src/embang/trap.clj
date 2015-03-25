@@ -1,4 +1,5 @@
 (ns embang.trap
+  "CPS transformation of Anglican program"
   (:require embang.runtime)
   (:use embang.state))
 

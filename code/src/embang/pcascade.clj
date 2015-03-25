@@ -1,4 +1,8 @@
 (ns embang.pcascade
+  "Parallel Cascade. Options:
+    :number-of-threads (16 by default) - number of threads
+    :number-of-particles (number-of-threads/2 by default)
+      - number of initial particles"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference

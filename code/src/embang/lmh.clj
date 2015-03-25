@@ -1,4 +1,5 @@
 (ns embang.lmh
+  "Lightweight Metropolis-Hastings"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference

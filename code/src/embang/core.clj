@@ -1,4 +1,6 @@
-(ns embang.core (:gen-class)
+(ns embang.core
+  "REPL and command line"
+  (:gen-class)
   (:refer-clojure :exclude [rand rand-int rand-nth read-string])
   (:require [clojure.edn :refer [read-string]]
             [clojure.string :as str]
