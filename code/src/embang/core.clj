@@ -138,7 +138,7 @@ Options:
             (format (str ";; Program: %s/%s %s\n"
                          ";; Inference algorithm: %s %s\n"
                          ";; Number of samples: %s (*%s+%s)\n"
-                         ";; Output format: %s\n")
+                         ";; Output format: %s")
                     nsname progname (if (some? (:value options))
                                       (:value options)
                                       "")
