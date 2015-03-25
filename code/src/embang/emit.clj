@@ -1,4 +1,5 @@
 (ns embang.emit
+  "Top-level forms for Anglican programs"
   (:use [embang.xlat :only [program alambda]])
   (:use [embang.trap :only [*gensym*
                             shading-primitive-procedures

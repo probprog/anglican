@@ -1,4 +1,7 @@
 (ns embang.smc
+  "Sequential Monte Carlo. Options:
+    :number-of-particles (1 by default)
+      - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use embang.state
         embang.inference

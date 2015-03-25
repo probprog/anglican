@@ -1,4 +1,5 @@
-(ns embang.state)
+(ns embang.state
+  "Inference state")
 
 ;;; Running state
 

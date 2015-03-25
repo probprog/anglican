@@ -1,4 +1,8 @@
 (ns embang.bamc
+  "Bayesian ascent Monte Carlo. Options:
+     :predict-candidates (false by default)
+       - output all samples rather than just those
+         with increasing log-weight"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [embang.state :exclude [initial-state]]
         embang.inference

@@ -1,4 +1,5 @@
 (ns embang.runtime
+  "Runtime library"
   (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]))

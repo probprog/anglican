@@ -1,4 +1,5 @@
 (ns embang.importance
+  "Importance sampling"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use embang.state
         embang.inference))
