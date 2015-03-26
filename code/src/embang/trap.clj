@@ -62,6 +62,13 @@
   [procedure]
   (*primitive-procedures* procedure))
 
+(defn primitive-operator?
+  "true if the experssion is converted by clojure 
+  to a primitive procedure in operator position"
+  [procedure]
+  (or (primitive-procedure? procedure)
+      (keyword? procedure)))
+
 (defn fn-form?
   "true when the argument is a fn form"
   [expr]
@@ -101,7 +108,7 @@
        store retrieve
        apply) false
       ;; application
-      (and (primitive-procedure? (first expr))
+      (and (primitive-operator? (first expr))
            (every? simple? (rest expr))))
 
     (not (primitive-procedure?  expr)) true))
@@ -389,7 +396,7 @@
      (let [substs (map (fn [arg is-rator]
                          (cond
                           (and is-rator
-                               (primitive-procedure? arg)) [nil arg]
+                               (primitive-operator? arg)) [nil arg]
                           (opaque? arg) [nil (opaque-cps arg)]
                           :else [arg (*gensym* "A")]))
                        args
@@ -489,7 +496,7 @@
   (make-of-args args :first-is-rator
                 (fn [acall]
                   (let [[rator & rands] acall]
-                    (if (primitive-procedure? rator)
+                    (if (primitive-operator? rator)
                       (continue cont `(apply ~@acall) '$state)
                       `(apply ~rator
                               ~cont ~'$state ~@rands))))))
@@ -502,7 +509,7 @@
   (make-of-args exprs :first-is-rator
                 (fn [call]
                   (let [[rator & rands] call]
-                    (if (primitive-procedure? rator)
+                    (if (primitive-operator? rator)
                       (continue cont call '$state)
                       `(~rator ~cont ~'$state ~@rands))))))
 
