@@ -145,7 +145,6 @@ Options:
                     (:inference-algorithm options)
                     `(:warmup ~(:warmup options)
                               ~@(:algorithm-options options))
-                    (or (seq (:algorithm-options options)) "")
                     (:number-of-samples options)
                     (:thin options) (:burn options)
                     (:output-format options)))
