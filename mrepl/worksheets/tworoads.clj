@@ -15,6 +15,41 @@
 ;; <=
 
 ;; **
+;;; ## Pseudo-distributions
+;;; 
+;;; Policy learning requires pseudo distributions for manipulating the log weight.
+;; **
+
+;; @@
+(defdist factor
+  "factor distribution,
+  sample returns true,
+  the log-weight is the argument"
+  [log-weight] []
+  (sample [this] true)
+  (observe [this value] log-weight))
+
+(defdist unobserve
+  "meta-distribution, 
+  accepts a distribution object;
+  sample is delegated, observe is negated"
+  [dist] []
+  (sample [this] (sample dist))
+  (observe [this value] (- (observe dist value))))
+;; @@
+;; =>
+;;; {"type":"html","content":"<span class='clj-unkown'>#&lt;MultiFn clojure.lang.MultiFn@3e450719&gt;</span>","value":"#<MultiFn clojure.lang.MultiFn@3e450719>"}
+;; <=
+
+;; **
+;;; # A Cooling Schedule for the Two Road Example
+;;; 
+;;; Let us see if we can make the gas cost go up automatically without changing the algorithm.
+;;; The example is the same as in 'tworoads.clj'. We will explore the idea of defining a slowly increasing gas cost source.
+;;; 
+;; **
+
+;; **
 ;;; # Two Roads
 ;;; 
 ;;; An inference example. We are given two roads with probability being open p1 and p2, costs of each road c1 and c2, and the cost of bumping into a blocked road cb. We want to learn the optimum policy --- with which probability to select each of the roads to pay less on average.
