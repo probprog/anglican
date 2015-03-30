@@ -67,8 +67,9 @@
     [(map (fn [log-weight]
             ;; Avoid NaN and Infinity.
             (cond
-              (= log-weight max-log-weight) 1.
-              (= log-weight (Math/log 0.)) 0.
+              (not (< (/ -1. 0.) log-weight (/ 1. 0.))) 1.   ; NaN
+              (= log-weight max-log-weight) 1. ; all are -Infinity
+              (= log-weight (/ -1. 0.)) 0.             ; -Infinity
               :else (Math/exp (- log-weight max-log-weight))))
           log-weights)
      max-log-weight]))
