@@ -269,7 +269,7 @@
                    (repeatedly (* n p) #(sample unit-normal))))
   (observe [this value]
            (- (* 0.5 (- n p 1) (Math/log (m/det value)))
-              (* 0.5 (m/trace (m/mul (m/inverse (m/matrix V)) value)))
+              (* 0.5 (m/trace (m/mmul (m/inverse (m/matrix V)) value)))
               @Z))
   multivariate-distribution
   (transform-sample [this samples] (transform-sample samples)))
