@@ -1,17 +1,17 @@
-(ns embang.palmh
+(ns anglican.palmh
   "Parallel Adaptive LMH
    Options:
      :number-of-threads (2 by default) - number of threads"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [embang.state :only [set-log-weight]]
-        embang.inference
-        [embang.lmh :only [get-trace]]
-        [embang.plmh :only [ncall]]
-        embang.almh))
+  (:use [anglican.state :only [set-log-weight]]
+        anglican.inference
+        [anglican.lmh :only [get-trace]]
+        [anglican.plmh :only [ncall]]
+        anglican.almh))
 
 ;;;; Parallel Adaptive Lightweight Metropolis-Hastings
 
-(derive ::algorithm :embang.almh/algorithm)
+(derive ::algorithm :anglican.almh/algorithm)
 
 (defn next-state-seq
   "returns lazy sequence of next states"

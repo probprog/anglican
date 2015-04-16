@@ -1,7 +1,7 @@
 # m! source code map
 
     src/
-      embang/
+      anglican/
         # Running inference and processing results
         core.clj       --- Running inference and auxiliary commands
         results.clj    --- Handling of inference results

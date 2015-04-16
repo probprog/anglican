@@ -1,6 +1,6 @@
-(ns embang.results-test
+(ns anglican.results-test
   (:require [clojure.test :refer :all]
-            [embang.results :refer :all]))
+            [anglican.results :refer :all]))
 
 (deftest KL-test
   (testing "KL"

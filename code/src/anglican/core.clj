@@ -1,18 +1,18 @@
-(ns embang.core
+(ns anglican.core
   "REPL and command line"
   (:gen-class)
   (:refer-clojure :exclude [rand rand-int rand-nth read-string])
   (:require [clojure.edn :refer [read-string]]
             [clojure.string :as str]
             [clojure.tools.cli :as cli])
-  (:use [embang.inference :only [warmup infer print-predicts]])
-  (:use [embang.results :only [redir freqs meansd diff]]))
+  (:use [anglican.inference :only [warmup infer print-predicts]])
+  (:use [anglican.results :only [redir freqs meansd diff]]))
 
 (defn load-algorithm
   "loads algorithm by requiring the namespace"
   [algorithm]
   (let [algorithm-namespace (symbol
-                              (format "embang.%s" (name algorithm)))]
+                              (format "anglican.%s" (name algorithm)))]
     (try (require algorithm-namespace) true
          (catch Exception e
            (binding [*out* *err*]
@@ -85,7 +85,7 @@ embedded Anglican program to run, for example:
     bash$ lein run anglib.branching -a gibbs -n 500 \\
                -o \":number-of-particles 50\"
 
-    embang.core=> (m! -a gibbs -n 500 -o \":number-of-particles 50\"
+    anglican.core=> (m! -a gibbs -n 500 -o \":number-of-particles 50\"
                       anglib.branching)
 
 `program' is the first argument of `defanglican'. The namespace

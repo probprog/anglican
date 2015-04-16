@@ -1,6 +1,6 @@
-(ns embang.lmh-test
+(ns anglican.lmh-test
   (:require [clojure.test :refer [deftest testing is]])
-  (:use embang.lmh))
+  (:use anglican.lmh))
 
 (deftest test-rdb
   (testing "rdb"

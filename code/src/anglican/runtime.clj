@@ -1,4 +1,4 @@
-(ns embang.runtime
+(ns anglican.runtime
   "Runtime library"
   (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
@@ -66,7 +66,7 @@
 (def ^:private RNG
   "random number generator;
   used by colt distribution objects"
-  (embang.MTMersenneTwister. (java.util.Date.)))
+  (anglican.MTMersenneTwister. (java.util.Date.)))
 
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments

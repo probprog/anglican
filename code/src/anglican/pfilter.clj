@@ -1,12 +1,12 @@
-(ns embang.pfilter
+(ns anglican.pfilter
   "Particle Filter
    Options:
      :number-of-particles (1 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use embang.state
-        embang.inference
-        embang.smc))
+  (:use anglican.state
+        anglican.inference
+        anglican.smc))
 
 ;;; Particle Filter 
 ;;
@@ -14,7 +14,7 @@
 ;; algorithm. Every `observe' creates a new batch of output states,
 ;; the program may run infinitely.
 
-(derive ::algorithm :embang.smc/algorithm)
+(derive ::algorithm :anglican.smc/algorithm)
 
 (defmethod infer :pfilter [_ prog value
                            & {:keys [number-of-particles]  ; per sweep
@@ -43,13 +43,13 @@
              ;; Continue running the program infinitely.
              (sample-seq 
                (cond
-                 (every? #(instance? embang.trap.observe %) particles)
+                 (every? #(instance? anglican.trap.observe %) particles)
                  ;; Resample and continue.
                  (map #(exec ::algorithm (:cont %) nil 
                              (clear-predicts (:state %)))
                       (resample particles number-of-particles))
 
-                 (every? #(instance? embang.trap.result %) particles)
+                 (every? #(instance? anglican.trap.result %) particles)
                  ;; Restart the particles.
                  initial-particles
 

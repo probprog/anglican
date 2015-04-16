@@ -1,23 +1,23 @@
-(ns embang.bamc
+(ns anglican.bamc
   "Bayesian ascent Monte Carlo
    Options:
      :predict-candidates (false by default)
        - output all samples rather than just those
          with increasing log-weight"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [embang.state :exclude [initial-state]]
-        embang.inference
-        [embang.runtime :only [sample observe normal]]))
+  (:use [anglican.state :exclude [initial-state]]
+        anglican.inference
+        [anglican.runtime :only [sample observe normal]]))
 
 ;;;;; Maximum a Posteriori Estimation through Sampling
 
-(derive ::algorithm :embang.inference/algorithm)
+(derive ::algorithm :anglican.inference/algorithm)
 
 ;;;; Particle state
 
 (def initial-state
   "initial state for MAP estimation"
-  (into embang.state/initial-state
+  (into anglican.state/initial-state
         {::bandits {}            ; multi-armed bandits
          ::trace []              ; random choices
          ::bandit-counts {}      ; counts of occurences of `sample's
@@ -183,7 +183,7 @@
 
 ;;;; MAP inference
 
-(defmethod checkpoint [::algorithm embang.trap.sample] [algorithm smp]
+(defmethod checkpoint [::algorithm anglican.trap.sample] [algorithm smp]
   (let [state (:state smp)
         [bandit-id state] (bandit-id smp state)
         bandit ((state ::bandits) bandit-id fresh-bandit)
