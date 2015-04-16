@@ -3,7 +3,7 @@
 ## Developing with Anglican
 
 * Using Anglican as a library: Anglican is on
-  [clojars](https://clojars.org/anglican). If you want to use Anglican
+  [clojars](https://clojars.org/org.clojars.dtolpin/anglican). If you want to use Anglican
   to develop your algorithms and applications, include [anglican
   "X.Y.Z"] (with a recent version instead of "X.Y.Z") into your project.
 
