@@ -200,3 +200,33 @@ Options:
   [& args]
   (apply main args)
   (shutdown-agents))
+
+;; Rich REPL
+;;
+;; In an alternative paradigm of interaction results are
+;; manipulated in the REPL (Leiningen, Gorilla). `doquery'
+;; accepts the query as a callable object and returns a
+;; lazy sequence of states.
+
+(defn doquery
+  "performs inference query;
+  returns lazy sequence of states"
+  [algorithm query value & options]
+  (do
+    ;; Use the auto-loading machinery in anglican.core to load
+    ;; the inference algorithm on demand.
+    (load-algorithm algorithm)
+    (let [options* (apply hash-map options)]
+      (try
+        ;; Optionally, warm up the query by pre-evaluating
+        ;; the determenistic prefix.
+        (let [[query value] (if (:warmup options* true)
+                                [(warmup query value) nil]
+                                [query value])]
+          ;; Finally, call the inference to create
+          ;; a lazy sequence of states.
+          (apply infer algorithm query value options))
+        (catch Exception e
+          (when (:debug options*)
+            (.printStackTrace e *out*))
+          (throw e))))))
