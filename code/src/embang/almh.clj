@@ -1,9 +1,9 @@
-(ns embang.almh
+(ns anglican.almh
   "Adaptive LMH"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [embang.state :exclude [initial-state]]
-        embang.inference
-        [embang.lmh :exclude [initial-state
+  (:use [anglican.state :exclude [initial-state]]
+        anglican.inference
+        [anglican.lmh :exclude [initial-state
                               next-state prev-state
                               utility]]))
 
@@ -18,7 +18,7 @@
 ;; LMH code and forcing the reader to jump back and forth
 ;; between two source files.
 
-(derive ::algorithm :embang.lmh/algorithm)
+(derive ::algorithm :anglican.lmh/algorithm)
 
 ;;; Algorithm parameters
 
@@ -32,7 +32,7 @@
 
 (def initial-state
   "initial state for ALMH"
-  (into embang.lmh/initial-state
+  (into anglican.lmh/initial-state
         {::choice-rewards {}
          ::last-predicts {}
          ::choice-counts {}}))
@@ -179,7 +179,7 @@
   "produces next state given current state
   and the trace entry to resample"
   [state entry]
-  (embang.lmh/next-state state entry
+  (anglican.lmh/next-state state entry
                          (state-update state)))
 
 (defn prev-state
@@ -187,7 +187,7 @@
   the next state and the resampled entry
   by re-attaching new rdb to the original state"
   [state next-state entry]
-  (embang.lmh/prev-state state next-state entry
+  (anglican.lmh/prev-state state next-state entry
                          (state-update next-state)))
 
 ;;; Adaptive scheduling

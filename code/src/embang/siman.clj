@@ -1,4 +1,4 @@
-(ns embang.siman
+(ns anglican.siman
   "MAP estimation via Simulated Annealing
    Options:
      :cooling-rate (0.99 by default)
@@ -9,19 +9,19 @@
         - output all samples rather than those with increasing
           log-weight"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [embang.state :exclude [initial-state]]
-        embang.inference
-        [embang.runtime :only [observe sample]]))
+  (:use [anglican.state :exclude [initial-state]]
+        anglican.inference
+        [anglican.runtime :only [observe sample]]))
 
 ;;;; Finding MAP of the trace using simulated annealing
 
-(derive ::algorithm :embang.inference/algorithm)
+(derive ::algorithm :anglican.inference/algorithm)
 
 ;;; Initial state
 
 (def initial-state
   "initial state for PGibbs protocol"
-  (into embang.state/initial-state
+  (into anglican.state/initial-state
         ;; the state is extended by two sequences,
         ;;   ::future-samples used by retained particle
         ;;   ::past-samples updated by allparticles
@@ -66,7 +66,7 @@
 
 ;;; Inference
 
-(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
+(defmethod checkpoint [::algorithm anglican.trap.sample] [_ smp]
   (let [[choice-id state] (choice-id smp (:state smp))
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)

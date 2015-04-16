@@ -1,17 +1,17 @@
-(ns embang.pcascade
+(ns anglican.pcascade
   "Parallel Cascade
    Options:
      :number-of-threads (16 by default) - number of threads
      :number-of-particles (number-of-threads/2 by default)
        - number of initial particles"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [embang.state :exclude [initial-state]]
-        embang.inference
-        [embang.runtime :only [log-sum-exp observe sample]]))
+  (:use [anglican.state :exclude [initial-state]]
+        anglican.inference
+        [anglican.runtime :only [log-sum-exp observe sample]]))
 
 ;;;; Parallel Cascade
 
-(derive ::algorithm :embang.inference/algorithm)
+(derive ::algorithm :anglican.inference/algorithm)
 
 ;;; Initial state
 
@@ -19,7 +19,7 @@
   "initial state constructor for Parallel Cascade, parameterized
   by the maximum number of running threads"
   [particle-cap]
-  (into embang.state/initial-state
+  (into anglican.state/initial-state
         {::particle-cap particle-cap ; max number of running threads
          ::particle-id 0             ; unique id, for monitoring;
                                      ; assigned on thread launch
@@ -72,7 +72,7 @@
                   ::particle-id (swap! (state ::last-particle-id) inc)
                   ::parent-id (state ::particle-id)))))
 
-(defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
+(defmethod checkpoint [::algorithm anglican.trap.observe] [_ obs]
   (let [;; Incorporate new observation
         state (add-log-weight (:state obs)
                               (observe (:dist obs) (:value obs)))
@@ -116,7 +116,7 @@
               (swap! (state ::particle-count) inc)
               (recur (dec multiplier)))))))))
 
-(defmethod checkpoint [::algorithm embang.trap.result] [_ res]
+(defmethod checkpoint [::algorithm anglican.trap.result] [_ res]
   (let [state (:state res)
         ;; Multiply the weight by the multiplier.
         state (add-log-weight

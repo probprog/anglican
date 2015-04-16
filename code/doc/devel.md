@@ -1,14 +1,14 @@
 # Developer Guide
 
-## Developing with __m!__
+## Developing with Anglican
 
-* Using __m!__ as a library: __m!__ is on
-  [clojars](https://clojars.org/embang). If you want to use __m!__
-  to develop your algorithms and applications, include [embang
+* Using Anglican as a library: Anglican is on
+  [clojars](https://clojars.org/anglican). If you want to use Anglican
+  to develop your algorithms and applications, include [anglican
   "X.Y.Z"] (with a recent version instead of "X.Y.Z") into your project.
 
 * Proposing patches:
-  1. [Fork embang](https://bitbucket.org/dtolpin/embang/fork).
+  1. [Fork Anglican](https://bitbucket.org/dtolpin/anglican/fork).
   1. Make changes in the fork. The [code map](codemap.md)
      explains the source tree layout and module contents.
   1. Create a pull request.
@@ -17,7 +17,7 @@
 
 ## Reporting bugs
 
-* Use [issue tracker](https://bitbucket.org/dtolpin/embang/issues) to
+* Use [issue tracker](https://bitbucket.org/dtolpin/anglican/issues) to
   report bugs and suggest features.
 
 ## Style guide
@@ -59,8 +59,8 @@ rules, or discuss before breaking them knowingly.
 
 * Prepare enough tests to ensure that the code works correctly,
   and changes that break the code are immediately identified.
-  Place unit tests for module embang.foo into
-  test/embang/foo_test.clj (namespace embang.foo-test).
+  Place unit tests for module anglican.foo into
+  test/anglican/foo_test.clj (namespace anglican.foo-test).
 * All tests much pass (lein test) before a change to the public
   repository.
 
@@ -74,11 +74,11 @@ to 'elementary random procedure' (ERP), the latter
 related to 'exchangeable random procedure' (XRP).
 
 Distributions and random processes are defined through
-implementation of protocols `embang.runtime/distribution` and
-`embang.runtime/random-process`. In addition, a multivariate
+implementation of protocols `anglican.runtime/distribution` and
+`anglican.runtime/random-process`. In addition, a multivariate
 distribution may optionally implement protocol
-`embang.runtime/multivariate-distribution`. Several
-distributions are defined in `embang.runtime`, and other
+`anglican.runtime/multivariate-distribution`. Several
+distributions are defined in `anglican.runtime`, and other
 distributions may be defined in terms of the 'basic'
 distributions. 
 
@@ -125,7 +125,7 @@ does more than the `reify`-based definition above: it also
 defines a record type `bernoulli-distribution`, and instantiates
 `print-method` for the type so that the distribution instance is
 printed nicely. Consult the source code in
-[`src/embang/runtime.clj`](../src/embang/runtime.clj) for the 
+[`src/anglican/runtime.clj`](../src/anglican/runtime.clj) for the 
 implementation of `defdist`.
 
 Likewise, `defproc` is the macro for implementing random
@@ -157,26 +157,26 @@ process can be defined in the following way:
 Of course, instead of reifying the distribution inside the
 `produce` method, one can define a new distribution using
 `defdist` (as in the implementation of CRP in
-[src/embang/runtime.clj]('../src/embang/runtime.clj')).
+[src/anglican/runtime.clj]('../src/anglican/runtime.clj')).
 
 ### Inference algorithms
 
 An inference algorithm must implement the
-`embang.inference/infer` multimethod. The method dispatches
+`anglican.inference/infer` multimethod. The method dispatches
 on a keyword. If the algorithm is defined in a namespace
-`embang.foo`, and the keyword is `:foo`, the algorithm's
+`anglican.foo`, and the keyword is `:foo`, the algorithm's
 namespace will be loaded automatically by either
-`embang.core/m!` or `mrepl.core/doquery`.  However, an algorithm
+`anglican.core/m!` or `mrepl.core/doquery`.  However, an algorithm
 may be implemented in any namespace and loaded explicitly before
 infer is called.
 
 The simplest algorithm to implement is importance sampling:
 
-	(ns embang.importance
+	(ns anglican.importance
 	  (:refer-clojure :exclude [rand rand-int rand-nth])
-	  (:use [embang state inference]))
+	  (:use [anglican state inference]))
 
-	(derive ::algorithm :embang.inference/algorithm)
+	(derive ::algorithm :anglican.inference/algorithm)
 
 	(defmethod infer :importance [_ prog value & {}]
 	  (letfn [(sample-seq []
@@ -192,20 +192,20 @@ map](codemap.md) points at the Clojure modules containing
 the implementations.
 
 Although not required, a convenient function for implementing
-an inference algorithm is `embang.inference/exec`. This function
+an inference algorithm is `anglican.inference/exec`. This function
 runs the probabilistic program until a so-called checkpoint,
 a point in execution that requires intervention of the inference
 algorithm. There are three types of checkpoints:
 
-    embang.trap.sample
-	embang.trap.observe
-	embang.trap.result
+    anglican.trap.sample
+	anglican.trap.observe
+	anglican.trap.result
 
 corresponding to `sample` and `observe` probabilistic forms, as
 well as to returning the final result of a program execution,
 which encapsulates, among other things, the list of predicts
 and the log weight of the sample. The multimethod
-`embang.inference/checkpoint` should be used together with
+`anglican.inference/checkpoint` should be used together with
 `exec`. Default implementations of the multimethod for each type
-of checkpoint are provided by the `embang.inference` namespace,
+of checkpoint are provided by the `anglican.inference` namespace,
 and correspond to actions performed during importance sampling.

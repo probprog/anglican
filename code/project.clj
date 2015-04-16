@@ -1,6 +1,6 @@
-(defproject embang "0.6.5-SNAPSHOT"
+(defproject anglican "0.6.5-SNAPSHOT"
   :description "Anglican, a probabilistic programming system"
-  :url "http://bitbucket.org/dtolpin/embang"
+  :url "http://bitbucket.org/dtolpin/anglican"
   :license {:name "GNU General Public License Version 3"
             :url "http://www.gnu.org/licenses/gpl.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
@@ -12,11 +12,11 @@
                  [net.mikera/vectorz-clj "0.29.0"]]
   :plugins [[codox "0.8.11"]]
   :scm {:name "git"
-        :url "https://bitbucket.org/dtolpin/embang"}
+        :url "https://bitbucket.org/dtolpin/anglican"}
   :repl-options {:timeout 600000}
   :jvm-opts ["-Xmx1024m" "-Xss1024k"]
   :javac-options ["-target" "1.6" "-source" "1.6"]
-  :main ^:skip-aot embang.core
+  :main ^:skip-aot anglican.core
   :target-path "target/%s"
   :java-source-paths ["src"]
   :resource-paths ["../examples"]

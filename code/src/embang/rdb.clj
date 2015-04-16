@@ -1,7 +1,7 @@
-(ns embang.rdb
+(ns anglican.rdb
   "Random DB, same as Lightweight Metropolis-Hastings"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use embang.inference))
+  (:use anglican.inference))
 
 ;;;; Alias for Single-site Metropolis-Hastings
 

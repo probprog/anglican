@@ -1,6 +1,6 @@
 (ns anglib.state-space
   (:require [clojure.core.matrix :as m])
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 (defproc LDS
   "Linear Dynamical System (i.e. Kalman Filter). "

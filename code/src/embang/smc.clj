@@ -1,18 +1,18 @@
-(ns embang.smc
+(ns anglican.smc
   "Sequential Monte Carlo
    Options:
      :number-of-particles (1 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use embang.state
-        embang.inference
-        [embang.runtime :only [observe]]))
+  (:use anglican.state
+        anglican.inference
+        [anglican.runtime :only [observe]]))
 
 ;;; SMC
 
-(derive ::algorithm :embang.inference/algorithm)
+(derive ::algorithm :anglican.inference/algorithm)
 
-(defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
+(defmethod checkpoint [::algorithm anglican.trap.observe] [_ obs]
   ;; update the weight and return the observation checkpoint
   ;; for possible resampling
   (update-in obs [:state]
@@ -30,11 +30,11 @@
                                #(exec algorithm
                                       prog value initial-state))]
     (cond
-     (every? #(instance? embang.trap.observe %) particles)
+     (every? #(instance? anglican.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
                  (resample particles number-of-particles)))
 
-     (every? #(instance? embang.trap.result %) particles)
+     (every? #(instance? anglican.trap.result %) particles)
      particles
 
      :else (throw (AssertionError.

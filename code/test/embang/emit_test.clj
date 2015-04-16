@@ -1,7 +1,7 @@
-(ns embang.emit-test
+(ns anglican.emit-test
   (:require [clojure.test :refer [deftest testing is]])
-  (:use [embang.trap :only [value-cont]]
-        embang.emit))
+  (:use [anglican.trap :only [value-cont]]
+        anglican.emit))
 
 (deftest test-higher-order-functions
   (testing "map in CPS"

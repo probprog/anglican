@@ -1,4 +1,4 @@
-(ns embang.state
+(ns anglican.state
   "Inference state")
 
 ;;; Running state

@@ -1,19 +1,19 @@
-(ns embang.pimh
+(ns anglican.pimh
   "Particle Independent Metropolis-Hastings
    Options:
      :number-of-particles (2 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use embang.state
-        embang.inference
-        [embang.runtime :only [observe]]
-        embang.smc))
+  (:use anglican.state
+        anglican.inference
+        [anglican.runtime :only [observe]]
+        anglican.smc))
 
 ;;; Particle Independent Metropolis-Hastings (PIMH)
 
-(derive ::algorithm :embang.smc/algorithm)
+(derive ::algorithm :anglican.smc/algorithm)
 
-(defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
+(defmethod checkpoint [::algorithm anglican.trap.observe] [_ obs]
   ;; update the weight and return the observation checkpoint
   ;; for possible resampling
   (update-in obs [:state]
@@ -25,11 +25,11 @@
                                #(exec algorithm
                                       prog value initial-state))]
     (cond
-     (every? #(instance? embang.trap.observe %) particles)
+     (every? #(instance? anglican.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil (:state %))
                  (resample particles number-of-particles)))
 
-     (every? #(instance? embang.trap.result %) particles)
+     (every? #(instance? anglican.trap.result %) particles)
      particles
 
      :else (throw (AssertionError.

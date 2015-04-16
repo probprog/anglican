@@ -1,4 +1,4 @@
-package embang;
+package anglican;
 
 import cern.jet.random.engine.MersenneTwister;
 

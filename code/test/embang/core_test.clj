@@ -1,3 +1,3 @@
-(ns embang.core-test
+(ns anglican.core-test
   (:require [clojure.test :refer :all]
-            [embang.core :refer :all]))
+            [anglican.core :refer :all]))
