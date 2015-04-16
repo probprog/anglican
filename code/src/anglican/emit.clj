@@ -1,7 +1,7 @@
-(ns embang.emit
+(ns anglican.emit
   "Top-level forms for Anglican programs"
-  (:use [embang.xlat :only [program alambda]])
-  (:use [embang.trap :only [*gensym*
+  (:use [anglican.xlat :only [program alambda]])
+  (:use [anglican.trap :only [*gensym*
                             shading-primitive-procedures
                             cps-of-expression result-cont 
                             fn-cps primitive-procedure-cps]]))

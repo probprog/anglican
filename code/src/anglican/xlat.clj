@@ -1,4 +1,4 @@
-(ns embang.xlat
+(ns anglican.xlat
   "Translation of Anglican Scheme to Anglican Clojure, deprecated")
 
 ;; Translator from Scheme-like legacy syntax to Clojure syntax.

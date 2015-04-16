@@ -1,12 +1,12 @@
-(ns embang.trap
+(ns anglican.trap
   "CPS transformation of Anglican program"
-  (:require embang.runtime)
-  (:use embang.state))
+  (:require anglican.runtime)
+  (:use anglican.state))
 
 ;;;; Trampoline-ready Anglican program
 
 ;; The input to this transformations is an Anglican program in
-;; clojure syntax (embang.xlat). The output is a Clojure function
+;; clojure syntax (anglican.xlat). The output is a Clojure function
 ;; that returns either the next step as a structure incroprorating
 ;; continuations and parameters, or the state containing a vector of
 ;; predicted values and the sample weight.
@@ -566,7 +566,7 @@
                    every-pred some-fn
                    comp juxt partial}
         ;; runtime namespaces
-        runtime-namespaces '[clojure.core embang.runtime]]
+        runtime-namespaces '[clojure.core anglican.runtime]]
     (set (keep (fn [[k v]]
                  (when (and (not (exclude k))
                             (fn? (var-get v)))

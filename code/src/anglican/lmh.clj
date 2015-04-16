@@ -1,19 +1,19 @@
-(ns embang.lmh
+(ns anglican.lmh
   "Lightweight Metropolis-Hastings"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [embang.state :exclude [initial-state]]
-        embang.inference
-        [embang.runtime :only [observe sample]]))
+  (:use [anglican.state :exclude [initial-state]]
+        anglican.inference
+        [anglican.runtime :only [observe sample]]))
 
 ;;;; Lightweight (single-site) Metropolis-Hastings
 
-(derive ::algorithm :embang.inference/algorithm)
+(derive ::algorithm :anglican.inference/algorithm)
 
 ;;; Initial state
 
 (def initial-state
   "initial state for LMH"
-  (into embang.state/initial-state
+  (into anglican.state/initial-state
         ;; The state is extended by the trace ---
         ;; the vector of current random choices,
         ;; and the random database --- random choices
@@ -64,7 +64,7 @@
 
 ;;; Inference
 
-(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
+(defmethod checkpoint [::algorithm anglican.trap.sample] [_ smp]
   (let [[choice-id state] (choice-id smp (:state smp))
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)

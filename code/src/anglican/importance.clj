@@ -1,8 +1,8 @@
-(ns embang.importance
+(ns anglican.importance
   "Importance sampling"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use embang.state
-        embang.inference))
+  (:use anglican.state
+        anglican.inference))
 
 ;;; Importance samping
 
@@ -10,7 +10,7 @@
 ;; along with their weights. Random choices are sampled
 ;; from conditional prior distributions.
 
-(derive ::algorithm :embang.inference/algorithm)
+(derive ::algorithm :anglican.inference/algorithm)
 
 (defmethod infer :importance [_ prog value & {}]
   (letfn [(sample-seq []

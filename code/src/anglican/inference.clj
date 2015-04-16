@@ -1,11 +1,11 @@
-(ns embang.inference
+(ns anglican.inference
   "Inference abstractions"
   (:refer-clojure :exclude [rand rand-nth rand-int])
   (:require [clojure.string :as str]
             [clojure.data.json :as json]
-            embang.trap)
-  (:use embang.state
-        [embang.runtime :only [sample observe
+            anglican.trap)
+  (:use anglican.state
+        [anglican.runtime :only [sample observe
                                uniform-continuous
                                discrete]]))
 
@@ -28,14 +28,14 @@
 
 ;; Fallback method implementations.
 
-(defmethod checkpoint [::algorithm embang.trap.observe] [_ obs]
+(defmethod checkpoint [::algorithm anglican.trap.observe] [_ obs]
   #((:cont obs) nil (add-log-weight (:state obs)
                                     (observe (:dist obs) (:value obs)))))
 
-(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
+(defmethod checkpoint [::algorithm anglican.trap.sample] [_ smp]
   #((:cont smp) (sample (:dist smp)) (:state smp)))
 
-(defmethod checkpoint [::algorithm embang.trap.result] [_ res]
+(defmethod checkpoint [::algorithm anglican.trap.result] [_ res]
   res)
 
 ;;; Identifying checkpoints uniquely.

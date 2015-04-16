@@ -1,23 +1,23 @@
-(ns embang.pgibbs
+(ns anglican.pgibbs
   "Particles Gibbs (Iterated Conditional SMC)
    Options:
      :number-of-particles (2 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [embang.state :exclude [initial-state]]
-        embang.inference
-        embang.smc
-        [embang.runtime :only [observe sample]]))
+  (:use [anglican.state :exclude [initial-state]]
+        anglican.inference
+        anglican.smc
+        [anglican.runtime :only [observe sample]]))
 
 ;;;; Particle Gibbs
 
-(derive ::algorithm :embang.smc/algorithm)
+(derive ::algorithm :anglican.smc/algorithm)
 
 ;;; Initial state
 
 (def initial-state
   "initial state for Particle Gibbs"
-  (into embang.state/initial-state
+  (into anglican.state/initial-state
         ;; the state is extended by two sequences,
         ;;   ::future-samples used by retained particle
         ;;   ::past-samples updated by all particles
@@ -61,7 +61,7 @@
 ;; sample checkpoint for pgibbs --- sample the value,
 ;; except for retained particle, and store in past-particles
 
-(defmethod checkpoint [::algorithm embang.trap.sample] [_ smp]
+(defmethod checkpoint [::algorithm anglican.trap.sample] [_ smp]
   (let [state (:state smp)
         [state value] (if (retained-state? state)
                         (retrieve-retained-sample state)
@@ -79,7 +79,7 @@
                       #(exec algorithm prog value initial-state))
           (exec algorithm prog value retained-state))]
     (cond
-     (every? #(instance? embang.trap.observe %) particles)
+     (every? #(instance? anglican.trap.observe %) particles)
      (recur (map #(exec algorithm (:cont %) nil
                         ;; Set weights of all particles (including
                         ;; the retained one) to the same value.
@@ -98,7 +98,7 @@
                   ;; Add the retained particle at the first position.
                   (first particles))))
                        
-     (every? #(instance? embang.trap.result %) particles)
+     (every? #(instance? anglican.trap.result %) particles)
      particles
      
      :else (throw (AssertionError.

@@ -1,6 +1,6 @@
-(ns embang.runtime-test
+(ns anglican.runtime-test
   (:require [clojure.test :refer [deftest testing is]])
-  (:use embang.runtime))
+  (:use anglican.runtime))
 
 (deftest test-categorical
   (testing "categorical"

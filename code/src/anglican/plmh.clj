@@ -1,16 +1,16 @@
-(ns embang.plmh
+(ns anglican.plmh
   "Parallel Lighweight Metropolis-Hastings
    Options:
      :number-of-threads (2 by default) 
        - number of threads to use"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [embang.state :only [set-log-weight]]
-        embang.inference
-        embang.lmh))
+  (:use [anglican.state :only [set-log-weight]]
+        anglican.inference
+        anglican.lmh))
 
 ;;;; Parallel Lightweight Metropolis-Hastings
 
-(derive ::algorithm :embang.lmh/algorithm)
+(derive ::algorithm :anglican.lmh/algorithm)
 
 (defn ncall
   "executes thunk in n parallel threads,

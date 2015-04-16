@@ -1,7 +1,7 @@
 (ns anglib.xrp
   "Sample wrappers for OBSERVE and SAMPLE
   treating ERP and XRP in the same way"
-  (:use [embang runtime emit]))
+  (:use [anglican runtime emit]))
 
 (defm XRP
   "binds a random process to a XRP,

@@ -1,6 +1,6 @@
-(ns embang.trap-test
+(ns anglican.trap-test
     (:require [clojure.test :refer [deftest testing is]])
-    (use embang.trap))
+    (use anglican.trap))
 
 (deftest test-simple?
   (testing "simple?"
@@ -207,12 +207,12 @@
     (testing "cps-of-predict"
       (is (= (cps-of-predict '('x x) 'ret)
              '(fn []
-                (ret nil (embang.state/add-predict $state 'x x))))
+                (ret nil (anglican.state/add-predict $state 'x x))))
           "simple predict")
       (is (= (cps-of-predict '('(foo) (foo)) 'ret)
              '(foo (fn arg [A $state]
                      (fn []
-                       (ret nil (embang.state/add-predict $state
+                       (ret nil (anglican.state/add-predict $state
                                                         '(foo) A))))
                    $state))))))
 
@@ -221,7 +221,7 @@
     (testing "cps-of-sample"
       (is (= (cps-of-sample '((foo 2)) 'ret)
              '(foo (fn arg [A $state]
-                     (embang.trap/->sample 'S A ret $state))
+                     (anglican.trap/->sample 'S A ret $state))
                    $state
                    2))
           "compound sample"))))
@@ -230,7 +230,7 @@
   (binding [*gensym* symbol]
     (testing "cps-of-observe"
       (is (= (cps-of-observe '((normal 1 1) 2) 'ret)
-             '(embang.trap/->observe 'O (normal 1 1) 2 ret $state))
+             '(anglican.trap/->observe 'O (normal 1 1) 2 ret $state))
           "simple observe"))))
 
 (deftest test-mem-cps
@@ -239,14 +239,14 @@
       (is (= (mem-cps '((fn [x] x)))
              '(let [M (gensym "M")]
                 (fn mem [C $state & P]
-                  (if (embang.state/in-mem? $state M P)
+                  (if (anglican.state/in-mem? $state M P)
                     (fn []
-                      (C (embang.state/get-mem $state M P) $state))
+                      (C (anglican.state/get-mem $state M P) $state))
                     (clojure.core/apply
                       (fn fn [C $state x] (fn [] (C x $state)))
                       (fn set-mem [V $state]
                         (fn []
-                          (C V (embang.state/set-mem $state
+                          (C V (anglican.state/set-mem $state
                                                      M P V))))
                       $state
                       P)))))
@@ -254,15 +254,15 @@
           (is (= (mem-cps '((fn foo [x] x)))
                  '(let [M (gensym "M")]
                     (fn foo [C $state & P]
-                      (if (embang.state/in-mem? $state M P)
+                      (if (anglican.state/in-mem? $state M P)
                         (fn []
-                          (C (embang.state/get-mem $state M P)
+                          (C (anglican.state/get-mem $state M P)
                              $state))
                         (clojure.core/apply
                           (fn fn [C $state x] (fn [] (C x $state)))
                           (fn set-mem [V $state]
                             (fn []
-                              (C V (embang.state/set-mem $state
+                              (C V (anglican.state/set-mem $state
                                                          M P V))))
                           $state
                           P)))))
@@ -270,14 +270,14 @@
       (is (= (mem-cps '(foo))
              '(let [M (gensym "M")]
                 (fn mem [C $state & P]
-                  (if (embang.state/in-mem? $state M P)
+                  (if (anglican.state/in-mem? $state M P)
                     (fn []
-                      (C (embang.state/get-mem $state M P) $state))
+                      (C (anglican.state/get-mem $state M P) $state))
                     (clojure.core/apply
                       foo
                       (fn set-mem [V $state]
                         (fn []
-                          (C V (embang.state/set-mem $state
+                          (C V (anglican.state/set-mem $state
                                                      M P V))))
                       $state
                       P)))))
@@ -288,17 +288,17 @@
     (testing "cps-of-retrieve"
       (is (= (cps-of-retrieve [:a] 'ret)
              '(fn []
-                (ret (embang.state/retrieve $state :a) $state)))
+                (ret (anglican.state/retrieve $state :a) $state)))
           "retrieve"))
     (testing "cps-of-store"
       (is (= (cps-of-store [1] 'ret)
              '(fn []
-                (ret 1 (embang.state/store $state 1))))
+                (ret 1 (anglican.state/store $state 1))))
           "simple store")
       (is (= (cps-of-store [:a '(foo)] 'ret)
              '(foo (fn arg [A $state]
                        (fn []
-                         (ret A (embang.state/store $state :a A))))
+                         (ret A (anglican.state/store $state :a A))))
                      $state))
           "compound store"))))
 

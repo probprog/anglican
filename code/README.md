@@ -1,12 +1,12 @@
-# __m!__
+# anglican
 
-_embang_, or __m!__, is a probabilistic programming system
+anglican is a probabilistic programming system
 implemented in Clojure, both the programming environment and
-the language. [Introduction to __m!__](doc/intro.md) explains
-how to write and run programs in __m!__.
+the language. [Introduction to anglican](doc/intro.md) explains
+how to write and run programs in anglican.
 
 Everyone is welcome to write programs which call inference,
-as well as to extend __m!__ with new algorithms,
+as well as to extend anglican with new algorithms,
 propose changes, and fix bugs. Consult the [developer
 guide](doc/devel.md) for details.
 

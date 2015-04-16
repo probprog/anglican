@@ -1,6 +1,6 @@
-(ns embang.xlat-test
+(ns anglican.xlat-test
   (:require [clojure.test :refer [deftest testing is]])
-  (:use embang.xlat))
+  (:use anglican.xlat))
 
 (deftest test-elist
   (testing "elist"
