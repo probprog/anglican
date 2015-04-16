@@ -39,9 +39,9 @@
   (update-in state [::predicts] conj [label value]))
 
 (defn get-predicts
-  "get collected predicts"
+  "returns collected predicts as an array map"
   [state]
-  (state ::predicts))
+  (reduce conj (array-map) (reverse (state ::predicts))))
 
 (defn clear-predicts
   "clear predicts"
