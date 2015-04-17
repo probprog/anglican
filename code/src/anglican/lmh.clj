@@ -138,6 +138,15 @@
      (get-log-retained-probability state)
      (- (Math/log (count (state ::trace))))))
 
+(defn correct-log-weight
+  "corrects log weight of a sample, setting it to 0
+  if the sample is in the support, -Infinity otherwise"
+  [state]
+  (let [log-weight (get-log-weight state)
+        corrected-log-weight (if (> log-weight (/ -1. 0.))
+                               0. (/ -1. 0.))]
+    (set-log-weight state corrected-log-weight)))
+
 (defmethod infer :lmh [_ prog value & {}]
   (letfn
     [(sample-seq [state]
@@ -155,12 +164,14 @@
                             (Math/log (rand)))
                        next-state
                        state)]
-           ;; Include the selected state into the sequence of samples,
-           ;; setting the weight to the unit weight.
-           (cons (set-log-weight state 0.) (sample-seq state)))))]
+           ;; Include the selected state into the sequence of
+           ;; samples, setting the weight to the unit weight if the
+           ;; sample is in the support of the target distribution,
+           ;; -Infinity otherwise.
+           (cons (correct-log-weight state) (sample-seq state)))))]
 
     (let [state (:state (exec ::algorithm prog value initial-state))]
       (if (seq (state ::trace))
         (sample-seq state)
         ;; No randomness in the program.
-        (repeat (set-log-weight state 0.))))))
+        (repeat (correct-log-weight state))))))

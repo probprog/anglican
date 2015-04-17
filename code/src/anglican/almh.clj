@@ -303,7 +303,7 @@
 
                ;; Include the selected state into the sequence of
                ;; samples, setting the weight to the unit weight.
-               sample (set-log-weight state 0.)
+               sample (correct-log-weight state)
                ;; Optionally, add rewards and counts to predicts.
                sample (if predict-choices
                         (add-choice-predicts sample)
@@ -317,4 +317,4 @@
       (if (seq (get-trace state))
         (sample-seq state)
         ;; No randomness in the program
-        (repeat (set-log-weight state 0.))))))
+        (repeat (correct-log-weight state))))))
