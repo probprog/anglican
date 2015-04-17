@@ -1,7 +1,7 @@
 (ns pdia
   (:require [clojure.string :as str :refer [join]]
             [clojure.java.io :as io])
-  (:use [embang emit runtime]
+  (:use [anglican emit runtime]
         [anglib crp]))
 
 (defn read-data

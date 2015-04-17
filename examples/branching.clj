@@ -1,5 +1,5 @@
 (ns branching
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 ;;; Simple branching
 

@@ -1,5 +1,5 @@
 (ns nomap
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 (defanglican nomap
  [assume foo (lambda ()

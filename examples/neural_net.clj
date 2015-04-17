@@ -1,5 +1,5 @@
 (ns neural-net
-  (use [embang runtime emit]))
+  (use [anglican runtime emit]))
 
 ; Define activation function
 (defun activate-sigmoid (v) (- (/ 2 (+ 1 (exp (* -10 (+ v -0.5))))) 1))

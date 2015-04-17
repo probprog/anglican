@@ -1,5 +1,5 @@
 (ns logi
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 ;;; Logistic regression
 

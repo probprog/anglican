@@ -1,5 +1,5 @@
 (ns fred
-  (use (embang runtime emit)))
+  (use (anglican runtime emit)))
 
 ;;; Is Fred guilty? Expanded and then counting version.
 

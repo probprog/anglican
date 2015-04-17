@@ -1,5 +1,5 @@
 (ns gp
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 ;;; Gaussian process example
 

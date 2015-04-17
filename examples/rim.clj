@@ -1,5 +1,5 @@
 (ns rim
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 ;;; Anglican example from fwood/anglican issue #134
 (defanglican rim
