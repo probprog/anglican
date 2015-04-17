@@ -156,8 +156,11 @@
                        next-state
                        state)]
            ;; Include the selected state into the sequence of samples,
-           ;; setting the weight to the unit weight.
-           (cons (set-log-weight state 0.) (sample-seq state)))))]
+           ;; setting the weight to the unit weight if the sample is in the support
+           ;; of the target distribution, -Infinity otherwise.
+           (let [log-weight (get-log-weight state)
+                 corrected-log-weight (if (> log-weight (/ -1. 0.) 0. (/ -1. 0.)))]
+              (cons (set-log-weight state corrected-log-weight) (sample-seq state))))))]
 
     (let [state (:state (exec ::algorithm prog value initial-state))]
       (if (seq (state ::trace))
