@@ -52,11 +52,11 @@
                  [state (rest next-states)])]
            ;; Include the selected state into the sequence of
            ;; samples, setting the weight to the unit weight.
-           (cons (set-log-weight state 0.)
+           (cons (correct-log-weight state)
                  (sample-seq state next-states)))))]
 
     (let [state (:state (exec ::algorithm prog value initial-state))]
       (if (seq (get-trace state))
         (sample-seq state (next-seq state))
         ;; No randomness in the program.
-        (repeat (set-log-weight state 0.))))))
+        (repeat (correct-log-weight state))))))
