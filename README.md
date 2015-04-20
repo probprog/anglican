@@ -10,7 +10,7 @@ returning continuation, along with auxiliary information.
 Development [news are in the wiki](https://bitbucket.org/dtolpin/anglican/wiki).
 
 The implementation, documentation, and examples are in the
-leiningen project tree rooted at [`code`](https://bitbucket.org/dtolpin/embang/src/HEAD/code/).
+leiningen project tree rooted at [`code`](https://bitbucket.org/dtolpin/anglican/src/HEAD/code/).
 
 ## License
 
