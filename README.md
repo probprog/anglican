@@ -1,4 +1,4 @@
-# Embedded Anglican
+# Anglican
 
 [We](https://bitbucket.org/dtolpin/anglican/wiki/Contributors) have re-implemented Anglican as an embedded language. An
 Anglican program is translated into Clojure through a Clojure
