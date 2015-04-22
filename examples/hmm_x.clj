@@ -1,5 +1,5 @@
 (ns hmm-x
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 ;;; HMM
 

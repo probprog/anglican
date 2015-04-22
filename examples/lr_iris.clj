@@ -1,6 +1,6 @@
 (ns lr-iris
   (:require [clojure.core.matrix :refer [dot]])
-  (:use [embang runtime emit]
+  (:use [anglican runtime emit]
         [anglib iris-data]))
 
 (def iris-data-setosa (filter #(= (last %) :setosa) iris-data))

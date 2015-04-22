@@ -1,5 +1,5 @@
 (ns dpmem
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 ;; Implementation of DPmem from
 ;;   http://www.robots.ox.ac.uk/~fwood/anglican/examples/dp_mixture_model/index.html

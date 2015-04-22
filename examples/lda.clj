@@ -1,5 +1,5 @@
 (ns lda
-  (:use [embang emit runtime]
+  (:use [anglican emit runtime]
         psychreview-data))
 
 (defm subset 

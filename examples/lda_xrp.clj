@@ -1,5 +1,5 @@
 (ns lda-xrp
-  (:use [embang emit runtime]
+  (:use [anglican emit runtime]
         [anglib xrp]
         lda))
 

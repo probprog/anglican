@@ -1,5 +1,5 @@
 (ns aircraft
-  (:use [embang emit runtime]))
+  (:use [anglican emit runtime]))
 
 (defanglican aircraft
   ; Radar tracking model inspired by the aircraft example in BLOG.

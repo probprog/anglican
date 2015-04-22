@@ -7,7 +7,7 @@
 ;; @@
 (ns aircraft
   (:use [mrepl core]
-        [embang runtime emit]
+        [anglican runtime emit]
         [gorilla-plot.core :only [compose list-plot histogram]]))
 ;; @@
 ;; =>

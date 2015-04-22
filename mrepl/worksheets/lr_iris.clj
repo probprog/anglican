@@ -10,7 +10,7 @@
   (:require [clojure.core.matrix :refer [dot]])
   (:require [gorilla-plot.core :as plot])
   (:use [mrepl core]
-        [embang runtime emit]
+        [anglican runtime emit]
         [anglib iris-data]))
 ;; @@
 ;; =>
