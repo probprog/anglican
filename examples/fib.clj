@@ -1,5 +1,5 @@
 (ns fib
-  (:use [embang runtime emit]))
+  (:use [anglican runtime emit]))
 
 (defquery fib 
   "computes arbitrarily large fibonacci numbers,

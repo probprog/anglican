@@ -1,5 +1,5 @@
 (ns particle-filter
-  (:use [embang runtime emit]))
+  (:use [anglican runtime emit]))
 
 ;; Example to run with pfilter.
 

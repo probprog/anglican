@@ -1,5 +1,5 @@
 (ns dp-church
-  (:use [embang emit runtime])
+  (:use [anglican emit runtime])
   (:use dpmem)                       ; DPmem via stick breaking
   (:require [anglib.crp :as crp]))   ; DPmem via crp
 

@@ -6,7 +6,7 @@
             ;; it on demand during inference. In Particle Cascade this
             ;; causes transient failures to find :vectorz.
             mikera.vectorz.core)
-  (:use [embang runtime emit]))
+  (:use [anglican runtime emit]))
   
 ;; generative model
 ;;

@@ -1,5 +1,5 @@
 (ns tworoads
-  (:use [embang runtime emit]))
+  (:use [anglican runtime emit]))
 
 (def wc 0.5)
 (def w1 0.4)

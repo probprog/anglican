@@ -8,6 +8,7 @@
   "X.Y.Z"] (with a recent version instead of "X.Y.Z") into your project.
 
 * Proposing patches:
+
   1. [Fork Anglican](https://bitbucket.org/dtolpin/anglican/fork).
   1. Make changes in the fork. The [code map](codemap.md)
      explains the source tree layout and module contents.
