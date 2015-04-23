@@ -88,7 +88,7 @@ embedded Anglican program to run, for example:
     anglican.core=> (m! -a pgibbs -n 500 -o \":number-of-particles 50\"
                       anglib.branching)
 
-`program' is the first argument of `defanglican'. The namespace
+`program' is the first argument of `defquery'. The namespace
 may contain multiple programs. If `program' is omitted, it defaults
 to the last component of the namespace (hmm for anglican.hmm,
 logi for anglican.logi).
