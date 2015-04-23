@@ -82,10 +82,10 @@ from the command line, or:
 in the REPL, where `namespace' is the namespace containing the
 embedded Anglican program to run, for example:
 
-    bash$ lein run anglib.branching -a gibbs -n 500 \\
+    bash$ lein run anglib.branching -a pgibbs -n 500 \\
                -o \":number-of-particles 50\"
 
-    anglican.core=> (m! -a gibbs -n 500 -o \":number-of-particles 50\"
+    anglican.core=> (m! -a pgibbs -n 500 -o \":number-of-particles 50\"
                       anglib.branching)
 
 `program' is the first argument of `defanglican'. The namespace
