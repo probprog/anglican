@@ -1,7 +1,6 @@
 (ns anglican.pgas
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require [anglican.lmh :as lmh]
-            [anglican.smc :as smc :refer [sweep]]
+  (:require [anglican.smc :as smc :refer [sweep]]
             [anglican.runtime :refer [sample observe discrete exp]])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference))
@@ -15,7 +14,7 @@
 ;;; Initial State
 
 (def initial-state
-  "initial state for LMH"
+  "initial state for PGAS"
   (into anglican.state/initial-state
         ;; The state is extended by the trace ---
         ;; the vector of current random choices,
