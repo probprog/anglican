@@ -171,7 +171,7 @@
   (cern.jet.stat.Gamma/logGamma x))
 
 (defdist dirichlet
-  "Diriclhet distribution"
+  "Dirichlet distribution"
   ;; borrowed from Anglican runtime
   [alpha] [Z (delay (- (reduce + (map log-gamma-fn alpha))
                        (log-gamma-fn (reduce + alpha))))]
