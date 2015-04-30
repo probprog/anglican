@@ -197,7 +197,23 @@
                        false (- 1. p)
                        0.))))
 
-(from-colt gamma [shape rate] double)
+(defdist gamma
+  "Gamma distribution, parameterized by shape and rate"
+  [shape rate]
+  [dist (cern.jet.random.Gamma. shape rate RNG)
+   Z (delay (- (cern.jet.stat.Gamma/logGamma shape)
+               (* shape (log rate))))]
+  (sample [this] (.nextDouble dist))
+  (observe [this value]
+           ;;       shape  shape - 1
+           ;;     rate    x
+           ;; log --------------------
+           ;;      rate x
+           ;;     e       Gamma(shape)
+           (- (* (- shape 1.) (log value))
+              (* rate value)
+              @Z)))
+
 (from-colt normal [mean sd] double)
 (from-colt poisson [lambda] int)
 (from-colt uniform-continuous [min max] double
