@@ -268,27 +268,71 @@
                       (log-gamma-fn (- a (* 0.5 j))))
                     (range p)))))
 
+(defn create-matrix
+  "creates a matrix, elements of which are initialised using the filler procedure"
+  [rows columns filler]
+  (m/reshape
+    (for [r (range rows) c (range columns)]
+      (filler r c))
+    [rows columns]))
+
+(defdist continuous-chi-squared
+  "Chi-squared distribution with continuous parameter nu"
+  [nu]
+  [
+   ; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
+   ; In Colt library Gamma is parametrised in its second argument
+   ; by rate, where scale = 1 / rate.
+   gamma-dist (gamma (* nu 0.5) 0.5)]
+  (sample [this]
+          (sample gamma-dist))
+  (observe [this value]
+           (+
+            (* (- (* nu 0.5) 1) (log value))
+            (* -0.5 value)
+            (* -0.5 nu (log 2))
+            (* -1.0 (log-gamma-fn (* 0.5 nu))))))
+
 (defdist wishart
   "Wishart distribution"
-  ;; http://en.wikipedia.org/wiki/Wishart_distribution
-  [n V] [p (first (m/shape V))
-         L (:L (ml/cholesky (m/matrix V)))
-         unit-normal (normal 0 1)
-         Z (delay (+ (* 0.5 n p (Math/log 2))
-                     (* 0.5 n (Math/log (m/det V)))
-                     (log-mv-gamma-fn p (* 0.5 n))))
-         transform-sample
-         (fn [samples]
-           (let [X (m/mmul L (m/reshape samples [p n]))]
-             (m/mmul X (m/transpose X))))]
-  (sample [this] (transform-sample
-                   (repeatedly (* n p) #(sample unit-normal))))
+  [n V]
+  [p (first (m/shape V))
+   L (:L (ml/cholesky (m/matrix V)))
+   unit-normal (normal 0 1)
+   ; Sample from Chi-squared distribution
+   ; with the help of Gamma distribution.
+   ; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
+   continuous-chi-squared-wrapper
+   (memoize
+    (fn
+      [chi-squared-nu]
+      (continuous-chi-squared chi-squared-nu)))
+   ; For Bartlett decomposition
+   ; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
+   wishart-filler
+   (fn
+     [row column]
+     (if (= row column)
+       ; (inc row) below since indexing start from 0.
+       (sqrt (sample (continuous-chi-squared-wrapper (+ (- n (inc row)) 1))))
+       (if (> row column)
+         (sample unit-normal)
+         0.0)))
+   Z (delay (+ (* 0.5 n p (Math/log 2))
+               (* 0.5 n (Math/log (m/det V)))
+               (log-mv-gamma-fn p (* 0.5 n))))]
+  (sample [this]
+          ; Bartlett decomposition
+          ; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
+          ; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
+          (let
+            [A (create-matrix p p wishart-filler)
+             LA (m/mmul L A)]
+            (m/mmul LA (m/transpose LA))))
   (observe [this value]
            (- (* 0.5 (- n p 1) (Math/log (m/det value)))
               (* 0.5 (m/trace (m/mmul (m/inverse (m/matrix V)) value)))
-              @Z))
-  multivariate-distribution
-  (transform-sample [this samples] (transform-sample samples)))
+              @Z)))
 
 ;;; Random processes
 

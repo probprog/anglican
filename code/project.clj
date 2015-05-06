@@ -9,6 +9,7 @@
                  [com.taoensso/timbre "3.4.0"]
                  [colt "1.2.0"]
                  [net.mikera/core.matrix "0.33.2"]
+                 [net.mikera/core.matrix.stats "0.5.0"]
                  [net.mikera/vectorz-clj "0.29.0"]]
   :plugins [[codox "0.8.11"]]
   :scm {:name "git"
