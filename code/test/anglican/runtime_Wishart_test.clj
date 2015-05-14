@@ -51,8 +51,7 @@
          (* n
             (+ (Math/pow (m/mget V row column) 2.0)
                (* (m/mget V row row)
-                  (m/mget V column column))
-               )))]
+                  (m/mget V column column)))))]
     (create-matrix p p variance-matrix-filler)))
 
 (defn Wishart-mean-test-helper
