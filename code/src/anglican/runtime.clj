@@ -306,7 +306,7 @@
    ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
    chi-squared-dists
    (delay
-    (map
+    (mapv
      ;; (inc index) below since indexing starts from 0.
      (fn [index] (chi-squared (+ n (- (inc index)) 1)))
      (range 0 p)))
