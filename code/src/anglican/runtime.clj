@@ -322,12 +322,10 @@
           (let
             [A (gen-matrix
                 (fn [row column]
-                  (if (= row column)
-                    (sqrt
-                     (sample (get @chi-squared-dists row)))
-                    (if (> row column)
-                      (sample unit-normal)
-                      0.0)))
+                  (cond
+                   (= row column) (sqrt (sample (get @chi-squared-dists row)))
+                   (> row column) (sample unit-normal)
+                   :else  0.0))
                 p p)
              LA (m/mmul L A)]
             (m/mmul LA (m/transpose LA))))
