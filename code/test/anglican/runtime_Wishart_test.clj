@@ -10,7 +10,6 @@
                        add madd
                        sub msub
                        transpose mtranspose}]
-            [anglican.runtime :refer [log-gamma-fn defproc]]
             [clojure.core.matrix.linear :as ml])
   (:use anglican.runtime))
 
