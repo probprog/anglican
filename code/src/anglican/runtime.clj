@@ -307,8 +307,8 @@
    chi-squared-dists
    (delay
     (mapv
-     ;; (inc index) below since indexing starts from 0.
-     (fn [index] (chi-squared (+ n (- (inc index)) 1)))
+     ;; (+ index 1) below since indexing starts from 0.
+     (fn [index] (chi-squared (+ n (- (+ index 1)) 1)))
      (range 0 p)))
    ;; For Bartlett decomposition
    ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
