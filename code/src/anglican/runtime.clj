@@ -273,7 +273,8 @@
   using the filler procedure"
   [f rows columns]
   (m/reshape
-    (for [r (range rows) c (range columns)]
+    (for [r (range rows)
+          c (range columns)]
       (f r c))
     [rows columns]))
 
