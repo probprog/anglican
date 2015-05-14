@@ -271,7 +271,7 @@
 (defn create-matrix
   "creates a matrix, elements of which are initialised
   using the filler procedure"
-  [rows columns filler]
+  [filler rows columns]
   (m/reshape
     (for [r (range rows) c (range columns)]
       (filler r c))
@@ -328,7 +328,7 @@
           ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
           ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
           (let
-            [A (create-matrix p p wishart-filler)
+            [A (create-matrix wishart-filler p p)
              LA (m/mmul L A)]
             (m/mmul LA (m/transpose LA))))
   (observe [this value]
