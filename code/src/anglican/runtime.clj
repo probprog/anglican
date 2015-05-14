@@ -314,7 +314,12 @@
    ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
    Z (delay (+ (* 0.5 n p (Math/log 2))
                (* 0.5 n (Math/log (m/det V)))
-               (log-mv-gamma-fn p (* 0.5 n))))]
+               (log-mv-gamma-fn p (* 0.5 n))))
+   transform-sample
+   (fn [A]
+     (let
+       [LA (m/mmul L A)]
+       (m/mmul LA (m/transpose LA))))]
   (sample [this]
           ;; Bartlett decomposition
           ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
@@ -326,13 +331,14 @@
                    (= row column) (sqrt (sample (get @chi-squared-dists row)))
                    (> row column) (sample unit-normal)
                    :else 0.0))
-                p p)
-             LA (m/mmul L A)]
-            (m/mmul LA (m/transpose LA))))
+                p p)]
+            (transform-sample A)))
   (observe [this value]
            (- (* 0.5 (- n p 1) (Math/log (m/det value)))
               (* 0.5 (m/trace (m/mmul (m/inverse (m/matrix V)) value)))
-              @Z)))
+              @Z))
+  multivariate-distribution
+  (transform-sample [this A] (transform-sample A)))
 
 ;;; Random processes
 
