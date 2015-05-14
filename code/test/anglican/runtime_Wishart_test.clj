@@ -1,4 +1,4 @@
-(ns anglican.runtime-Wishart-test
+(ns anglican.runtime-wishart-test
   "Tests for the Wishart distribution
   which implementation is in anglican/runtime"
   (:require [clojure.test :refer [deftest testing is]]
@@ -14,7 +14,7 @@
             [clojure.core.matrix.linear :as ml])
   (:use anglican.runtime))
 
-(defn sample-from-Wishart
+(defn sample-from-wishart
   "produces samples from the Wishart distribution"
   [n V number-of-samples]
   (let
@@ -23,24 +23,24 @@
      number-of-samples
      (fn [] (sample distribution-instance)))))
 
-(defn get-empirical-mean-for-Wishart
+(defn get-empirical-mean-for-wishart
   "returns an empirical mean for requested number
   of samples from the Wishart distribution"
   [n V number-of-samples]
-  (matrix-stats/mean (sample-from-Wishart n V number-of-samples)))
+  (matrix-stats/mean (sample-from-wishart n V number-of-samples)))
 
-(defn get-empirical-variance-for-Wishart
+(defn get-empirical-variance-for-wishart
   "returns a matrix of variances for requested number
   of samples from the Wishart distribution"
   [n V number-of-samples]
-  (matrix-stats/variance (sample-from-Wishart n V number-of-samples)))
+  (matrix-stats/variance (sample-from-wishart n V number-of-samples)))
 
-(defn get-theoretical-mean-for-Wishart
+(defn get-theoretical-mean-for-wishart
   "returns an theoretical mean for the Wishart distribution"
   [n V]
   (m/mul n V))
 
-(defn get-theoretical-variance-for-Wishart
+(defn get-theoretical-variance-for-wishart
   "returns a theoretical value of a matrix
   of variances for the Wishart distribution"
   [n V]
@@ -54,39 +54,39 @@
                   (m/mget V column column)))))]
     (create-matrix p p variance-matrix-filler)))
 
-(defn Wishart-mean-test-helper
+(defn wishart-mean-test-helper
   "a helper function to calculate the maximum absolute error
   between theoretical and empirical means"
   [n V number-of-samples]
   (m/emax
    (m/abs
     (m/sub
-     (get-empirical-mean-for-Wishart n V number-of-samples)
-     (get-theoretical-mean-for-Wishart n V)))))
+     (get-empirical-mean-for-wishart n V number-of-samples)
+     (get-theoretical-mean-for-wishart n V)))))
 
-(defn Wishart-variance-test-helper
+(defn wishart-variance-test-helper
   "a helper function to calculate the maximum absolute error
   between theoretical and empirical variances"
   [n V number-of-samples]
   (m/emax
    (m/abs
     (m/sub
-     (get-empirical-variance-for-Wishart n V number-of-samples)
-     (get-theoretical-variance-for-Wishart n V)))))
+     (get-empirical-variance-for-wishart n V number-of-samples)
+     (get-theoretical-variance-for-wishart n V)))))
 
-(defn Wishart-mean-test-assertion
+(defn wishart-mean-test-assertion
   "a boolean assertion inequality
   for the mean of the Wishart distribution"
   [n V number-of-samples threshold]
-  (< (Wishart-mean-test-helper n V number-of-samples) threshold))
+  (< (wishart-mean-test-helper n V number-of-samples) threshold))
 
-(defn Wishart-variance-test-assertion
+(defn wishart-variance-test-assertion
   "a boolean assertion inequality
   for the variance of the Wishart distribution"
   [n V number-of-samples threshold]
-  (< (Wishart-variance-test-helper n V number-of-samples) threshold))
+  (< (wishart-variance-test-helper n V number-of-samples) threshold))
 
-(defn Wishart-lnpdf-test-assertion
+(defn wishart-lnpdf-test-assertion
   "a boolean assertion inequality
   for the lnpdf of the Wishart distribution"
   [n V x value threshold]
@@ -95,26 +95,26 @@
 ;; a function wishpdfln and an utility function logmvgamma
 ;; are provided in /resources/matlab/wishart/
 
-(deftest test-Wishart-observe
+(deftest test-wishart-observe
   (testing "Wishart lnpdf (observe). Deterministic test."
     (let [dist (uniform-discrete 0 3)]
 
       ;; wishpdfln([1 0 ; 0 1], 3.5, [ 0.7 0 ; 0 0.07 ]) = -5.3950
-      (is (Wishart-lnpdf-test-assertion 3.5
+      (is (wishart-lnpdf-test-assertion 3.5
                                         [[0.7 0] [0 0.07]]
                                         [[1.0 0.0] [0.0 1.0]]
                                         -5.3950
                                         0.001))
 
       ;; wishpdfln([3.1 -0.3; -0.3 11.0], 7.5, [ 3 2 ; 2 7 ]) = -12.5273
-      (is (Wishart-lnpdf-test-assertion 7.5
+      (is (wishart-lnpdf-test-assertion 7.5
                                         [[3 2] [2 7]]
                                         [[3.1 -0.3]
                                          [-0.3 11.0]]
                                         -12.5273
                                         0.001)))))
 
-(deftest test-Wishart-sample
+(deftest test-wishart-sample
   ;; Nota bene. These tests are very approximate.
   ;;            They are not statistical tests.
   ;;            Threshold are selected by hand and very rough.
@@ -127,9 +127,9 @@
       (let
         [n 10
          V [[0.7 0] [0 0.07]]]
-        (is (Wishart-mean-test-assertion
+        (is (wishart-mean-test-assertion
              n V number-of-samples 0.3))
-        (is (Wishart-variance-test-assertion
+        (is (wishart-variance-test-assertion
              n V number-of-samples 3.0)))
 
       (let
@@ -137,9 +137,9 @@
         (let
           [n 5
            V [[0.7 0] [0 0.07]]]
-          (is (Wishart-mean-test-assertion
+          (is (wishart-mean-test-assertion
                n V number-of-samples 0.03))
-          (is (Wishart-variance-test-assertion
+          (is (wishart-variance-test-assertion
                n V number-of-samples 0.3))))
 
       (let
@@ -147,9 +147,9 @@
         (let
           [n 5.5
            V [[0.7 0] [0 0.07]]]
-          (is (Wishart-mean-test-assertion
+          (is (wishart-mean-test-assertion
                n V number-of-samples 0.03))
-          (is (Wishart-variance-test-assertion
+          (is (wishart-variance-test-assertion
                n V number-of-samples 0.3))))
 
       (let
@@ -157,7 +157,7 @@
         (let
           [n 3.5
            V [[3 2] [2 7]]]
-          (is (Wishart-mean-test-assertion
+          (is (wishart-mean-test-assertion
                n V number-of-samples 1.5))
-          (is (Wishart-variance-test-assertion
+          (is (wishart-variance-test-assertion
                n V number-of-samples 15.0)))))))
