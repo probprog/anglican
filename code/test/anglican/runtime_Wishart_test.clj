@@ -45,14 +45,14 @@
   of variances for the Wishart distribution"
   [n V]
   (let
-    [p (first (m/shape V))
-     variance-matrix-filler
-       (fn [row column]
-         (* n
-            (+ (Math/pow (m/mget V row column) 2.0)
-               (* (m/mget V row row)
-                  (m/mget V column column)))))]
-    (create-matrix p p variance-matrix-filler)))
+    [p (first (m/shape V))]
+    (gen-matrix
+     (fn [row column]
+       (* n
+          (+ (Math/pow (m/mget V row column) 2.0)
+             (* (m/mget V row row)
+                (m/mget V column column)))))
+     p p)))
 
 (defn wishart-mean-test-helper
   "a helper function to calculate the maximum absolute error
