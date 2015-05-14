@@ -271,10 +271,10 @@
 (defn gen-matrix
   "creates a matrix, elements of which are initialised
   using the filler procedure"
-  [filler rows columns]
+  [f rows columns]
   (m/reshape
     (for [r (range rows) c (range columns)]
-      (filler r c))
+      (f r c))
     [rows columns]))
 
 (defdist chi-squared
