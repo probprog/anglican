@@ -1,4 +1,6 @@
 (ns anglican.runtime-Wishart-test
+  "Tests for the Wishart distribution
+  which implementation is in anglican/runtime"
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.core.matrix.stats :as matrix-stats]
             [clojure.core.matrix :as m]
