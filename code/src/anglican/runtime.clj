@@ -289,11 +289,7 @@
   (sample [this]
           (sample gamma-dist))
   (observe [this value]
-           (+
-            (* (- (* nu 0.5) 1) (log value))
-            (* -0.5 value)
-            (* -0.5 nu (log 2))
-            (* -1.0 (log-gamma-fn (* 0.5 nu))))))
+           (observe gamma-dist value)))
 
 (defdist wishart
   "Wishart distribution"
