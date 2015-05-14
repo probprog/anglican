@@ -13,30 +13,30 @@
   (:use anglican.runtime))
 
 (defn sample-from-Wishart
-  [n V number-of-samples]
   "produces samples from the Wishart distribution"
+  [n V number-of-samples]
   (let
     [distribution-instance (wishart n V)]
     (repeatedly number-of-samples (fn [] (sample distribution-instance)))))
 
 (defn get-empirical-mean-for-Wishart
-  [n V number-of-samples]
   "returns an empirical mean for requested number of samples from the Wishart distribution"
+  [n V number-of-samples]
   (matrix-stats/mean (sample-from-Wishart n V number-of-samples)))
 
 (defn get-empirical-variance-for-Wishart
-  [n V number-of-samples]
   "returns a matrix of variances for requested number of samples from the Wishart distribution"
+  [n V number-of-samples]
   (matrix-stats/variance (sample-from-Wishart n V number-of-samples)))
 
 (defn get-theoretical-mean-for-Wishart
-  [n V]
   "returns an theoretical mean for the Wishart distribution"
+  [n V]
   (m/mul n V))
 
 (defn get-theoretical-variance-for-Wishart
-  [n V]
   "returns a theoretical value of a matrix of variances for the Wishart distribution"
+  [n V]
   (let
     [p (first (m/shape V))
      variance-matrix-filler
@@ -49,8 +49,8 @@
     (create-matrix p p variance-matrix-filler)))
 
 (defn Wishart-mean-test-helper
-  [n V number-of-samples]
   "a helper function to calculate the maximum absolute error between theoretical and empirical means"
+  [n V number-of-samples]
   (m/emax
    (m/abs
     (m/sub
@@ -58,8 +58,8 @@
      (get-theoretical-mean-for-Wishart n V)))))
 
 (defn Wishart-variance-test-helper
-  [n V number-of-samples]
   "a helper function to calculate the maximum absolute error between theoretical and empirical variances"
+  [n V number-of-samples]
   (m/emax
    (m/abs
     (m/sub
