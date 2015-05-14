@@ -46,3 +46,7 @@
                            original Anglican syntax; crp-based DPmem
         iris_data.clj  --- Ronald Fisher\'s Iris dataset
         beaver.clj     --- Beaver activity datasets
+
+      resources/
+        matlab/        --- MATLAB code to check pdf for some distributions.
+        
