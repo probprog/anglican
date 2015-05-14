@@ -270,7 +270,7 @@
 
 (defn gen-matrix
   "creates a matrix, elements of which are initialised
-  using the filler procedure"
+  using the filler procedure f"
   [f rows columns]
   (m/reshape
     (for [r (range rows)
