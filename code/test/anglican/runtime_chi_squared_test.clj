@@ -76,13 +76,13 @@
 (deftest test-chi-squared-observe
   (testing "Chi-squared lnpdf (observe). Deterministic test."
     ;; scipy.stats.chi2.pdf(1.0, 3.5) = 0.1962028031081274
-    (is (chi-squared-lnpdf-test-assertion 3.5 1.0 0.1962028031081274 0.001))
+    (is (chi-squared-lnpdf-test-assertion 3.5 1.0 (Math/log 0.1962028031081274) 0.001))
 
     ;; scipy.stats.chi2.pdf(5.31, 3.5) = 0.079546575897983585
-    (is (chi-squared-lnpdf-test-assertion 3.5 5.31 0.079546575897983585 0.001))
+    (is (chi-squared-lnpdf-test-assertion 3.5 5.31 (Math/log 0.079546575897983585) 0.001))
 
     ;; scipy.stats.chi2.pdf(5.31, 5.5) = 0.12068351943379794
-    (is (chi-squared-lnpdf-test-assertion 5.5 5.31 0.12068351943379794 0.001))))
+    (is (chi-squared-lnpdf-test-assertion 5.5 5.31 (Math/log 0.12068351943379794) 0.001))))
 
 (deftest test-chi-squared-sample
   ;; Nota bene. These tests are very approximate.
