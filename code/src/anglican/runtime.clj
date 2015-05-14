@@ -277,8 +277,8 @@
       (filler r c))
     [rows columns]))
 
-(defdist continuous-chi-squared
-  "Chi-squared distribution with continuous parameter nu"
+(defdist chi-squared
+  "Chi-squared distribution"
   [nu]
   [
    ;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
@@ -303,11 +303,11 @@
    ;; Sample from Chi-squared distribution
    ;; with the help of Gamma distribution.
    ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
-   continuous-chi-squared-wrapper
+   chi-squared-wrapper
    (memoize
     (fn
       [chi-squared-nu]
-      (continuous-chi-squared chi-squared-nu)))
+      (chi-squared chi-squared-nu)))
    ;; For Bartlett decomposition
    ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
    wishart-filler
@@ -316,7 +316,7 @@
      (if (= row column)
        ;; (inc row) below since indexing start from 0.
        (sqrt
-        (sample (continuous-chi-squared-wrapper(+ (- n (inc row)) 1))))
+        (sample (chi-squared-wrapper(+ (- n (inc row)) 1))))
        (if (> row column)
          (sample unit-normal)
          0.0)))
