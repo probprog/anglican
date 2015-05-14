@@ -312,15 +312,6 @@
      (range 0 p)))
    ;; For Bartlett decomposition
    ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
-   A-filler
-   (fn
-     [row column]
-     (if (= row column)
-       (sqrt
-        (sample (get @chi-squared-dists row)))
-       (if (> row column)
-         (sample unit-normal)
-         0.0)))
    Z (delay (+ (* 0.5 n p (Math/log 2))
                (* 0.5 n (Math/log (m/det V)))
                (log-mv-gamma-fn p (* 0.5 n))))]
@@ -329,7 +320,15 @@
           ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
           ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
           (let
-            [A (gen-matrix A-filler p p)
+            [A (gen-matrix
+                (fn [row column]
+                  (if (= row column)
+                    (sqrt
+                     (sample (get @chi-squared-dists row)))
+                    (if (> row column)
+                      (sample unit-normal)
+                      0.0)))
+                p p)
              LA (m/mmul L A)]
             (m/mmul LA (m/transpose LA))))
   (observe [this value]
