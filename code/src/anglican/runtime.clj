@@ -312,7 +312,7 @@
      (range 0 p)))
    ;; For Bartlett decomposition
    ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
-   wishart-filler
+   A-filler
    (fn
      [row column]
      (if (= row column)
@@ -329,7 +329,7 @@
           ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
           ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
           (let
-            [A (gen-matrix wishart-filler p p)
+            [A (gen-matrix A-filler p p)
              LA (m/mmul L A)]
             (m/mmul LA (m/transpose LA))))
   (observe [this value]
