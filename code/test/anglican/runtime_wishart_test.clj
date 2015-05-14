@@ -95,22 +95,20 @@
   ;; a function wishpdfln and an utility function logmvgamma
   ;; are provided in /resources/matlab/wishart/
   (testing "Wishart lnpdf (observe). Deterministic test."
-    (let [dist (uniform-discrete 0 3)]
+    ;; wishpdfln([1 0 ; 0 1], 3.5, [ 0.7 0 ; 0 0.07 ]) = -5.3950
+    (is (wishart-lnpdf-test-assertion 3.5
+                                      [[0.7 0] [0 0.07]]
+                                      [[1.0 0.0] [0.0 1.0]]
+                                      -5.3950
+                                      0.001))
 
-      ;; wishpdfln([1 0 ; 0 1], 3.5, [ 0.7 0 ; 0 0.07 ]) = -5.3950
-      (is (wishart-lnpdf-test-assertion 3.5
-                                        [[0.7 0] [0 0.07]]
-                                        [[1.0 0.0] [0.0 1.0]]
-                                        -5.3950
-                                        0.001))
-
-      ;; wishpdfln([3.1 -0.3; -0.3 11.0], 7.5, [ 3 2 ; 2 7 ]) = -12.5273
-      (is (wishart-lnpdf-test-assertion 7.5
-                                        [[3 2] [2 7]]
-                                        [[3.1 -0.3]
-                                         [-0.3 11.0]]
-                                        -12.5273
-                                        0.001)))))
+    ;; wishpdfln([3.1 -0.3; -0.3 11.0], 7.5, [ 3 2 ; 2 7 ]) = -12.5273
+    (is (wishart-lnpdf-test-assertion 7.5
+                                      [[3 2] [2 7]]
+                                      [[3.1 -0.3]
+                                       [-0.3 11.0]]
+                                      -12.5273
+                                      0.001))))
 
 (deftest test-wishart-sample
   ;; Nota bene. These tests are very approximate.
