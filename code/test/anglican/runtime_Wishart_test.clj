@@ -76,17 +76,20 @@
      (get-theoretical-variance-for-Wishart n V)))))
 
 (defn Wishart-mean-test-assertion
-  "a test boolean assertion on the mean of the Wishart distribution"
+  "a boolean assertion inequality
+  for the mean of the Wishart distribution"
   [n V number-of-samples threshold]
   (< (Wishart-mean-test-helper n V number-of-samples) threshold))
 
 (defn Wishart-variance-test-assertion
-  "a test boolean assertion on the variance of the Wishart distribution"
+  "a boolean assertion inequality
+  for the variance of the Wishart distribution"
   [n V number-of-samples threshold]
   (< (Wishart-variance-test-helper n V number-of-samples) threshold))
 
 (defn Wishart-lnpdf-test-assertion
-  "a test boolean assertion on the lnpdf of the Wishart distribution"
+  "a boolean assertion inequality
+  for the lnpdf of the Wishart distribution"
   [n V x value threshold]
   (< (abs (- (observe (wishart n V) x) value)) threshold))
 
