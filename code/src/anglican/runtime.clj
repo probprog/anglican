@@ -268,7 +268,7 @@
                       (log-gamma-fn (- a (* 0.5 j))))
                     (range p)))))
 
-(defn create-matrix
+(defn gen-matrix
   "creates a matrix, elements of which are initialised
   using the filler procedure"
   [filler rows columns]
@@ -328,7 +328,7 @@
           ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
           ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
           (let
-            [A (create-matrix wishart-filler p p)
+            [A (gen-matrix wishart-filler p p)
              LA (m/mmul L A)]
             (m/mmul LA (m/transpose LA))))
   (observe [this value]
