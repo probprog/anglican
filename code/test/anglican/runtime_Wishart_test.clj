@@ -92,10 +92,9 @@
   [n V x value threshold]
   (< (abs (- (observe (wishart n V) x) value)) threshold))
 
-;; a function wishpdfln and an utility function logmvgamma
-;; are provided in /resources/matlab/wishart/
-
 (deftest test-wishart-observe
+  ;; a function wishpdfln and an utility function logmvgamma
+  ;; are provided in /resources/matlab/wishart/
   (testing "Wishart lnpdf (observe). Deterministic test."
     (let [dist (uniform-discrete 0 3)]
 
