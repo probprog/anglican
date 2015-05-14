@@ -325,7 +325,7 @@
                   (cond
                    (= row column) (sqrt (sample (get @chi-squared-dists row)))
                    (> row column) (sample unit-normal)
-                   :else  0.0))
+                   :else 0.0))
                 p p)
              LA (m/mmul L A)]
             (m/mmul LA (m/transpose LA))))
