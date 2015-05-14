@@ -306,7 +306,7 @@
    chi-squared-dists
    (delay
     (map
-     ;; (inc index) below since indexing start from 0.
+     ;; (inc index) below since indexing starts from 0.
      (fn [index] (chi-squared (+ n (- (inc index)) 1)))
      (range 0 p)))
    ;; For Bartlett decomposition
