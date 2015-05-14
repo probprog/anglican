@@ -269,7 +269,8 @@
                     (range p)))))
 
 (defn create-matrix
-  "creates a matrix, elements of which are initialised using the filler procedure"
+  "creates a matrix, elements of which are initialised
+  using the filler procedure"
   [rows columns filler]
   (m/reshape
     (for [r (range rows) c (range columns)]
@@ -314,7 +315,8 @@
      [row column]
      (if (= row column)
        ; (inc row) below since indexing start from 0.
-       (sqrt (sample (continuous-chi-squared-wrapper (+ (- n (inc row)) 1))))
+       (sqrt
+        (sample (continuous-chi-squared-wrapper(+ (- n (inc row)) 1))))
        (if (> row column)
          (sample unit-normal)
          0.0)))
