@@ -95,7 +95,7 @@
 ;; a function wishpdfln and an utility function logmvgamma
 ;; are provided in /resources/matlab/wishart/
 
-(deftest test-uniform-discrete
+(deftest test-Wishart-observe
   (testing "Wishart lnpdf (observe). Deterministic test."
     (let [dist (uniform-discrete 0 3)]
 
@@ -114,7 +114,7 @@
                                         -12.5273
                                         0.001)))))
 
-(deftest test-uniform-discrete
+(deftest test-Wishart-sample
   ;; Nota bene. These tests are very approximate.
   ;;            They are not statistical tests.
   ;;            Threshold are selected by hand and very rough.
