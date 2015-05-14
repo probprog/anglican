@@ -93,21 +93,21 @@
   [n V x value threshold]
   (< (abs (- (observe (wishart n V) x) value)) threshold))
 
-; a function wishpdfln and an utility function logmvgamma
-; are provided in /test/matlab/wishart/
+;; a function wishpdfln and an utility function logmvgamma
+;; are provided in /test/matlab/wishart/
 
 (deftest test-uniform-discrete
   (testing "Wishart lnpdf (observe). Deterministic test."
     (let [dist (uniform-discrete 0 3)]
 
-      ; wishpdfln([1 0 ; 0 1], 3.5, [ 0.7 0 ; 0 0.07 ]) = -5.3950
+      ;; wishpdfln([1 0 ; 0 1], 3.5, [ 0.7 0 ; 0 0.07 ]) = -5.3950
       (is (Wishart-lnpdf-test-assertion 3.5
                                         [[0.7 0] [0 0.07]]
                                         [[1.0 0.0] [0.0 1.0]]
                                         -5.3950
                                         0.001))
 
-      ; wishpdfln([3.1 -0.3; -0.3 11.0], 7.5, [ 3 2 ; 2 7 ]) = -12.5273
+      ;; wishpdfln([3.1 -0.3; -0.3 11.0], 7.5, [ 3 2 ; 2 7 ]) = -12.5273
       (is (Wishart-lnpdf-test-assertion 7.5
                                         [[3 2] [2 7]]
                                         [[3.1 -0.3]
@@ -116,9 +116,9 @@
                                         0.001)))))
 
 (deftest test-uniform-discrete
-  ; Nota bene. These tests are very approximate.
-  ;            They are not statistical tests.
-  ;            Threshold are selected by hand and very rough.
+  ;; Nota bene. These tests are very approximate.
+  ;;            They are not statistical tests.
+  ;;            Threshold are selected by hand and very rough.
   (testing
     "Wishart sample. Stochastic test,
     passes with probability 0 < p < 1."

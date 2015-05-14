@@ -281,9 +281,9 @@
   "Chi-squared distribution with continuous parameter nu"
   [nu]
   [
-   ; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
-   ; In Colt library Gamma is parametrised in its second argument
-   ; by rate, where scale = 1 / rate.
+   ;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
+   ;; In Colt library Gamma is parametrised in its second argument
+   ;; by rate, where scale = 1 / rate.
    gamma-dist (gamma (* nu 0.5) 0.5)]
   (sample [this]
           (sample gamma-dist))
@@ -300,21 +300,21 @@
   [p (first (m/shape V))
    L (:L (ml/cholesky (m/matrix V)))
    unit-normal (normal 0 1)
-   ; Sample from Chi-squared distribution
-   ; with the help of Gamma distribution.
-   ; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
+   ;; Sample from Chi-squared distribution
+   ;; with the help of Gamma distribution.
+   ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
    continuous-chi-squared-wrapper
    (memoize
     (fn
       [chi-squared-nu]
       (continuous-chi-squared chi-squared-nu)))
-   ; For Bartlett decomposition
-   ; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
+   ;; For Bartlett decomposition
+   ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
    wishart-filler
    (fn
      [row column]
      (if (= row column)
-       ; (inc row) below since indexing start from 0.
+       ;; (inc row) below since indexing start from 0.
        (sqrt
         (sample (continuous-chi-squared-wrapper(+ (- n (inc row)) 1))))
        (if (> row column)
@@ -324,9 +324,9 @@
                (* 0.5 n (Math/log (m/det V)))
                (log-mv-gamma-fn p (* 0.5 n))))]
   (sample [this]
-          ; Bartlett decomposition
-          ; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
-          ; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
+          ;; Bartlett decomposition
+          ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
+          ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
           (let
             [A (create-matrix p p wishart-filler)
              LA (m/mmul L A)]
