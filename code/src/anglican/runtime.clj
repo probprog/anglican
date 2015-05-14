@@ -303,20 +303,20 @@
    ;; Sample from Chi-squared distribution
    ;; with the help of Gamma distribution.
    ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
-   chi-squared-wrapper
-   (memoize
-    (fn
-      [chi-squared-nu]
-      (chi-squared chi-squared-nu)))
+   chi-squared-dists
+   (delay
+    (map
+     ;; (inc index) below since indexing start from 0.
+     (fn [index] (chi-squared (+ n (- (inc index)) 1)))
+     (range 0 p)))
    ;; For Bartlett decomposition
    ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
    wishart-filler
    (fn
      [row column]
      (if (= row column)
-       ;; (inc row) below since indexing start from 0.
        (sqrt
-        (sample (chi-squared-wrapper(+ (- n (inc row)) 1))))
+        (sample (get @chi-squared-dists row)))
        (if (> row column)
          (sample unit-normal)
          0.0)))
