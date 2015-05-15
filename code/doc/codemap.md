@@ -25,7 +25,7 @@
 
         ### Estimating MAP
         siman.clj      --- Simulated annealing
-		bamc.clj	   --- Bayesian ascent Monte Carlo
+        bamc.clj	   --- Bayesian ascent Monte Carlo
 
         ### Filtering
         pfilter.clj    --- Particle Filter
@@ -38,6 +38,7 @@
         # Java
         MTMersenneTwister.java --- thread-safe synchronized version
                           of cern.jet.random.engine.MersenneTwister 
+
       anglib/
         # Anglican library modules
         ## In particular: 
@@ -45,3 +46,7 @@
                            original Anglican syntax; crp-based DPmem
         iris_data.clj  --- Ronald Fisher\'s Iris dataset
         beaver.clj     --- Beaver activity datasets
+
+      resources/
+        matlab/        --- MATLAB code to check pdf for some distributions.
+        
