@@ -157,7 +157,7 @@
                 ;; All particles died, launch new particles.
                 (do
                   (dotimes [_ number-of-particles]
-                    #(launch-particle prog value initial-state))
+                    (launch-particle prog value initial-state))
                   (swap! (initial-state ::particle-count)
                          #(+ % (count number-of-particles)))
                   (sample-seq))
