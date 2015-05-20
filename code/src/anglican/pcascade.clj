@@ -159,7 +159,7 @@
                   (dotimes [_ number-of-particles]
                     (launch-particle prog value initial-state))
                   (swap! (initial-state ::particle-count)
-                         #(+ % (count number-of-particles)))
+                         #(+ % number-of-particles))
                   (sample-seq))
                 ;; Particles are still running, wait for them
                 (do
