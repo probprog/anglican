@@ -114,7 +114,8 @@
                                          * multiplier))
             :else
             ;; Launch new thread.
-            (let [new-thread (launch-particle (:cont obs) nil state)]
+            (do
+              (launch-particle (:cont obs) nil state)
               (swap! (state ::particle-count) inc)
               (recur (dec multiplier)))))))))
 
@@ -154,12 +155,11 @@
               ;; No ready samples.
               (if (zero? @(initial-state ::particle-count))
                 ;; All particles died, launch new particles.
-                (let [new-threads
-                      (repeatedly
-                       number-of-particles
-                       #(launch-particle prog value initial-state))]
+                (do
+                  (dotimes [_ number-of-particles]
+                    (launch-particle prog value initial-state))
                   (swap! (initial-state ::particle-count)
-                         #(+ % (count new-threads)))
+                         #(+ % number-of-particles))
                   (sample-seq))
                 ;; Particles are still running, wait for them
                 (do
