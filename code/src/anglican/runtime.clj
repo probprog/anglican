@@ -301,11 +301,10 @@
    ;; with the help of Gamma distribution.
    ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
    chi-squared-dists
-   (delay
-    (mapv
-     ;; (+ index 1) below since indexing starts from 0.
-     (fn [index] (chi-squared (+ n (- (+ index 1)) 1)))
-     (range 0 p)))
+   (mapv
+    ;; (+ index 1) below since indexing starts from 0.
+    (fn [index] (chi-squared (+ n (- (+ index 1)) 1)))
+    (range 0 p))
    ;; For Bartlett decomposition
    ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
    Z (delay (+ (* 0.5 n p (Math/log 2))
@@ -324,7 +323,7 @@
             [A (gen-matrix
                 (fn [row column]
                   (cond
-                   (= row column) (sqrt (sample (get @chi-squared-dists row)))
+                   (= row column) (sqrt (sample (get chi-squared-dists row)))
                    (> row column) (sample unit-normal)
                    :else 0.0))
                 p p)]
