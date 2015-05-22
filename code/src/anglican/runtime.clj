@@ -301,10 +301,11 @@
    ;; with the help of Gamma distribution.
    ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
    chi-squared-dists
-   (mapv
-    ;; (+ index 1) below since indexing starts from 0.
-    (fn [index] (chi-squared (+ n (- (+ index 1)) 1)))
-    (range 0 p))
+   ;; Be aware that indexing here starts from 0,
+   ;; while in Wikipedia in the Bartlett decomposition subsection
+   ;; it starts from 1 so they have:
+   ;; c^2_i ~ ChiSq^2_(n - i + 1) where i goes from 1 to p inclusive for them.
+   (mapv (comp chi-squared #(- n %)) (range 0 p))
    ;; For Bartlett decomposition
    ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
    Z (delay (+ (* 0.5 n p (Math/log 2))
