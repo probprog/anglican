@@ -110,6 +110,17 @@
                             ~@(first source)])})
        (fm ~name ~@source))))
 
+;; In m!, memoized computations, which can be impure, are
+;; created by `mem'. Inside a CPS expression, `mem' is
+;; intrepreted as a special form. In a Clojure context, the macro
+;; `mem' replicates the functionality of `mem' in m!.
+
+(defmacro mem
+  "creates a memoized computation in CPS form"
+  [& args]
+  (overriding-higher-order-functions
+    (mem-cps args)))
+
 ;; The legacy names for fm and defm are cps-fn and def-cps-fn.
 ;; These names are deprecated but preserved for compatibility.
 
