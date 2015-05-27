@@ -44,6 +44,22 @@
 
 (defn result-cont [v s] (->result s))
 
+(defmacro defn-with-named-cont
+  "binds the continuation to a name"
+  [cps-of & args]
+  (let [[docstring [parms & body]]
+        (if (string? (first args)) 
+          [(first args) (rest args)]
+          [(format "CPS transformation macro '%s'" cps-of) args])]
+    (let [cont (last parms)]
+      `(defn ~(with-meta cps-of {:doc docstring})
+         ~parms
+         (if (symbol? ~cont)
+           (do ~@body)
+           (let [~'named-cont (*gensym* "C")]
+             `(~~''let [~~'named-cont ~~cont]
+                ~(~cps-of ~@(butlast parms) ~'named-cont))))))))
+
 ;; When a continuation is called, it is trampolined,
 ;; that is, wrapped in a thunk. This collapses the stack
 ;; and ensures that recursion of any depth does not cause
@@ -227,23 +243,24 @@
                             `(set-mem ~'$state
                                       ~id ~mparms ~value)))))))))
 
-(defn cps-of-let
+(defn-with-named-cont cps-of-let
   "transforms let to CPS;
   body of let is trampolined
   --- wrapped in a parameterless closure"
-  [[bindings & body] cont]
-  (if (seq bindings)
-    (let [[name value & bindings] bindings]
-      (shading-primitive-procedures [name]
-        (let [rst (cps-of-let `(~bindings ~@body) cont)]
-          (if (opaque? value)
-            `(~'let [~name ~(opaque-cps value)]
-               ~rst)
-            (cps-of-expression
-              value
-              `(~'fn ~(*gensym* "var") [~name ~'$state]
-                 ~rst))))))
-    (cps-of-do body cont)))
+  [args cont]
+  (let [[bindings & body] args]
+    (if (seq bindings)
+      (let [[name value & bindings] bindings]
+        (shading-primitive-procedures [name]
+          (let [rst (cps-of-let `(~bindings ~@body) cont)]
+            (if (opaque? value)
+              `(~'let [~name ~(opaque-cps value)]
+                 ~rst)
+              (cps-of-expression
+                value
+                `(~'fn ~(*gensym* "var") [~name ~'$state]
+                   ~rst))))))
+      (cps-of-do body cont))))
 
 ;; `loop' is translated into an application of recursive
 ;; function, due to the trampolining of all calls, there
@@ -263,23 +280,6 @@
   (cps-of-application `(~'loop ~@args) cont))
 
 ;;; Flow control.
-
-(defmacro defn-with-named-cont
-  "binds the continuation to a name to make the code
-  slightly easier to reason about"
-  [cps-of & args]
-  (let [[docstring [parms & body]]
-        (if (string? (first args)) 
-          [(first args) (rest args)]
-          [(format "CPS transformation macro '%s'" cps-of) args])]
-    (let [cont (last parms)]
-      `(defn ~(with-meta cps-of {:doc docstring})
-         ~parms
-         (if (symbol? ~cont)
-           (do ~@body)
-           (let [~'named-cont (*gensym* "C")]
-             `(~~''let [~~'named-cont ~~cont]
-                ~(~cps-of ~@(butlast parms) ~'named-cont))))))))
 
 (defn-with-named-cont
   cps-of-if
