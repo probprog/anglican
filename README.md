@@ -7,7 +7,7 @@ natively. The points where inference algorithms must intervene
 and affect sampling are exposed by stopping the execution and
 returning continuation, along with auxiliary information.
 
-Development [news are in the wiki](https://bitbucket.org/dtolpin/anglican/wiki).
+Development [news are in the wiki](https://bitbucket.org/probprog/anglican/wiki).
 
 The implementation, documentation, and examples are in the
 leiningen project tree rooted at [`code`](https://bitbucket.org/dtolpin/anglican/src/HEAD/code/).
