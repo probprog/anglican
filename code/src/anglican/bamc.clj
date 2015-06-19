@@ -201,16 +201,15 @@
                 value)
 
         ;; Update state:
-
+        ;; Insert an entry for the random choice into the trace.
+        state (record-choice
+               state bandit-id value (get-log-weight state))
         ;; Increment the log weight by the probability
         ;; of the sampled value.
         state (add-log-weight state (observe (:dist smp) value))
         ;; Re-insert the bandit; the bandit may be fresh,
         ;; and the new-arm-drawn flag may have been updated.
-        state (assoc-in state [::bandits bandit-id] bandit)
-        ;; Insert an entry for the random choice into the trace.
-        state (record-choice
-               state bandit-id value (get-log-weight state))]
+        state (assoc-in state [::bandits bandit-id] bandit)]
 
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
