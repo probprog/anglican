@@ -2,9 +2,9 @@
   "Top-level forms for Anglican programs"
   (:use [anglican.xlat :only [program alambda]])
   (:use [anglican.trap :only [*gensym*
-                            shading-primitive-procedures
-                            cps-of-expression result-cont 
-                            fn-cps mem-cps primitive-procedure-cps]]))
+                              shading-primitive-procedures
+                              cps-of-expression result-cont 
+                              fn-cps mem-cps primitive-procedure-cps]]))
 
 ;;;; Top-level forms for Anglican programs
 

@@ -127,6 +127,25 @@
   accepts unnormalized weights"
   [weights] (sample (discrete weights)))
 
+;;; Equalizing output
+
+(defn equalize
+  "equalizes samples;
+  - accepts a lazy sequence of samples;
+  - returns a sequence from the same distribution
+    with equal weights"
+  [samples]
+  (letfn [(sample-seq [[fst snd & samples]]
+            (lazy-seq
+              ;; Metropolis-Hastings
+              (let [sample (if (> (- (get-log-weight snd)
+                                     (get-log-weight fst))
+                                  (Math/log (rand)))
+                             snd fst)]
+                (cons (set-log-weight sample 0.)
+                      (sample-seq (cons sample samples))))))]
+    (sample-seq samples)))
+
 ;;; Output
 
 (defmulti print-predict
