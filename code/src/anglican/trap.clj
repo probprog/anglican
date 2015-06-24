@@ -98,7 +98,7 @@
 (defn fn-form?
   "true when the argument is a fn form"
   [expr]
-  (and (seq? expr) (= (first expr) 'fn)))
+  (and (seq? expr) ('#{fn fn*} (first expr))))
 
 (defn mem-form?
   "true when the argument is a mem form"
