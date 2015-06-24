@@ -72,8 +72,10 @@
           ['$value args])]
     (overriding-higher-order-functions
       (shading-primitive-procedures [value]
-        `(~'fn ~(*gensym* "anglican") [~value ~'$state]
-           ~(cps-of-expression (program source) result-cont))))))
+        `(with-meta
+           (~'fn ~(*gensym* "anglican") [~value ~'$state]
+             ~(cps-of-expression (program source) result-cont))
+           {:source '(~'anglican ~@args)})))))
 
 (defmacro ^:deprecated defanglican
   "binds variable to anglican program"
