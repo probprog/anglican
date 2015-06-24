@@ -21,9 +21,9 @@
 
       ;; Since sampling from a distribution object is
       ;; unweighted, the random source for the distribution is
-      ;; an equalized sequence of inferred samples.  Sampling is
-      ;; imlemented by removing the first element from a lazy
-      ;; sequence of equalized samples.
+      ;; built around an equalized sequence of inferred samples.
+      ;; Sampling is imlemented by removing the first element
+      ;; from a lazy sequence of equalized samples.
 
       (let [;; Random source is a mutable reference.
             source (-> (apply infer algorithm
