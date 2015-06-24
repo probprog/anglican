@@ -43,8 +43,10 @@
           ['$value args])]
     (overriding-higher-order-functions
       (shading-primitive-procedures (if (vector? value) value [value])
-        `(~'fn ~(*gensym* "query") [~value ~'$state]
-           ~(cps-of-expression `(~'do ~@source) result-cont))))))
+        `(with-meta
+           (~'fn ~(*gensym* "query") [~value ~'$state]
+             ~(cps-of-expression `(~'do ~@source) result-cont))
+           {:source '(~'query ~@args)})))))
 
 (defmacro defquery
   "binds variable to m! program"
