@@ -5,6 +5,52 @@
            runtime
            [state :only [get-predicts get-log-weight]]]))
 
+(defn- square [x]
+  "returns square of argument x, which may be an array"
+  (m/mul x x))
+
+(defprotocol KL
+  "calculation of KL divergences"
+  (kl-divergence [p q]
+    "returns the KL divergence between distributions p and q"))
+
+(extend-protocol KL
+  anglican.runtime.categorical-distribution
+  (kl-divergence
+   [p q]
+   (let [p-norm (get-in p [:dist :total-weight])
+         q-norm (get-in q [:dist :total-weight])
+         q-map (into {} (:categories q))]
+     (reduce +
+             (map (fn [[c p-weight]]
+                    (if (> p-weight 0.0)
+                      (* (/ p-weight p-norm)
+                         (log (/ (double (/ p-weight p-norm))
+                                 (double (/ (get q-map c 0.0)
+                                            q-norm)))))
+                      0.0))
+                  (:categories p)))))
+  anglican.runtime.discrete-distribution
+  (kl-divergence
+   [p q]
+   (reduce +
+           (map (fn [p-prob q-prob]
+                  (if (> p-prob 0.0)
+                    (* p-prob (log (/ p-prob q-prob)))
+                    0.0))
+                (map #(/ % (:total-weight p)) (:weights p))
+                (map #(/ % (:total-weight q)) (:weights q)))))
+  anglican.runtime.normal-distribution
+  (kl-divergence
+   [p q]
+   (+ (- (log (:sd q))
+         (log (:sd p)))
+      (/ (+ (square (:sd p))
+            (square (- (:mean p)
+                       (:mean q))))
+         (* 2 (square (:sd q))))
+      (/ -1 2))))
+
 (defn weighted-frequencies
   "applies f to each sample and returns a map {v W} containing
   the total weight W associated with each unique return value v"
