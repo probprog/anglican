@@ -15,6 +15,18 @@
     "returns the KL divergence between distributions p and q"))
 
 (extend-protocol KL
+  anglican.runtime.bernoulli-distribution
+  (kl-divergence
+   [p q]
+   (+ (if (> (:p p) 0.0)
+        (* (:p p)
+           (log (/ (:p p) (:p q))))
+        0.0)
+      (if (< (:p p) 1.0)
+        (* (- 1.0 (:p p))
+           (log (/ (- 1.0 (:p p))
+                   (- 1.0 (:p q)))))
+        0.0)))
   anglican.runtime.categorical-distribution
   (kl-divergence
    [p q]
@@ -40,6 +52,18 @@
                     0.0))
                 (map #(/ % (:total-weight p)) (:weights p))
                 (map #(/ % (:total-weight q)) (:weights q)))))
+  anglican.runtime.flip-distribution
+  (kl-divergence
+   [p q]
+   (+ (if (> (:p p) 0.0)
+        (* (:p p)
+           (log (/ (:p p) (:p q))))
+        0.0)
+      (if (< (:p p) 1.0)
+        (* (- 1.0 (:p p))
+           (log (/ (- 1.0 (:p p))
+                   (- 1.0 (:p q)))))
+        0.0)))
   anglican.runtime.normal-distribution
   (kl-divergence
    [p q]
