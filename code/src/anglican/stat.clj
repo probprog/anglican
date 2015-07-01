@@ -56,3 +56,39 @@
           (m/slices b dimension))))
   ([a b]
    (l2-norm a b 0)))
+
+(defn sum
+  "sums array slices along specified dimension"
+  ([a dimension]
+   (reduce
+     m/add
+     (m/slices a dimension)))
+  ([a]
+   (sum a 0)))
+
+(defn mean
+  "mean of array slices along specified dimension"
+  ([a dimension]
+   (m/div (sum a dimension)
+          (get (m/shape a) dimension)))
+  ([a]
+   (mean a 0)))
+
+(defn variance
+  "variance of array slices along specified dimension"
+  ([a dimension]
+   (let [e-a (mean a dimension)
+         e-a2 (mean (square a) dimension)]
+     (m/sub e-a2 (square e-a))))
+  ([a]
+   (variance a 0)))
+
+(defn std
+  "standard deviation (sqrt of variance) of array slices
+  along specified dimension"
+  ([a dimension]
+   (m/sqrt (variance a dimension)))
+  ([a]
+   (std a 0)))
+
+
