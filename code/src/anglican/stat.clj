@@ -44,3 +44,15 @@
                  (m/add sum-w w)))
         (m/div sum-wv sum-w)))))
 
+(defn l2-norm
+  "calculates L2 norm (sum of squared differences) between a and b
+  along specified dimension"
+  ([a b dimension]
+   (reduce
+     m/add
+     (map (fn [a-slice b-slice]
+            (square (m/sub a-slice b-slice)))
+          (m/slices a dimension)
+          (m/slices b dimension))))
+  ([a b]
+   (l2-norm a b 0)))
