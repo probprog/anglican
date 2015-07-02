@@ -15,7 +15,6 @@
   :scm {:name "git"
         :url "https://bitbucket.org/dtolpin/anglican"}
   :repl-options {:timeout 600000}
-  :jvm-opts ["-Xmx1024m" "-Xss1024k"]
   :main ^:skip-aot anglican.core
   :target-path "target/%s"
   :resource-paths ["../examples"]
