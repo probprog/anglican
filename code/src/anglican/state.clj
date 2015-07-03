@@ -41,7 +41,11 @@
 (defn get-predicts
   "returns collected predicts as an array map"
   [state]
-  (reduce conj (array-map) (reverse (state :predicts))))
+  ;; `array' is to preserve the order on sequential traversal.
+  ;; `map' to allow access by key (predict identifier).
+  ;; array-map must be created in one shot to preserve the order,
+  ;; `into' turns it into a hash-map eventually.
+  (apply array-map (apply concat (state ::predicts))))
 
 (defn clear-predicts
   "clear predicts"
