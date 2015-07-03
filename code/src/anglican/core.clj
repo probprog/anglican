@@ -215,29 +215,22 @@ Options:
   returns lazy sequence of states"
   [algorithm query value & options]
   (do
-    ;; Use the auto-loading machinery in anglican.core to load
-    ;; the inference algorithm on demand.
+    ;; Automatically load the inference algorithm.
     (load-algorithm algorithm)
 
     (let [options* (apply hash-map options)]
-      (try
-        ;; Optionally, warm up the query by pre-evaluating
-        ;; the determenistic prefix.
-        (let [[query value] (if (:warmup options* true)
-                                [(warmup query value) nil]
-                                [query value])
+      ;; Optionally, warm up the query by pre-evaluating
+      ;; the determenistic prefix.
+      (let [[query value] (if (:warmup options* true)
+                            [(warmup query value) nil]
+                            [query value])
 
-              ;; Finally, call the inference to create
-              ;; a lazy sequence of states.
-              states (apply infer algorithm query value options)]
+            ;; Finally, call the inference to create
+            ;; a lazy sequence of states.
+            states (apply infer algorithm query value options)]
 
-          ;; A state may contain private algorithm-specific entries.
-          ;; Strip them down for cleaner output.
-          (if (:stripdown options* true)
-            (map stripdown states)
-            states))
-
-        (catch Exception e
-          (when (:debug options*)
-            (.printStackTrace e *out*))
-          (throw e))))))
+        ;; A state may contain private algorithm-specific entries.
+        ;; Strip them down for cleaner output.
+        (if (:stripdown options* true)
+          (map stripdown states)
+          states)))))
