@@ -8,8 +8,8 @@
 
 (def initial-state
   "initial program state"
-  {::log-weight 0.0
-   ::predicts []
+  {:log-weight 0.0
+   :predicts []
    ::mem {}
    ::store nil})
 
@@ -20,33 +20,33 @@
 (defn set-log-weight
   "resets the weight to the specified value"
   [state log-weight]
-  (assoc state ::log-weight log-weight))
+  (assoc state :log-weight log-weight))
 
 (defn add-log-weight
   "add log-weight to the accumulated log-weight
   in the state"
   [state log-weight]
-  (update-in state [::log-weight] + log-weight))
+  (update-in state [:log-weight] + log-weight))
 
 (defn get-log-weight
   "get accumulated log-weight"
   [state]
-  (state ::log-weight))
+  (state :log-weight))
 
 (defn add-predict
   "add predict label and value to the list of predicts"
   [state label value] ; on predict
-  (update-in state [::predicts] conj [label value]))
+  (update-in state [:predicts] conj [label value]))
 
 (defn get-predicts
   "returns collected predicts as an array map"
   [state]
-  (reduce conj (array-map) (reverse (state ::predicts))))
+  (reduce conj (array-map) (reverse (state :predicts))))
 
 (defn clear-predicts
   "clear predicts"
   [state]
-  (update-in state [::predicts] empty))
+  (update-in state [:predicts] empty))
 
 ;; The following three methods are used by the `mem' form. The
 ;; memoized values are kept in the state, independently for each

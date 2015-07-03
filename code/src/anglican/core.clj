@@ -5,7 +5,9 @@
   (:require [clojure.edn :refer [read-string]]
             [clojure.string :as str]
             [clojure.tools.cli :as cli])
-  (:use [anglican.inference :only [warmup infer print-predicts]])
+  (:use [anglican.inference :only [infer 
+                                   warmup stripdown 
+                                   print-predicts]])
   (:use [anglican.results :only [redir freqs meansd diff]]))
 
 (defn load-algorithm
@@ -222,10 +224,15 @@ Options:
         ;; the determenistic prefix.
         (let [[query value] (if (:warmup options* true)
                                 [(warmup query value) nil]
-                                [query value])]
-          ;; Finally, call the inference to create
-          ;; a lazy sequence of states.
-          (apply infer algorithm query value options))
+                                [query value])
+              ;; Finally, call the inference to create
+              ;; a lazy sequence of states.
+              states (apply infer algorithm query value options)]
+          ;; A state may contain private algorithm-specific entries.
+          ;; Strip them down for cleaner output.
+          (if (:stripdown options* true)
+            (map stripdown states)
+            states))
         (catch Exception e
           (when (:debug options*)
             (.printStackTrace e *out*))
