@@ -119,8 +119,10 @@
         ;; that the arm has the highest *average* reward,
         ;; including the new arm candidate.
         (loop [arms (:arms bandit)
-               best-reward (+ (log-p best-value)
-                              (bb-sample-mean best-belief))
+               best-reward (if (not-a-value? best-value)
+                             (/ -1. 0.)
+                             (+ (log-p best-value)
+                                (bb-sample-mean best-belief)))
                best-value +not-a-value+
                parity 0.] ; number of 
           (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]

@@ -81,9 +81,9 @@
         (recur (trampoline next))
         next))))
 
-;;; Warmup --- runnning until the first checkpoint
+;;; Inference prolog and epilog
 
-;; All particles will run the same way.
+;; Warmup --- runnning until the first checkpoint.
 
 (defn warmup
   "runs until the first checkpoint and returns
@@ -96,6 +96,14 @@
                   ;; Predict sequence in state overrides
                   ;; predict sequence in initial-state.
                   (fn [state] (merge initial-state state)))))))
+
+;; Strip-down --- the state is stripped of algorithm-specific
+;; entries and contains only predicts and log-weight.
+
+(defn stripdown
+  "removes algorithm-specific entries from the state"
+  [state]
+  (select-keys state [:log-weight :predicts]))
 
 ;;; Random functions for inference algorithms
 
