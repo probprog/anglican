@@ -7,7 +7,7 @@
   (:use anglican.state
         [anglican.runtime :only [sample observe
                                uniform-continuous
-                               discrete]]))
+                               discrete log-sum-exp]]))
 
 ;;; Inference multimethod
 
@@ -54,7 +54,7 @@
   (let [checkpoint-id [(:id cpt)
                        ((state checkpoint-counts) (:id cpt) 0)]
         state (-> state
-                  (update-in 
+                  (update-in
                     [checkpoint-counts (:id cpt)]
                     ;; If the count is positive but the last
                     ;; sample-id is different, pad the count
@@ -153,6 +153,31 @@
                 (cons (set-log-weight sample 0.)
                       (sample-seq (cons sample samples))))))]
     (sample-seq samples)))
+
+(defn collect-by
+  "calculates contribution to log marginal by value;
+  - accepts a (finite) sequence of samples
+  - returns a map containing the log sum weight weight for
+    each unique value returned when applying f to a sample,
+    normalized by the total number of samples"
+  [f samples]
+  (let [log-norm (Math/log (count samples))]
+    (reduce (fn [weighted sample]
+              (let [v (f (get-predicts sample))
+                    lw (- (get-log-weight sample)
+                          log-norm)]
+                (if (weighted v)
+                  (update-in weighted [v] log-sum-exp lw)
+                  (assoc weighted v lw))))
+            {}
+            samples)))
+
+(defn log-marginal
+  "calculates the empirical estimate of the log marginal likelihood
+  (i.e. the log mean importance weight)"
+  [samples]
+  (- (reduce log-sum-exp (sort (map get-log-weight samples)))
+     (Math/log (count samples))))
 
 ;;; Output
 
