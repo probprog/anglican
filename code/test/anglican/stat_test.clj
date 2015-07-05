@@ -10,11 +10,9 @@
 (def test-array
   (m/reshape (range 12) [3 4]))
 
-(def test-samples
-  (map (fn [x]
-         {:anglican.state/log-weight (observe (normal 5 2) x)
-          :anglican.state/predicts [[:x x]]})
-       (range 11)))
+(def test-weighted
+  (for [x (range 11)]
+    [x (observe (normal 5 2) x)]))
 
 (deftest test-sum
   (is (m/equals [12 15 18 21]
@@ -48,27 +46,21 @@
   (is (m/equals (std test-array)
                 (std test-array 0))))
 
-
 (deftest test-l2
-  (is (m/equals [12 12 12 12]
-                (l2-norm test-array (m/add test-array 2) 0)))
-  (is (m/equals [16 16 16]
-                (l2-norm test-array (m/add test-array 2) 1)))
-  (is (m/equals (l2-norm test-array (m/add test-array 2))
-                (l2-norm test-array (m/add test-array 2) 0))))
+  (is (m/equals 48
+                (l2-norm test-array (m/add test-array 2)))))
 
-(deftest test-weighted-expectation
+(deftest test-empirical-expectation
   (is (m/equals 5.0
-                (weighted-expectation (comp :x get-predicts)
-                                      test-samples)
+                (empirical-expectation identity test-weighted)
                 tolerance)))
 
-(deftest test-weighted-frequencies
-  (is (m/equals (count test-samples)
-                (->> test-samples
-                     (weighted-frequencies (comp #(mod % 2) :x get-predicts))
-                     vals
-                     (reduce +))
+(deftest test-empirical-mean
+  (is (m/equals 5.0
+                (empirical-mean test-weighted)
                 tolerance)))
 
-
+(deftest test-empirical-distribution
+  (is (m/equals 1.0
+                (reduce + (vals (empirical-distribution test-weighted)))
+                tolerance)))

@@ -5,57 +5,75 @@
            runtime
            [state :only [get-predicts get-log-weight]]]))
 
-(defn- square [x]
-  "returns square of argument x, which may be an array"
-  (m/mul x x))
+(defn- power [x n]
+  (apply m/mul (repeat n x)))
 
-(defn weighted-frequencies
-  "applies f to each sample and returns a map {v W} containing
-  the total weight W associated with each unique return value v"
-  [f samples]
-  (let [log-Z (- (reduce
-                   log-sum-exp
-                   (map get-log-weight samples))
-                 (log (count samples)))]
-    (reduce (fn [freqs s]
-              (let [v (f s)]
-                (assoc freqs
-                  v (+ (get freqs v 0.0)
-                       (exp (- (get-log-weight s)
-                               log-Z))))))
+(defn empirical-distribution
+  "calculates an empirical distribution from weighted samples;
+  - accepts a map or sequence of log weighted values [x log-w]
+  - returns a map {x p} of values and normalized probabilities"
+  [weighted]
+  (let [log-Z (reduce log-sum-exp (sort (map second weighted)))]
+    (reduce (fn [dist [x log-w]]
+              (assoc dist
+                x (+ (dist x 0.0)
+                     (exp (- log-w log-Z)))))
             {}
-            samples)))
+            weighted)))
 
-(defn weighted-expectation
-  "applies f to each sample and computes a weighted expectation value.
-  f may return either a scalar or an array"
-  [f samples]
-  (let [vs (map f samples)
-        lws (map get-log-weight samples)
-        vlws (map vector vs lws)
-        max-lw (reduce max lws)]
-    (loop [vlws vlws
-           sum-wv 0.0
-           sum-w 0.0]
-      (if-let [[v lw] (first vlws)]
-        (let [w (exp (- lw max-lw))]
-          (recur (rest vlws)
-                 (m/add sum-wv (m/mul w v))
-                 (m/add sum-w w)))
-        (m/div sum-wv sum-w)))))
+(defn empirical-expectation
+    "calculates an expected value from weighted samples;
+  - accepts a function f and a map or sequence of log weighted
+    values [x log-w]. f may return either a number or array.
+  - returns the expected value of (f x)"
+  [f weighted]
+   (let [max-lw (reduce max (map second weighted))]
+     (loop [weighted weighted
+            sum-wv 0.0
+            sum-w 0.0]
+       (if-let [[x lw] (first weighted)]
+         (let [v (f x)
+               w (exp (- lw max-lw))]
+           (recur (rest weighted)
+                  (m/add (m/mul v w) sum-wv)
+                  (+ sum-w w)))
+         (m/div sum-wv sum-w)))))
 
-(defn l2-norm
-  "calculates L2 norm (sum of squared differences) between a and b
-  along specified dimension"
-  ([a b dimension]
-   (reduce
-     m/add
-     (map (fn [a-slice b-slice]
-            (square (m/sub a-slice b-slice)))
-          (m/slices a dimension)
-          (m/slices b dimension))))
-  ([a b]
-   (l2-norm a b 0)))
+(defn empirical-mean
+  "calculates the mean from a collection of weighted pairs
+  [x log-w], where x may be of a number or array"
+  [weighted]
+  (empirical-expectation identity weighted))
+
+(defn empirical-variance
+  "calculates the variance from a collection of weighted pairs
+  [x log-w], where x may be of a number or array"
+  [weighted]
+  (let [mu (empirical-mean weighted)]
+    (empirical-expectation #(power (m/sub % mu) 2) weighted)))
+
+(defn empirical-std
+  "calculates the standard deviation from a collection of weighted
+  values [x log-w], where x may be of a number or array"
+  [weighted]
+  (m/sqrt (empirical-variance weighted)))
+
+(defn empirical-skew
+  "calculates the standardized skew from a collection of weighted
+  values [x log-w], where x may be of a number or array"
+  [weighted]
+  (let [mu (empirical-mean weighted)
+        s (empirical-std weighted)]
+    (empirical-expectation #(power (m/div (m/sub % mu) s) 3) weighted)))
+
+(defn empirical-kurtosis
+  "calculates the standardized kurtosis from a collection of weighted
+  values [x log-w], where x may be of a number or array"
+  [weighted]
+  (let [mu (empirical-mean weighted)
+        s (empirical-std weighted)]
+    (empirical-expectation #(power (m/div (m/sub % mu) s) 4) weighted)))
+
 
 (defn sum
   "sums array slices along specified dimension"
@@ -78,8 +96,8 @@
   "variance of array slices along specified dimension"
   ([a dimension]
    (let [e-a (mean a dimension)
-         e-a2 (mean (square a) dimension)]
-     (m/sub e-a2 (square e-a))))
+         e-a2 (mean (power a 2) dimension)]
+     (m/sub e-a2 (power e-a 2))))
   ([a]
    (variance a 0)))
 
@@ -91,4 +109,28 @@
   ([a]
    (std a 0)))
 
+(defn skew
+  "standardized skew of array slices along specified dimension"
+  ([a dimension]
+   (let [mu (mean a dimension)
+         s (std a dimension)]
+     (power (m/div (m/sub a mu) s) 3)))
+  ([a]
+   (skew a 0)))
 
+(defn kurtosis
+  "standardized skew of array slices along specified dimension"
+  ([a dimension]
+   (let [mu (mean a dimension)
+         s (std a dimension)]
+     (power (m/div (m/sub a mu) s) 4)))
+  ([a]
+   (kurtosis a 0)))
+
+(defn l2-norm
+  "calculates L2 norm (sum of squared differences) between a and b"
+  [a b]
+  (reduce +
+          (map #(power (- %1 %2) 2)
+               (m/to-vector a)
+               (m/to-vector b))))
