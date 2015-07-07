@@ -1,10 +1,13 @@
 (ns anglican.emit
   "Top-level forms for Anglican programs"
-  (:use [anglican.xlat :only [program alambda]])
-  (:use [anglican.trap :only [*gensym*
+  (:use [anglican.xlat :only [program alambda]]
+        [anglican.trap :only [*gensym*
                               shading-primitive-procedures
                               cps-of-expression result-cont 
-                              fn-cps mem-cps primitive-procedure-cps]]))
+                              fn-cps mem-cps primitive-procedure-cps]]
+        anglican.runtime
+        [anglican.inference :only [infer equalize]]
+        [anglican.state :only [get-log-weight get-predicts]]))
 
 ;;;; Top-level forms for Anglican programs
 
@@ -27,7 +30,8 @@
                      '[map reduce
                        filter some
                        repeatedly
-                       comp partial])]
+                       comp partial
+                       conditional])]
      ~@body))
 
 ;; The main program (or query) is defined using the `query'
@@ -57,6 +61,58 @@
           [(format "m! program '%s'" name) args])]
     `(def ~(with-meta name {:doc docstring})
        (query ~@source))))
+
+;; A query can be seen as a random source, that is a distribution.
+;; Conditional wraps a query into a parameterised distribution
+;; constructor.
+
+(defn conditional
+  "accepts an Anglican query and returns
+  a conditional distribution defined by the query"
+  [query & options]
+
+  ;; Algorithm parameters are an optional sequence of the form
+  ;;   [inference-algorithm & algorithm-options]
+  ;; with importance sampling as the default inference algorithm.
+  (let [[algorithm & options] options
+        algorithm (or algorithm :importance)]
+
+    ;; Conditional distribution is a function which, when applied
+    ;; to the values (argument of query), returns a distribution
+    ;; object.
+    (fn [& value]
+
+      ;; Since sampling from a distribution object is
+      ;; unweighted, the random source for the distribution is
+      ;; built around an equalized sequence of inferred samples.
+      ;; Sampling is imlemented by removing the first element
+      ;; from a lazy sequence of equalized samples.
+
+      (let [;; Random source is a mutable reference.
+            source (-> (apply infer algorithm
+                              query value options)
+                       equalize
+                       ref)
+            ;; Next sample is the first sample removed
+            ;; from the lazy sequence in the source.
+            next-sample #(dosync
+                           (let [[sample & samples] @source]
+                             (ref-set source samples)
+                             sample))]
+      (reify distribution
+
+        ;; A sample from the distribution is the collection
+        ;; of predicts in a single sample from the inferred
+        ;; sample sequence.
+        (sample [this]
+          (get-predicts (next-sample)))
+
+        ;; Observing a value requires source code analysis,
+        ;; not implemented yet. For a future implementation,
+        ;; the source code of query is in the meta-data for
+        ;; key `:source'.
+        (observe [this value]
+          (throw (Exception. "not implemented"))))))))
 
 ;; The original Scheme-like syntax is now deprecated, but
 ;; supported for compatibility with older programs.  Programs
@@ -184,7 +240,8 @@
 (declare $map $reduce
          $filter $some
          $repeatedly
-         $comp $partial)
+         $comp $partial
+         $conditional)
 
 (defm ^:private $map1 
   "map on a single sequence"
@@ -265,3 +322,11 @@
   "partial in CPS"
   [fun & bound]
   (fn [& free] (apply fun (concat bound free))))
+
+(defn $conditional
+  "conditional returning CPS-transformed function"
+  [cont $state & condargs]
+  (cont (fn [cont $state & distargs]
+          (let [constructor (apply conditional condargs)]
+            (cont (apply constructor distargs) $state)))
+        $state))
