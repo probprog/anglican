@@ -19,5 +19,5 @@
   :target-path "target/%s"
   :resource-paths ["../examples"]
   :profiles {:uberjar {:aot :all}}
-  :deploy-branches ["master"]
+  :deploy-branches ["master" "development"]
   :aliases {"publish" ["do" ["clean"] ["test"] ["uberjar"]]})
