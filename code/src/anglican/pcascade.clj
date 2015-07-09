@@ -32,7 +32,7 @@
          (atom clojure.lang.PersistentQueue/EMPTY)
          ::average-weights (atom {}) ; average weights
 
-         ::multiplier 1N             ; number of collapsed particles
+         ::multiplier 1.             ; number of collapsed particles
 
          ;;; Maintaining observe identifiers.
          ::observe-counts {}
@@ -88,14 +88,20 @@
                                     log-weight multiplier)
 
         ;; Compute log weight and multiplier.
-        ceil-ratio (Math/ceil weight-ratio)
-        ratio (if (< (- ceil-ratio weight-ratio) (rand))
-                ceil-ratio (- ceil-ratio 1.))
-        log-weight (- log-weight (Math/log ratio))
-        multiplier (bigint ratio)]
+        multiplier (let [ceil-ratio (Math/ceil weight-ratio)]
+                     (if (< (- ceil-ratio weight-ratio) (rand))
+                       ceil-ratio (- ceil-ratio 1.)))
+        log-weight (- log-weight 
+                      (Math/log
+                        (if (< weight-ratio 1.)
+                          ;; If weight-ratio is less than 1.,
+                          ;; some particles will die and not
+                          ;; contribute to the total weight.
+                          weight-ratio
+                          multiplier)))]
 
-    (if (zero? multiplier)
-      ;; If the multiplier is 0, stop the thread and return nil.
+    (if (= multiplier 0.)
+      ;; If the multiplier is zero, stop the thread and return nil.
       (do (swap! (state ::particle-count) dec)
           nil)
       ;; Otherwise, continue the thread as well as add
@@ -103,7 +109,7 @@
       (let [state (set-log-weight state log-weight)]
         (loop [multiplier multiplier]
           (cond
-            (= multiplier 1)
+            (= multiplier 1.)
             ;; Last particle to add, continue in the current thread.
             #((:cont obs) nil state)
 
@@ -116,14 +122,14 @@
             ;; Launch new thread.
             (do
               (launch-particle (:cont obs) nil state)
-              (swap! (state ::particle-count) inc)
-              (recur (dec multiplier)))))))))
+              (swap! (state ::particle-count) + 1.)
+              (recur (- multiplier 1.)))))))))
 
 (defmethod checkpoint [::algorithm anglican.trap.result] [_ res]
   (let [state (:state res)
         ;; Multiply the weight by the multiplier.
         state (add-log-weight
-               state (Math/log (double (state ::multiplier))))]
+               state (Math/log (state ::multiplier)))]
     (swap! (state ::particle-count) dec)
     (swap! (state ::sample-queue) conj state))
   res)
