@@ -91,14 +91,7 @@
         multiplexer (let [ceil-ratio (Math/ceil weight-ratio)]
                      (if (< (- ceil-ratio weight-ratio) (rand))
                        ceil-ratio (- ceil-ratio 1.)))
-        log-weight (- log-weight 
-                      (Math/log
-                        (if (< weight-ratio 1.)
-                          ;; If weight-ratio is less than 1.,
-                          ;; some particles will die and not
-                          ;; contribute to the total weight.
-                          weight-ratio
-                          multiplexer)))]
+        log-weight (- log-weight (Math/log weight-ratio))]
 
     (if (= multiplexer 0.)
       ;; If the multiplexer is zero, stop the thread and return nil.
