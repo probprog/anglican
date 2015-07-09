@@ -189,7 +189,7 @@
     (let [precision-prior (gamma a b)]
       (loop [observations observations
              state-proc (CRP alpha)
-             obs-dists []
+             obs-dists {}
              states []]
         (if (empty? observations)
           (do
@@ -220,7 +220,6 @@
            -4.9985 -7.5829 -10.9459 -15.6461 -21.6521]))
    ;; metric
    (fn [r t]
-     (prn r)
      (kl-categorical r t))
    ;; threshold
    1.0))
@@ -243,7 +242,7 @@
 (def benchmarks
   "benchmarks to be included in tests"
   {:branching branching
-   ;; :crp-gmm crp-gmm
+   :crp-gmm crp-gmm
    :gaussian gaussian
    :hmm hmm})
 
