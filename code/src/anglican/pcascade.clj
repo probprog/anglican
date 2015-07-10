@@ -87,29 +87,22 @@
         weight-ratio (weight-ratio! state observe-id
                                     log-weight multiplier)
 
-        ;; Compute log weight and multiplier.
-        multiplier (let [ceil-ratio (Math/ceil weight-ratio)]
+        ;; Compute log weight and multiplexer.
+        multiplexer (let [ceil-ratio (Math/ceil weight-ratio)]
                      (if (< (- ceil-ratio weight-ratio) (rand))
                        ceil-ratio (- ceil-ratio 1.)))
-        log-weight (- log-weight 
-                      (Math/log
-                        (if (< weight-ratio 1.)
-                          ;; If weight-ratio is less than 1.,
-                          ;; some particles will die and not
-                          ;; contribute to the total weight.
-                          weight-ratio
-                          multiplier)))]
+        log-weight (- log-weight (Math/log weight-ratio))]
 
-    (if (= multiplier 0.)
-      ;; If the multiplier is zero, stop the thread and return nil.
+    (if (= multiplexer 0.)
+      ;; If the multiplexer is zero, stop the thread and return nil.
       (do (swap! (state ::particle-count) dec)
           nil)
       ;; Otherwise, continue the thread as well as add
-      ;; more threads if the multiplier is greater than 1.
+      ;; more threads if the multiplexer is greater than 1.
       (let [state (set-log-weight state log-weight)]
-        (loop [multiplier multiplier]
+        (loop [multiplexer multiplexer]
           (cond
-            (= multiplier 1.)
+            (= multiplexer 1.)
             ;; Last particle to add, continue in the current thread.
             #((:cont obs) nil state)
 
@@ -117,13 +110,13 @@
             ;; No place to add more particles, collapse remaining
             ;; particles into the current particle.
             #((:cont obs) nil (update-in state [::multiplier]
-                                         * multiplier))
+                                         * multiplexer))
             :else
             ;; Launch new thread.
             (do
               (launch-particle (:cont obs) nil state)
               (swap! (state ::particle-count) + 1.)
-              (recur (- multiplier 1.)))))))))
+              (recur (- multiplexer 1.)))))))))
 
 (defmethod checkpoint [::algorithm anglican.trap.result] [_ res]
   (let [state (:state res)
