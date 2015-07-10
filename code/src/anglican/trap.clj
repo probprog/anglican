@@ -105,6 +105,11 @@
   [expr]
   (and (seq? expr) (= (first expr) 'mem)))
 
+(defn query-form?
+  "true when the argument is a mem form"
+  [expr]
+  (and (seq? expr) (= (first expr) 'query)))
+
 ;;; Simple expressions
 
 ;; Simple expressions are passed to continuations
@@ -152,12 +157,13 @@
   (or (simple? expr)
       (primitive-procedure? expr)
       (fn-form? expr)
-      (mem-form? expr)))
+      (mem-form? expr)
+      (query-form? expr)))
  
 ;; Simple expressions, primitive procedure wrappers
 ;; and fn forms are opaque.
 
-(declare primitive-procedure-cps fn-cps mem-cps)
+(declare primitive-procedure-cps fn-cps mem-cps query-cps)
 (defn opaque-cps
   "return CPS form of an opaque expression"
   [expr] {:pre [(opaque? expr)]}
@@ -165,7 +171,8 @@
    (simple? expr) expr
    (primitive-procedure? expr) (primitive-procedure-cps expr)
    (fn-form? expr) (fn-cps (rest expr))
-   (mem-form? expr) (mem-cps (rest expr))))
+   (mem-form? expr) (mem-cps (rest expr))
+   (query-form? expr) (query-cps (rest expr))))
 
 ;;; General CPS transformation rules
 
@@ -252,6 +259,11 @@
                  ~(continue cont value
                             `(set-mem ~'$state
                                       ~id ~mparms ~value)))))))))
+
+(defn query-cps
+  "transforms nested query into CPS"
+  [args]
+  `(~'query ~@args))
 
 (defn-with-named-cont cps-of-let
   "transforms let to CPS;

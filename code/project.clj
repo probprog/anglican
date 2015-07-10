@@ -1,4 +1,4 @@
-(defproject anglican "0.6.8-SNAPSHOT"
+(defproject anglican "0.7.0-SNAPSHOT"
   :description "Anglican, a probabilistic programming system"
   :url "http://bitbucket.org/dtolpin/anglican"
   :license {:name "GNU General Public License Version 3"
@@ -19,5 +19,5 @@
   :target-path "target/%s"
   :resource-paths ["../examples"]
   :profiles {:uberjar {:aot :all}}
-  :deploy-branches ["master"]
+  :deploy-branches ["master" "development"]
   :aliases {"publish" ["do" ["clean"] ["test"] ["uberjar"]]})
