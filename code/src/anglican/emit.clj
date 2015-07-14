@@ -39,7 +39,27 @@
 ;; using the `defquery' macro.
 
 (defmacro query
-  "macro for embedding m! programs"
+  "Defines an anglican query. Syntax:
+
+     (query optional-parameter 
+       anglican-expression ...)
+
+  Example:
+
+     (query
+       (let [x (sample (normal 0 10))]
+          (observe (normal 1 1) x)
+          (predict x)))
+
+  `query' returns a value that can be passed as the second
+  argument to `anglican.infer/infer'. An optional parameter can
+  be specified and must either a symbol or a vector, in which
+  case the initial value passed to the query is destructured to
+  the parameter:
+
+     (query [mean sd]
+        (let [x (sample (normal mean sd))]
+          (predict x)))"
   [& args]
   (let [[value source]
         (if (or (symbol? (first args)) (vector? (first args)))
@@ -53,12 +73,21 @@
            {:source '(~'query ~@args)})))))
 
 (defmacro defquery
-  "binds variable to m! program"
+  "Binds variable to an anglican query. Syntax:
+
+      (defquery variable-name optional-doc-string optional-parameter
+        anglican-expression ...)
+
+  A defquery declaration is a shortcut for
+
+      (def variable-name optional-doc-string
+        (query optional-parameter
+          anglican-expression ...)"
   [name & args]
   (let [[docstring source]
         (if (string? (first args))
           [(first args) (rest args)]
-          [(format "m! program '%s'" name) args])]
+          [(format "anglican program '%s'" name) args])]
     `(def ~(with-meta name {:doc docstring})
        (query ~@source))))
 
@@ -150,14 +179,27 @@
 ;; automatically transform functions into CPS.
 
 (defmacro fm
-  "converts function to CPS,
-  useful for defining functions outside of defanglican"
+  "Defines an anglican function outside of anglican code.
+  The syntax is the same as of `fn' with a single parameter list:
+
+     (fm optional-name [parameter ...] 
+        anglican-expression ...)"
   [& args]
   (overriding-higher-order-functions
     (fn-cps args)))
 
 (defmacro defm
-  "binds variable to function in CPS form"
+  "Binds a variable to an anglican function. The syntax is the same as for
+  `defn' with a single parameter list:
+
+      (defm variable-name optional-doc-string [parameter ...]
+         anglican-expression ...)
+
+  A `defm' declaration is a shortcut for:
+
+      (def variable-name optional-doc-string
+         (fm variable-name [parameter ...]
+             anglican-expression ...))"
   [name & args]
   (let [[docstring source]
         (if (string? (first args))
@@ -170,10 +212,10 @@
                             ~@(first source)])})
        (fm ~name ~@source))))
 
-;; In m!, memoized computations, which can be impure, are
+;; In anglican, memoized computations, which can be impure, are
 ;; created by `mem'. Inside a CPS expression, `mem' is
 ;; intrepreted as a special form. In a Clojure context, the macro
-;; `mem' replicates the functionality of `mem' in m!.
+;; `mem' replicates the functionality of `mem' in anglican.
 
 (defmacro mem
   "creates a memoized computation in CPS form"
