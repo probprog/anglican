@@ -551,10 +551,10 @@
   "dispatches CPS transformation by expression type"
   [expr cont]
   (cond
+    (opaque?  expr)            (cps-of-opaque expr cont)
     (vector? expr)             (cps-of-vector expr cont)
     (map? expr)                (cps-of-hash-map expr cont)
     (set? expr)                (cps-of-set expr cont)
-    (opaque?  expr)            (cps-of-opaque expr cont)
     (seq?  expr) (let [[kwd & args] expr]
                    (case kwd
                      let       (cps-of-let args cont)
