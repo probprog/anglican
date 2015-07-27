@@ -266,9 +266,7 @@
   `(~'query ~@args))
 
 (defn-with-named-cont cps-of-let
-  "transforms let to CPS;
-  body of let is trampolined
-  --- wrapped in a parameterless closure"
+  "transforms let to CPS"
   [args cont]
   (let [[bindings & body] args]
     (if (seq bindings)
@@ -511,9 +509,7 @@
 ;;; Function applications
 
 (defn cps-of-apply
-  "transforms apply to CPS;
-  сalls of procedures are trampolined
-  --- wrapped into a parameterless closure"
+  "transforms apply to CPS"
   [args cont]
   (make-of-args args :first-is-rator
                 (fn [acall]
@@ -524,9 +520,7 @@
                               ~cont ~'$state ~@rands))))))
 
 (defn cps-of-application
-  "transforms application to CPS;
-  applications of procedures are trampolined
-  --- wrapped into a parameterless closure"
+  "transforms application to CPS"
   [exprs cont]
   (make-of-args exprs :first-is-rator
                 (fn [call]
