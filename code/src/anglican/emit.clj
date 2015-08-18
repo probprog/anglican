@@ -26,7 +26,7 @@
   "binds names of essential higher-order functions
   to their CPS implementations"
   [& body]
-  `(~'let [~@(mapcat (fn [fun] [fun (symbol (str "$" fun))]) 
+  `(~'let [~@(mapcat (fn [fun] [fun (symbol "anglican.emit" (str "$" fun))]) 
                      '[map reduce
                        filter some
                        repeatedly
