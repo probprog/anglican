@@ -15,6 +15,7 @@
 (defmethod infer :importance [_ prog value & {}]
   (letfn [(sample-seq []
             (lazy-seq
-              (cons (:state (exec ::algorithm prog value initial-state))
-                    (sample-seq))))]
-            (sample-seq)))
+              (cons
+                (:state (exec ::algorithm prog value initial-state))
+                (sample-seq))))]
+    (sample-seq)))

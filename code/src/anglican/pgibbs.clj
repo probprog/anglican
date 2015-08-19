@@ -1,5 +1,5 @@
 (ns anglican.pgibbs
-  "Particles Gibbs (Iterated Conditional SMC)
+  "Particle Gibbs (Iterated Conditional SMC)
    Options:
      :number-of-particles (2 by default)
        - number of particles per sweep"
