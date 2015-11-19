@@ -1,5 +1,6 @@
 (ns anglican.runtime
   "Runtime library"
+  (:import [cern.jet.random.engine MersenneTwister])
   (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]))
@@ -65,8 +66,11 @@
 
 (def ^:private RNG
   "random number generator;
-  used by colt distribution objects"
-  (anglican.MTMersenneTwister. (java.util.Date.)))
+  used by Colt distribution objects"
+  (proxy [MersenneTwister] [(java.util.Date.)]
+    ;; MersenneTwister is not re-entrant; calls
+    ;; to nextInt must be synchronized.
+    (nextInt [] (locking this (proxy-super nextInt)))))
 
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
@@ -268,27 +272,73 @@
                       (log-gamma-fn (- a (* 0.5 j))))
                     (range p)))))
 
+(defn gen-matrix
+  "creates a matrix, elements of which are initialised
+  using the filler procedure f"
+  [f rows columns]
+  (m/reshape
+    (for [r (range rows)
+          c (range columns)]
+      (f r c))
+    [rows columns]))
+
+(defdist chi-squared
+  "Chi-squared distribution"
+  [nu]
+  [
+   ;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
+   ;; In Colt library Gamma is parametrised in its second argument
+   ;; by rate, where scale = 1 / rate.
+   gamma-dist (gamma (* nu 0.5) 0.5)]
+  (sample [this]
+          (sample gamma-dist))
+  (observe [this value]
+           (observe gamma-dist value)))
+
 (defdist wishart
   "Wishart distribution"
-  ;; http://en.wikipedia.org/wiki/Wishart_distribution
-  [n V] [p (first (m/shape V))
-         L (:L (ml/cholesky (m/matrix V)))
-         unit-normal (normal 0 1)
-         Z (delay (+ (* 0.5 n p (Math/log 2))
-                     (* 0.5 n (Math/log (m/det V)))
-                     (log-mv-gamma-fn p (* 0.5 n))))
-         transform-sample
-         (fn [samples]
-           (let [X (m/mmul L (m/reshape samples [p n]))]
-             (m/mmul X (m/transpose X))))]
-  (sample [this] (transform-sample
-                   (repeatedly (* n p) #(sample unit-normal))))
+  [n V]
+  [p (first (m/shape V))
+   L (:L (ml/cholesky (m/matrix V)))
+   unit-normal (normal 0 1)
+   ;; Sample from Chi-squared distribution
+   ;; with the help of Gamma distribution.
+   ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
+   chi-squared-dists
+   ;; Be aware that indexing here starts from 0,
+   ;; while in Wikipedia in the Bartlett decomposition subsection
+   ;; it starts from 1 so they have:
+   ;; c^2_i ~ ChiSq^2_(n - i + 1) where i goes from 1 to p inclusive for them.
+   (mapv (comp chi-squared #(- n %)) (range 0 p))
+   ;; For Bartlett decomposition
+   ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
+   Z (delay (+ (* 0.5 n p (Math/log 2))
+               (* 0.5 n (Math/log (m/det V)))
+               (log-mv-gamma-fn p (* 0.5 n))))
+   transform-sample
+   (fn [A]
+     (let
+       [LA (m/mmul L A)]
+       (m/mmul LA (m/transpose LA))))]
+  (sample [this]
+          ;; Bartlett decomposition
+          ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
+          ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
+          (let
+            [A (gen-matrix
+                (fn [row column]
+                  (cond
+                   (= row column) (sqrt (sample (get chi-squared-dists row)))
+                   (> row column) (sample unit-normal)
+                   :else 0.0))
+                p p)]
+            (transform-sample A)))
   (observe [this value]
            (- (* 0.5 (- n p 1) (Math/log (m/det value)))
               (* 0.5 (m/trace (m/mmul (m/inverse (m/matrix V)) value)))
               @Z))
   multivariate-distribution
-  (transform-sample [this samples] (transform-sample samples)))
+  (transform-sample [this A] (transform-sample A)))
 
 ;;; Random processes
 

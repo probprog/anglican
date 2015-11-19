@@ -18,7 +18,8 @@
 ;;   - the running sample weight
 ;;   - the list of predicted values.
 
-(declare ^:dynamic *primitive-procedures*)
+(declare ^:dynamic *primitive-procedures* 
+         ^:dynamic *primitive-namespaces*)
 
 (defmacro shading-primitive-procedures
   "excludes names from the set of primitive procedures"
@@ -44,6 +45,22 @@
 
 (defn result-cont [v s] (->result s))
 
+(defmacro defn-with-named-cont
+  "binds the continuation to a name"
+  [cps-of & args]
+  (let [[docstring [parms & body]]
+        (if (string? (first args)) 
+          [(first args) (rest args)]
+          [(format "CPS transformation macro '%s'" cps-of) args])]
+    (let [cont (last parms)]
+      `(defn ~(with-meta cps-of {:doc docstring})
+         ~parms
+         (if (symbol? ~cont)
+           (do ~@body)
+           (let [~'named-cont (*gensym* "C")]
+             `(~~''let [~~'named-cont ~~cont]
+                ~(~cps-of ~@(butlast parms) ~'named-cont))))))))
+
 ;; When a continuation is called, it is trampolined,
 ;; that is, wrapped in a thunk. This collapses the stack
 ;; and ensures that recursion of any depth does not cause
@@ -60,7 +77,16 @@
   "true if the procedure is primitive,
   that is, does not have a CPS form"
   [procedure]
-  (*primitive-procedures* procedure))
+  (and 
+    (symbol? procedure)
+    (or 
+      ;; Accept either unqualified names for every procedure,
+      (*primitive-procedures* procedure)
+      ;; or qualified names from primitive namespaces.
+      (and 
+        (namespace procedure)
+        (*primitive-namespaces* (symbol (namespace procedure)))
+        (fn? (deref (resolve procedure)))))))
 
 (defn primitive-operator?
   "true if the experssion is converted by clojure 
@@ -72,12 +98,17 @@
 (defn fn-form?
   "true when the argument is a fn form"
   [expr]
-  (and (seq? expr) (= (first expr) 'fn)))
+  (and (seq? expr) ('#{fn fn*} (first expr))))
 
 (defn mem-form?
   "true when the argument is a mem form"
   [expr]
   (and (seq? expr) (= (first expr) 'mem)))
+
+(defn query-form?
+  "true when the argument is a mem form"
+  [expr]
+  (and (seq? expr) (= (first expr) 'query)))
 
 ;;; Simple expressions
 
@@ -126,12 +157,13 @@
   (or (simple? expr)
       (primitive-procedure? expr)
       (fn-form? expr)
-      (mem-form? expr)))
+      (mem-form? expr)
+      (query-form? expr)))
  
 ;; Simple expressions, primitive procedure wrappers
 ;; and fn forms are opaque.
 
-(declare primitive-procedure-cps fn-cps mem-cps)
+(declare primitive-procedure-cps fn-cps mem-cps query-cps)
 (defn opaque-cps
   "return CPS form of an opaque expression"
   [expr] {:pre [(opaque? expr)]}
@@ -139,7 +171,8 @@
    (simple? expr) expr
    (primitive-procedure? expr) (primitive-procedure-cps expr)
    (fn-form? expr) (fn-cps (rest expr))
-   (mem-form? expr) (mem-cps (rest expr))))
+   (mem-form? expr) (mem-cps (rest expr))
+   (query-form? expr) (query-cps (rest expr))))
 
 ;;; General CPS transformation rules
 
@@ -227,23 +260,29 @@
                             `(set-mem ~'$state
                                       ~id ~mparms ~value)))))))))
 
-(defn cps-of-let
+(defn query-cps
+  "transforms nested query into CPS"
+  [args]
+  `(~'query ~@args))
+
+(defn-with-named-cont cps-of-let
   "transforms let to CPS;
   body of let is trampolined
   --- wrapped in a parameterless closure"
-  [[bindings & body] cont]
-  (if (seq bindings)
-    (let [[name value & bindings] bindings]
-      (shading-primitive-procedures [name]
-        (let [rst (cps-of-let `(~bindings ~@body) cont)]
-          (if (opaque? value)
-            `(~'let [~name ~(opaque-cps value)]
-               ~rst)
-            (cps-of-expression
-              value
-              `(~'fn ~(*gensym* "var") [~name ~'$state]
-                 ~rst))))))
-    (cps-of-do body cont)))
+  [args cont]
+  (let [[bindings & body] args]
+    (if (seq bindings)
+      (let [[name value & bindings] bindings]
+        (shading-primitive-procedures [name]
+          (let [rst (cps-of-let `(~bindings ~@body) cont)]
+            (if (opaque? value)
+              `(~'let [~name ~(opaque-cps value)]
+                 ~rst)
+              (cps-of-expression
+                value
+                `(~'fn ~(*gensym* "var") [~name ~'$state]
+                   ~rst))))))
+      (cps-of-do body cont))))
 
 ;; `loop' is translated into an application of recursive
 ;; function, due to the trampolining of all calls, there
@@ -263,23 +302,6 @@
   (cps-of-application `(~'loop ~@args) cont))
 
 ;;; Flow control.
-
-(defmacro defn-with-named-cont
-  "binds the continuation to a name to make the code
-  slightly easier to reason about"
-  [cps-of & args]
-  (let [[docstring [parms & body]]
-        (if (string? (first args)) 
-          [(first args) (rest args)]
-          [(format "CPS transformation macro '%s'" cps-of) args])]
-    (let [cont (last parms)]
-      `(defn ~(with-meta cps-of {:doc docstring})
-         ~parms
-         (if (symbol? ~cont)
-           (do ~@body)
-           (let [~'named-cont (*gensym* "C")]
-             `(~~''let [~~'named-cont ~~cont]
-                ~(~cps-of ~@(butlast parms) ~'named-cont))))))))
 
 (defn-with-named-cont
   cps-of-if
@@ -550,7 +572,11 @@
                      sample    (cps-of-sample args cont)
                      store     (cps-of-store args cont)
                      retrieve  (cps-of-retrieve args cont)
-                     apply     (cps-of-apply args cont)
+                     ;; Intercept clojure.core/apply to handle
+                     ;; the code generated by quasiquote and
+                     ;; unquote.
+                     (apply clojure.core/apply)
+                               (cps-of-apply args cont)
                      ;; application
                                (cps-of-application expr cont)))
     :else (assert false (str "Cannot transform " expr " to CPS"))))
@@ -572,3 +598,9 @@
                             (fn? (var-get v)))
                    k))
                (mapcat ns-publics runtime-namespaces)))))
+
+(def ^:dynamic *primitive-namespaces*
+  "functions in these namespaces are primitive"
+  '#{clojure.core
+     embang.runtime
+     embang.state})

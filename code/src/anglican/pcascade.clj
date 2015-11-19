@@ -32,7 +32,7 @@
          (atom clojure.lang.PersistentQueue/EMPTY)
          ::average-weights (atom {}) ; average weights
 
-         ::multiplier 1N             ; number of collapsed particles
+         ::multiplier 1.             ; number of collapsed particles
 
          ;;; Maintaining observe identifiers.
          ::observe-counts {}
@@ -87,23 +87,22 @@
         weight-ratio (weight-ratio! state observe-id
                                     log-weight multiplier)
 
-        ;; Compute log weight and multiplier.
-        ceil-ratio (Math/ceil weight-ratio)
-        ratio (if (< (- ceil-ratio weight-ratio) (rand))
-                ceil-ratio (- ceil-ratio 1.))
-        log-weight (- log-weight (Math/log ratio))
-        multiplier (bigint ratio)]
+        ;; Compute log weight and multiplexer.
+        multiplexer (let [ceil-ratio (Math/ceil weight-ratio)]
+                     (if (< (- ceil-ratio weight-ratio) (rand))
+                       ceil-ratio (- ceil-ratio 1.)))
+        log-weight (- log-weight (Math/log weight-ratio))]
 
-    (if (zero? multiplier)
-      ;; If the multiplier is 0, stop the thread and return nil.
+    (if (= multiplexer 0.)
+      ;; If the multiplexer is zero, stop the thread and return nil.
       (do (swap! (state ::particle-count) dec)
           nil)
       ;; Otherwise, continue the thread as well as add
-      ;; more threads if the multiplier is greater than 1.
+      ;; more threads if the multiplexer is greater than 1.
       (let [state (set-log-weight state log-weight)]
-        (loop [multiplier multiplier]
+        (loop [multiplexer multiplexer]
           (cond
-            (= multiplier 1)
+            (= multiplexer 1.)
             ;; Last particle to add, continue in the current thread.
             #((:cont obs) nil state)
 
@@ -111,18 +110,19 @@
             ;; No place to add more particles, collapse remaining
             ;; particles into the current particle.
             #((:cont obs) nil (update-in state [::multiplier]
-                                         * multiplier))
+                                         * multiplexer))
             :else
             ;; Launch new thread.
-            (let [new-thread (launch-particle (:cont obs) nil state)]
-              (swap! (state ::particle-count) inc)
-              (recur (dec multiplier)))))))))
+            (do
+              (launch-particle (:cont obs) nil state)
+              (swap! (state ::particle-count) + 1.)
+              (recur (- multiplexer 1.)))))))))
 
 (defmethod checkpoint [::algorithm anglican.trap.result] [_ res]
   (let [state (:state res)
         ;; Multiply the weight by the multiplier.
         state (add-log-weight
-               state (Math/log (double (state ::multiplier))))]
+               state (Math/log (state ::multiplier)))]
     (swap! (state ::particle-count) dec)
     (swap! (state ::sample-queue) conj state))
   res)
@@ -154,12 +154,11 @@
               ;; No ready samples.
               (if (zero? @(initial-state ::particle-count))
                 ;; All particles died, launch new particles.
-                (let [new-threads
-                      (repeatedly
-                       number-of-particles
-                       #(launch-particle prog value initial-state))]
+                (do
+                  (dotimes [_ number-of-particles]
+                    (launch-particle prog value initial-state))
                   (swap! (initial-state ::particle-count)
-                         #(+ % (count new-threads)))
+                         #(+ % number-of-particles))
                   (sample-seq))
                 ;; Particles are still running, wait for them
                 (do

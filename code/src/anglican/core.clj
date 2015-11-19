@@ -5,7 +5,9 @@
   (:require [clojure.edn :refer [read-string]]
             [clojure.string :as str]
             [clojure.tools.cli :as cli])
-  (:use [anglican.inference :only [warmup infer print-predicts]])
+  (:use [anglican.inference :only [infer 
+                                   warmup stripdown 
+                                   print-predicts]])
   (:use [anglican.results :only [redir freqs meansd diff]]))
 
 (defn load-algorithm
@@ -213,20 +215,22 @@ Options:
   returns lazy sequence of states"
   [algorithm query value & options]
   (do
-    ;; Use the auto-loading machinery in anglican.core to load
-    ;; the inference algorithm on demand.
+    ;; Automatically load the inference algorithm.
     (load-algorithm algorithm)
+
     (let [options* (apply hash-map options)]
-      (try
-        ;; Optionally, warm up the query by pre-evaluating
-        ;; the determenistic prefix.
-        (let [[query value] (if (:warmup options* true)
-                                [(warmup query value) nil]
-                                [query value])]
-          ;; Finally, call the inference to create
-          ;; a lazy sequence of states.
-          (apply infer algorithm query value options))
-        (catch Exception e
-          (when (:debug options*)
-            (.printStackTrace e *out*))
-          (throw e))))))
+      ;; Optionally, warm up the query by pre-evaluating
+      ;; the determenistic prefix.
+      (let [[query value] (if (:warmup options* true)
+                            [(warmup query value) nil]
+                            [query value])
+
+            ;; Finally, call the inference to create
+            ;; a lazy sequence of states.
+            states (apply infer algorithm query value options)]
+
+        ;; A state may contain private algorithm-specific entries.
+        ;; Strip them down for cleaner output.
+        (if (:stripdown options* true)
+          (map stripdown states)
+          states)))))

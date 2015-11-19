@@ -119,8 +119,10 @@
         ;; that the arm has the highest *average* reward,
         ;; including the new arm candidate.
         (loop [arms (:arms bandit)
-               best-reward (+ (log-p best-value)
-                              (bb-sample-mean best-belief))
+               best-reward (if (not-a-value? best-value)
+                             (/ -1. 0.)
+                             (+ (log-p best-value)
+                                (bb-sample-mean best-belief)))
                best-value +not-a-value+
                parity 0.] ; number of 
           (if-let [[[value {:keys [belief count]}] & arms] (seq arms)]
@@ -201,16 +203,15 @@
                 value)
 
         ;; Update state:
-
+        ;; Insert an entry for the random choice into the trace.
+        state (record-choice
+               state bandit-id value (get-log-weight state))
         ;; Increment the log weight by the probability
         ;; of the sampled value.
         state (add-log-weight state (observe (:dist smp) value))
         ;; Re-insert the bandit; the bandit may be fresh,
         ;; and the new-arm-drawn flag may have been updated.
-        state (assoc-in state [::bandits bandit-id] bandit)
-        ;; Insert an entry for the random choice into the trace.
-        state (record-choice
-               state bandit-id value (get-log-weight state))]
+        state (assoc-in state [::bandits bandit-id] bandit)]
 
     ;; Finally, continue the execution.
     #((:cont smp) value state)))
