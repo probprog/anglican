@@ -201,6 +201,92 @@
                        false (- 1. p)
                        0.))))
 
+(declare normal)
+(defn folded-normal
+  "folded normal distribution
+  (http://en.wikipedia.org/wiki/Folded_normal_distribution)"
+  [mean std]
+  (let [normal (normal mean std)]
+    (reify distribution
+      (sample [this] (abs (sample normal)))
+      (observe [this value]
+               (if (< value 0)
+                 (log 0)
+                 (log (+ (exp (observe normal value))
+                         (exp (observe normal (- value))))))))))
+
+;; (def f (folded-normal 4 8))
+;; (sample f)
+;; (observe f -0.00000000001)
+;; (support f)
+
+(defn folded-normal-positive
+  "folded normal distribution
+  (http://en.wikipedia.org/wiki/Folded_normal_distribution)
+  with positive support: (0, infinity)"
+  [mean std]
+  (let [folded-normal (folded-normal mean std)]
+    (reify distribution
+      (sample [this]
+              (let [x (sample folded-normal)]
+                (if (= x 0.0) Double/MIN_VALUE x))) ; a bit dodgy...
+      (observe [this value]
+               (if (<= value 0)
+                 (log 0)
+                 (if (= value Double/MIN_VALUE)
+                   (observe folded-normal 0)
+                   (observe folded-normal value)))))))
+
+;; (def f (folded-normal-positive 4 8))
+;; (sample f)
+;; (observe f 0)
+;; (observe f Double/MIN_VALUE)
+;; (observe (folded-normal 4 8) 0)
+;; (observe f -2)
+
+;; Helper function for folded-normal-discrete
+(defn normal-cdf
+  [x mean std]
+  "Cumulative probability density of a sample x drawn from a univariate normal
+  with mean mean and standard deviation std"
+  (+ 0.5
+     (* 0.5 (. cern.jet.stat.Probability errorFunction
+               (/ (- x mean)
+                  (* (sqrt 2) std))))))
+
+(defn folded-normal-discrete
+  "discrete version of the folded normal distribution
+  (http://en.wikipedia.org/wiki/Folded_normal_distribution)"
+  [mean std]
+  (let [folded-normal (folded-normal mean std)]
+    (reify distribution
+      (sample [this] (round (sample folded-normal)))
+      (observe [this value]
+               (let [x (double value)]
+                 (if (or (< x 0) ; negative
+                         (not (= x (double (round x))))) ; not an integer
+                   (log 0)
+                   (if (= x 0.0)
+                     ;; Integral of the bin centered at zero
+                     (log (- (normal-cdf 0.5 mean std)
+                             (normal-cdf (- 0.5) mean std)))
+                     ;; Integral of the positive bin and the negative bin
+                     (log (+ (- (normal-cdf (+ x 0.5) mean std)
+                                (normal-cdf (- x 0.5) mean std))
+                             (- (normal-cdf (+ (- x) 0.5) mean std)
+                                (normal-cdf (- (- x) 0.5) mean std)))))))))))
+
+;; (def f (folded-normal-discrete 4 8))
+;; (sample f)
+;; (observe f 0.4)
+;; (observe f -0)
+;; (observe f 0.0)
+;; (observe f 1.0)
+;; (observe f 1)
+;; (observe f -1)
+;; (observe f 9)
+;; (support f)
+
 (defdist gamma
   "Gamma distribution, parameterized by shape and rate"
   [shape rate]
