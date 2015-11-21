@@ -26,7 +26,8 @@
   "binds names of essential higher-order functions
   to their CPS implementations"
   [& body]
-  `(~'let [~@(mapcat (fn [fun] [fun (symbol (str "$" fun))]) 
+  `(~'let [~@(mapcat (fn [fun]
+                       [fun (symbol "anglican.emit" (str "$" fun))]) 
                      '[map reduce
                        filter some
                        repeatedly
@@ -302,11 +303,9 @@
 (defm $map 
   "map in CPS"
   [fun & lsts]
-  (let [tuple ($map1 first lsts)]
-    (if ($nils? tuple) nil
-        (let [lsts ($map1 rest lsts)]
-          (cons (apply fun tuple)
-                (apply $map fun lsts))))))
+  (if ($nils? ($map1 seq lsts)) nil
+    (cons (apply fun ($map1 first lsts))
+          (apply $map fun ($map1 rest lsts)))))
 
 (defm ^:private $reduce1
   "reduce with explicit init in CPS"
