@@ -1,4 +1,4 @@
-(defproject anglican "0.7.1-SNAPSHOT"
+(defproject anglican "0.7.1"
   :description "Anglican, a probabilistic programming system"
   :url "http://bitbucket.org/dtolpin/anglican"
   :license {:name "GNU General Public License Version 3"
