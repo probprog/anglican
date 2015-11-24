@@ -188,14 +188,13 @@
   ([state entry] (next-state state entry {}))
   ([state entry update]
    (:state (exec ::algorithm (:cont entry) nil
-                 ;; Pass on the RDB \ {x_{nk}} + an extra fields ::chosen-entry
-                 ;; and ::chosen-entry-value
+                 ;; Pass on the RDB \ {x_{nk}} + extra fields ::chosen-entry
+                 ;; and ::chosen-entry-value.
                  ;; This is because we don't want x_{nk} to be included in
-                 ;; get-log-retained-probability
+                 ;; get-log-retained-probability.
                  (into update
-                       {::rdb (dissoc
-                               (rdb (state ::trace))
-                               (:choice-id entry))
+                       {::rdb (dissoc (rdb (state ::trace))
+                                      (:choice-id entry))
                         ::chosen-entry-id (:choice-id entry)
                         ::chosen-entry-value (:value entry)})))))
 
@@ -213,9 +212,6 @@
                     (keep #(if (= (:choice-id %) (:choice-id entry))
                              (:value %))
                           (next-state ::trace)))
-
-         ;; TEST printout
-         ;; _ (prn "prev-state: new-value" new-value)
 
          kappa-reverse (get-kernel-proposal (:dist current-sample)
                                             new-value
