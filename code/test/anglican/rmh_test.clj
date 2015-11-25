@@ -4,7 +4,7 @@
         anglib.rmh-dists
         [anglican.runtime :only [observe sample]]))
 
-(deftest test-rdb
+(deftest test-rmh-dists
   (testing "folded-normal-dist"
     (let [dist (folded-normal 4 8)]
       (is (and (number? (sample dist))
