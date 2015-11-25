@@ -101,7 +101,7 @@
   and the trace entry to resample"
   ([state entry] (next-state state entry {}))
   ([state entry update]
-   (:state (exec ::algorithm (:cont entry) nil
+   (:state (exec ::algorithm (:cont entry) nil 
                  ;; Remove the selected entry from RDB.
                  (into update
                        {::rdb (dissoc (rdb (state ::trace))
