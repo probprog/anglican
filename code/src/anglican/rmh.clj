@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
+        anglib.rmh-dists
         [anglican.runtime :only [observe sample]]))
 
 ;;;; Random-walk Metropolis-Hastings
@@ -36,18 +37,24 @@
 ;;   normal      ---> normal
 ;;   poisson     ---> folded-normal-discrete
 ;;   beta        ---> uniform-continuous
-(defn get-alt-proposal
+(defmulti get-alt-proposal
   "given the value and distribution of x_{nk}, returns an alternative proposal
   distribution (runtime/distribution protocol) which is centered around x_{nk}
   with some closeness factor sigma"
-  [distribution value sigma]
-  (condp = (type distribution)
-    anglican.runtime.exponential-distribution (anglican.runtime/folded-normal value sigma)
-    anglican.runtime.gamma-distribution (anglican.runtime/folded-normal-positive value sigma)
-    anglican.runtime.normal-distribution (anglican.runtime/normal value sigma)
-    anglican.runtime.poisson-distribution (anglican.runtime/folded-normal-discrete value sigma)
-    anglican.runtime.beta-distribution (anglican.runtime/uniform-continuous 0 1)
-    distribution))
+  (fn [distribution value sigma] (type distribution)))
+
+(defmethod get-alt-proposal anglican.runtime.exponential-distribution [_ value sigma]
+  (anglib.rmh-dists/folded-normal value sigma))
+(defmethod get-alt-proposal anglican.runtime.gamma-distribution [_ value sigma]
+  (anglib.rmh-dists/folded-normal-positive value sigma))
+(defmethod get-alt-proposal anglican.runtime.normal-distribution [_ value sigma]
+  (anglican.runtime/normal value sigma))
+(defmethod get-alt-proposal anglican.runtime.poisson-distribution [_ value sigma]
+  (anglib.rmh-dists/folded-normal-discrete value sigma))
+(defmethod get-alt-proposal anglican.runtime.beta-distribution [_ value sigma]
+  (anglican.runtime/uniform-continuous 0 1))
+(defmethod get-alt-proposal :default [distribution _ _]
+  distribution)
 
 ;; Kernel proposals
 (defn get-kernel-proposal
