@@ -266,5 +266,3 @@
       (let [error (apply dobenchmark benchmark 10000 algorithm opts)]
         (prn id algorithm error)
         (is (< error (:threshold benchmark)))))))
-
-;; (run-tests)
