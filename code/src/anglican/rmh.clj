@@ -263,11 +263,11 @@
   "computes state utility, used to determine
   the acceptance log-probability as (next-utility - prev-utility)"
   [state]
-  (+ (get-log-weight state)
-     (get-log-retained-probability state)
-     (get-log-new-val-from-prior state)
-     (- (get-log-kappa state))
-     (- (Math/log (count (state ::trace))))))
+  (+ (get-log-weight state)                   ; p(y | x)
+     (get-log-retained-probability state)     ; p(x)
+     (get-log-new-val-from-prior state)       ; p(x_nk | par(x_nk))
+     (- (get-log-kappa state))                ; 1 / k(x_nk | x'_nk)
+     (- (Math/log (count (state ::trace)))))) ; 1 / |x|
 
 (defn correct-log-weight
   "corrects log weight of a sample, setting it to 0
