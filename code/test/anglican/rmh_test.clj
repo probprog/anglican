@@ -26,7 +26,9 @@
                (= (/ -1 0.) (observe dist -1))
                (not= (/ -1 0.) (observe dist 0))
                (not= (/ -1 0.) (observe dist 4)))
-          "testing folded-normal-discrete-dist")))
+          "testing folded-normal-discrete-dist"))))
+
+(deftest test-alt-proposals
   (testing "alt-proposal for exponential"
     (let [dist (anglican.runtime/exponential 1)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
