@@ -32,20 +32,20 @@
   (testing "alt-proposal for exponential"
     (let [dist (anglican.runtime/exponential 1)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
-      (is (= anglib.rmh_dists.folded-normal-distribution (type alt-dist)))))
+      (is (instance? anglib.rmh_dists.folded-normal-distribution alt-dist))))
   (testing "alt-proposal for gamma"
     (let [dist (anglican.runtime/gamma 1 2)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
-      (is (= anglib.rmh_dists.folded-normal-positive-distribution (type alt-dist)))))
+      (is (instance? anglib.rmh_dists.folded-normal-positive-distribution alt-dist))))
   (testing "alt-proposal for normal"
     (let [dist (anglican.runtime/normal 1 2)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
-      (is (= anglican.runtime.normal-distribution (type alt-dist)))))
+      (is (instance? anglican.runtime.normal-distribution alt-dist))))
   (testing "alt-proposal for poisson"
     (let [dist (anglican.runtime/poisson 1)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
-      (is (= anglib.rmh_dists.folded-normal-discrete-distribution (type alt-dist)))))
+      (is (instance? anglib.rmh_dists.folded-normal-discrete-distribution alt-dist))))
   (testing "alt-proposal for beta"
     (let [dist (anglican.runtime/beta 1 2)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
-      (is (= anglican.runtime.uniform-continuous-distribution (type alt-dist))))))
+      (is (instance? anglican.runtime.uniform-continuous-distribution alt-dist)))))
