@@ -190,7 +190,22 @@
       (is (= (cps-of-do '((a) 1) 'ret)
              '(a (fn do [_ $state] (fn [] (ret 1 $state)))
                  $state))
-          "list of compound and simple"))))
+          "list of compound and simple")
+      (is (= (cps-of-do '((declare :primitive foo)
+                          (foo))
+                        'ret)
+             '(fn [] (ret (foo) $state)))
+          "(declare :primitive ...)")
+      (is (= (cps-of-do '((declare :ns-primitive bar)
+                          (bar/foo))
+                        'ret)
+             '(fn [] (ret (bar/foo) $state)))
+          "(declare :ns-primitive ...) for unseen namespace")
+      (is (= (cps-of-do '((declare :ns-primitive anglican.trap)
+                          (anglican.trap/cps-of-do))
+                        'ret)
+             '(fn [] (ret (anglican.trap/cps-of-do) $state)))
+          "(declare :ns-primitive ...) for seen namespace"))))
 
 (deftest test-cps-of-apply
   (binding [*gensym* symbol]

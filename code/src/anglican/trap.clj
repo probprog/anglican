@@ -21,11 +21,25 @@
 (declare ^:dynamic *primitive-procedures* 
          ^:dynamic *primitive-namespaces*)
 
+(defmacro adding-primitive-procedures
+  "includes names into the set of primitive procedures"
+  [names & body]
+  `(binding [*primitive-procedures*
+             (reduce conj *primitive-procedures* (flatten ~names))]
+     ~@body))
+
 (defmacro shading-primitive-procedures
   "excludes names from the set of primitive procedures"
   [names & body]
   `(binding [*primitive-procedures*
              (reduce disj *primitive-procedures* (flatten ~names))]
+     ~@body))
+
+(defmacro adding-primitive-namespaces
+  "includes namespaces into the set of primitive namespaces"
+  [names & body]
+  `(binding [*primitive-namespaces*
+             (reduce conj *primitive-procedures* (flatten ~names))]
      ~@body))
 
 ;;; Continuation management
@@ -73,20 +87,29 @@
 
 ;;; Expression predicates
 
+(defn declaration?
+  "true if the form is a declaration"
+  [form]
+  (and (seq? form) (= 'declare (first form))))
+
 (defn primitive-procedure?
-  "true if the procedure is primitive,
-  that is, does not have a CPS form"
-  [procedure]
+  "true if the expression is primitive,
+  that is, a procedure that does not have a CPS form"
+  [expr]
   (and 
-    (symbol? procedure)
+    (symbol? expr)
     (or 
       ;; Accept either unqualified names for every procedure,
-      (*primitive-procedures* procedure)
+      (*primitive-procedures* expr)
       ;; or qualified names from primitive namespaces.
       (and 
-        (namespace procedure)
-        (*primitive-namespaces* (symbol (namespace procedure)))
-        (fn? (deref (resolve procedure)))))))
+        (namespace expr)
+        (*primitive-namespaces* (symbol (namespace expr)))
+        (let [expr-var (resolve expr)]
+          ;; either undefined
+          (or (nil? expr-var) 
+              ;; or resolves to a procedure
+              (fn? (deref expr-var))))))))
 
 (defn primitive-operator?
   "true if the experssion is converted by clojure 
@@ -394,16 +417,30 @@
         (cps-of-expression cnd cont)))
     (cps-of-expression false cont)))
 
+;; Declarations may be specified anywhere in a form sequence.
+;; A declaration has the syntax:
+;;   (declare keyword arg ...)
+;; Normally, `keyword' identifies the declared property of
+;; `arg ...'.
+
 (defn cps-of-do
   "transforms do to CPS"
   [exprs cont]
-  (let [[fst & rst] exprs]
-    (cps-of-expression
-      fst
-      (if (seq rst)
-        `(~'fn ~(*gensym* "do") [~'_ ~'$state]
-           ~(cps-of-do rst cont))
-        cont))))
+  (let [[expr & exprs] exprs]
+    (if (declaration? expr)
+      (let [[_ kwd & args] expr]
+        (case kwd
+          :ns-primitive (adding-primitive-namespaces args
+                          (cps-of-do exprs cont))
+          :primitive (adding-primitive-procedures args
+                       (cps-of-do exprs cont))
+          (assert false (format "Unknown declaration %s" expr))))
+      (cps-of-expression
+        expr
+        (if (seq exprs)
+          `(~'fn ~(*gensym* "do") [~'_ ~'$state]
+             ~(cps-of-do exprs cont))
+          cont)))))
 
 ;;; Applications and applicative forms
 
