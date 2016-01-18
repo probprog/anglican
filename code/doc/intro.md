@@ -56,7 +56,7 @@ For example, if example.clj is in '/home/user/anglican', the
 
 You can now run
 
-   lein run -- -n 10 example
+    lein run -- -n 10 example
 
 from the command line, or
 
