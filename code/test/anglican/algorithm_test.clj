@@ -251,6 +251,7 @@
   {:importance nil
    :lmh nil
    :almh nil
+   :rmh [:alpha 0.5 :sigma 1]
    :smc [:number-of-particles 100]
    :pimh [:number-of-particles 100]
    :pgibbs [:number-of-particles 100]
