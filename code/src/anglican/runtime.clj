@@ -407,26 +407,29 @@
 
 ;; Random process types, in alphabetical order.
 
-(defdist discrete-crp
-  "discrete distribution extended
+(defdist categorical-crp
+  "categorical distribution extended
   by a random sample, for use with CRP"
-  [counts alpha] [dist (discrete (conj counts alpha))]
-  (sample [this] (sample dist))
+  [counts alpha] [dist (categorical
+                         (vec (conj counts [::new alpha])))]
+  (sample [this] 
+    (let [s (sample dist)]
+      ;; When a `new' value is drawn, sample the actual
+      ;; value from the base measure.
+      (if (= s ::new) (count counts) s)))
   (observe [this value]
-    ;; Observing any new sample has the same probability.
-    (observe dist (min (count counts) value))))
+    (if (contains? counts value)
+      ;; The value is one of absorbed values.
+      (observe dist value)
+      ;; The value is a new value.
+      (observe dist ::new))))
 
 (defproc CRP
   "Chinese Restaurant process"
-  [alpha] [counts []]
-  (produce [this] (discrete-crp counts alpha))
-  (absorb [this sample]
-    (CRP alpha
-         (-> counts
-             ;; Fill the counts with alpha (corresponding to
-             ;; the zero count) until the new sample.
-             (into (repeat (+ (- sample (count counts)) 1) alpha))
-             (update-in [sample] inc)))))
+  [alpha] [counts {}]
+  (produce [this] (categorical-crp counts alpha))
+  (absorb [this sample] 
+    (CRP alpha (update-in counts [sample] (fnil inc 0)))))
 
 (defdist categorical-dp
   "categorical distribution extended
