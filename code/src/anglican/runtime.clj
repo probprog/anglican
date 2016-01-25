@@ -418,7 +418,7 @@
         ;; When a `new' value is drawn,  sample 
         ;; the smallest natural number with zero count.
         (loop [s 0]
-          (if (contains? s counts)
+          (if (contains? counts s)
             (recur (inc s))
             s))
         s)))
