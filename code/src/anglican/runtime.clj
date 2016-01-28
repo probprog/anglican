@@ -414,9 +414,15 @@
                          (vec (conj counts [::new alpha])))]
   (sample [this] 
     (let [s (sample dist)]
-      ;; When a `new' value is drawn, sample the actual
-      ;; value from the base measure.
-      (if (= s ::new) (count counts) s)))
+      (if (= s ::new) 
+        ;; When a `new' value is drawn,  sample 
+        ;; the smallest natural number with zero count.
+        (loop [s 0]
+          (if (contains? counts s)
+            (recur (inc s))
+            s))
+        s)))
+
   (observe [this value]
     (if (contains? counts value)
       ;; The value is one of absorbed values.
