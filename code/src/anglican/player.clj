@@ -14,7 +14,7 @@
         {::log-prior 0.0
          ::trace []}))
 
-;; Managing log prior, just log weight in the state
+;; Managing log prior, just like log weight
 
 (defn set-log-prior
   "rests the prior to the specified value"
