@@ -39,7 +39,6 @@
   (let [state (:state smp)
         [[id val] & trace] (state ::trace)
         state (assoc state ::trace trace)]
-    (println id val trace)
     (assert (= (:id smp) id) 
             (format "inconsistent replay trace id %s, should be %s"
                     id (:id smp)))
