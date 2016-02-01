@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/tools.cli "0.3.1"]
                  [org.clojure/data.json "0.2.6"]
-                 [com.taoensso/timbre "4.0.2"]
+                 [com.taoensso/timbre "4.2.1"]
                  [colt "1.2.0"]
                  [net.mikera/core.matrix "0.36.1"]
                  [net.mikera/core.matrix.stats "0.6.0"]
