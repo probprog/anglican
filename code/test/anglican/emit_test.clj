@@ -14,7 +14,17 @@
              ($map value-cont nil (cps-fn [x y] (+ x y))
                    '( 1 2 3) '(4 5 6)))
            '(5 7 9))
-        "map on two lists"))
+        "map on two lists")
+    (is (= (trampoline
+              ($map value-cont nil (cps-fn [x] (number? x))
+                    '(1 2 nil 3)))
+              '(true true false true))
+           "map on a single list with nils")
+    (is (= (trampoline
+             ($map value-cont nil (cps-fn [x y] (or x y))
+                   '(1 nil 3) '(4 5 nil)))
+           '(1 5 3))
+        "map on two lists with nils"))
 
   (testing "reduce in CPS"
     (is (= (trampoline
