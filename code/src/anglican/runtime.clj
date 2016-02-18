@@ -251,8 +251,8 @@
               Lcov (:L (ml/cholesky (m/matrix cov)))
               unit-normal (normal 0 1)
               Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
-                         (* 0.5 (+ (* k (Math/log (* 2 Math/PI)))
-                                  (Math/log |Lcov|)))))
+                         (+ (* 0.5 k (Math/log (* 2 Math/PI)))
+                            (Math/log |Lcov|))))
               iLcov (delay (m/inverse Lcov))
               transform-sample (fn [samples]
                                  (m/add mean (m/mmul Lcov samples)))]
