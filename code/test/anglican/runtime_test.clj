@@ -22,6 +22,18 @@
       (is (= (observe dist 0.5) (Math/log 0.))
           "values of wrong type have zero probability"))))
 
+(defn approx
+  [x y eps]
+  (and (> x (- y eps))
+       (< x (+ y eps))))
+
+(deftest test-mvn
+  (testing "mvn"
+    (let [dist (mvn [0 0 0] [[2 0 0] [0 1 0] [0 0 3]])]
+      (is (approx (observe dist [3 4 5]) -18.0694 0.1))
+      (is (approx (observe dist [0 0 0]) -3.6527 0.1))
+      (is (approx (observe dist [10 20 30]) -378.6527 0.1)))))
+
 (deftest test-CRP
   (testing  "CRP"
     (let [proc (CRP 1.0)]
