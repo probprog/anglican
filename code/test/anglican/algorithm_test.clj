@@ -256,7 +256,7 @@
    :pimh [:number-of-particles 100]
    :pgibbs [:number-of-particles 100]
    :pgas [:number-of-particles 10]
-   :pcascade [:number-of-particles 100 :number-of-threads 200]})
+   #_:pcascade #_[:number-of-particles 100 :number-of-threads 200]})
 
 (deftest test-benchmarks
   (doseq [[id benchmark] benchmarks
