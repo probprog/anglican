@@ -22,29 +22,24 @@
       (is (= (observe dist 0.5) (Math/log 0.))
           "values of wrong type have zero probability"))))
 
-(defn approx
-  [x y eps]
-  (and (> x (- y eps))
-       (< x (+ y eps))))
-
-(deftest test-mvn
-  (testing "mvn"
-    (let [dist (mvn [0 0 0] [[2 0 0] [0 1 0] [0 0 3]])]
-      (is (approx (observe dist [3 4 5]) -18.0694 0.1))
-      (is (approx (observe dist [0 0 0]) -3.6527 0.1))
-      (is (approx (observe dist [10 20 30]) -378.6527 0.1)))))
-
 (deftest test-CRP
   (testing  "CRP"
-    (let [proc (CRP 1.0)]
-      (is (= (observe (produce (absorb proc 3)) 3) (Math/log 1/2))
-          "observing absorbed value")
-      (is (= (observe (produce (absorb proc 0)) 1) (Math/log 1/2))
-          "observing unabsorbed value greater than count")
-      (is (= (observe (produce (absorb proc 1)) 0) (Math/log 1/2))
-          "observing unabsorbed value less than count")
-      (is (= (observe (produce proc) 2) (Math/log 1))
-          "observing any new value"))))
+    (let [proc (CRP 0.1 {1 1 2 2 3 3})]
+      (is (= (observe (produce proc) 3) 
+             (Math/log (/ 3 6.1)))
+          "observing existing value")
+      (is (= (observe (produce proc) 0) 
+             (Math/log (/ 0.1 6.1)))
+          "observing new value")
+      (is (= (observe (produce (absorb proc 3)) 3) 
+             (Math/log (/ 4 7.1)))
+          "observing absorbed existing value")
+      (is (= (observe (produce (absorb proc 0)) 1) 
+             (Math/log (/ 1 7.1)))
+          "observing absorbed new value greater than count")
+      (is (= (observe (produce (absorb proc 1)) 0) 
+             (Math/log (/ 0.1 7.1)))
+          "observing unabsorbed value less than count"))))
 
 (deftest test-cov
   (testing "cov"
