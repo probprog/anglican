@@ -94,6 +94,7 @@
                   (add-log-weight log-p)
                   (record-choice choice-id value cont))]
     #((:cont smp) value state)))
+
 ;;; State transition
 
 (defn next-state
