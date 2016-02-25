@@ -32,7 +32,8 @@
      (get-log-retained-probability state)
      (- (Math/log (count (get-trace state))))))
 
-(defn anneal 
+(defn anneal
+  "performs a single annealed importance sampling sweep"
   [prog value exponents]
   (loop [exponents exponents
          state (:state (exec ::algorithm prog value initial-state))
