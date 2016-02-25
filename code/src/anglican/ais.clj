@@ -17,15 +17,6 @@
 
 (derive ::algorithm :anglican.lmh/algorithm)
 
-(defn logspace 
-  "returns a logarithmically spaced sequence of points"
-  [start end steps]
-  (let [log-start (Math/log start)
-        log-end (Math/log end)
-        log-step (/ (- log-end log-start) steps)]
-    (map (fn [n] (Math/exp (+ log-start (* n log-step)))) 
-         (range (inc steps)))))
-
 (defn linspace
   "returns a equally spaced sequence of points"
   [start end size]
