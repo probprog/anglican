@@ -1,4 +1,4 @@
-(defproject anglican "0.8.0-SNAPSHOT"
+(defproject anglican "0.9.0-SNAPSHOT"
   :description "Anglican, a probabilistic programming system"
   :url "http://bitbucket.org/dtolpin/anglican"
   :license {:name "GNU General Public License Version 3"
@@ -10,7 +10,7 @@
                  [colt "1.2.0"]
                  [net.mikera/core.matrix "0.49.0"]
                  [net.mikera/core.matrix.stats "0.7.0"]
-                 [net.mikera/vectorz-clj "0.43.0"]]
+                 [net.mikera/vectorz-clj "0.43.1"]]
   :plugins [[codox "0.8.11"]]
   :scm {:name "git"
         :url "https://bitbucket.org/dtolpin/anglican"}
