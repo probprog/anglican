@@ -6,6 +6,7 @@
                     discrete gamma mvn wishart 
                     log-gamma-fn]]
            [anglican.emit :as emit]
+           [anglican.stat :as stat]
            [clojure.core.matrix :as mat]))
 
 (defdist chi-sq
@@ -53,7 +54,7 @@
       t-dist (multivariate-t nu mu sigma)
       samples (repeatedly 10000 #(sample t-dist))]
   ;; this should produce something close to [mu sigma]
-  [(mean samples) (mat/mul (covariance samples) (/ (- nu 2) nu))])
+  [(stat/mean samples) (mat/mul (stat/covariance samples) (/ (- nu 2) nu))])
 
 (defn- mvn-niw-posterior
   "Returns the posterior parameters for a mvn-niw process."
@@ -127,12 +128,11 @@
       means (map (fn [sigma] (sample (mvn mu sigma)))
                  sigmas)
       likes (map mvn means sigmas)]
-  (prn (mean sigmas))
   (reduce (fn [[m c] like]
             (let [xs (repeatedly num-samples 
                                  #(sample like))]
-             [(mat/add m (mat/div (mean xs) num-params))
-              (mat/add c (mat/div (covariance xs) num-params))]))
+             [(mat/add m (mat/div (stat/mean xs) num-params))
+              (mat/add c (mat/div (stat/covariance xs) num-params))]))
           [(mat/zero-vector 2)
            (mat/zero-matrix 2 2)]
           likes))
@@ -162,8 +162,8 @@
             (let [xs (multi-sample 
                         num-samples 
                         proc)]
-             [(mat/add m (mat/div (mean xs) num-params))
-              (mat/add c (mat/div (covariance xs) num-params))]))
+             [(mat/add m (mat/div (stat/mean xs) num-params))
+              (mat/add c (mat/div (stat/covariance xs) num-params))]))
           [(mat/zero-vector 2)
            (mat/zero-matrix 2 2)]
           (repeat num-params (mvn-niw mu kappa nu psi))))
