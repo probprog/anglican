@@ -101,6 +101,17 @@
   ([a]
    (variance a 0)))
 
+(defn covariance
+  "covariance of array slices along specified dimension"
+  ([x dimension]
+   (let [x-mean (mean x dimension)]
+     (mean (map (fn [x-slice]
+                  (let [dx-slice (m/sub x-slice x-mean)]
+                    (m/outer-product dx-slice dx-slice)))
+                (m/slices x dimension)))))
+  ([x]
+   (covariance x 0)))
+
 (defn std
   "standard deviation (sqrt of variance) of array slices
   along specified dimension"
@@ -134,3 +145,5 @@
           (map #(power (- %1 %2) 2)
                (m/to-vector a)
                (m/to-vector b))))
+
+

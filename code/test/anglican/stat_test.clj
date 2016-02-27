@@ -38,6 +38,19 @@
   (is (m/equals (variance test-array)
                 (variance test-array 0))))
 
+(deftest test-covariance
+  (is (m/equals [[32/3 32/3 32/3 32/3]
+                 [32/3 32/3 32/3 32/3]
+                 [32/3 32/3 32/3 32/3]
+                 [32/3 32/3 32/3 32/3]]
+                (covariance test-array 0)))
+  (is (m/equals [[5/4 5/4 5/4]
+                 [5/4 5/4 5/4]
+                 [5/4 5/4 5/4]]
+                (covariance test-array 1)))
+  (is (m/equals (covariance test-array)
+                (covariance test-array 0))))
+
 (deftest test-std
   (is (m/equals (m/sqrt [32/3 32/3 32/3 32/3])
                 (std test-array 0)))
