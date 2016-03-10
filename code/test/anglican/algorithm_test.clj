@@ -252,16 +252,26 @@
    :lmh nil
    :almh nil
    :rmh [:alpha 0.5 :sigma 1]
+   :ais [:number-of-steps 10]
    :smc [:number-of-particles 100]
    :pimh [:number-of-particles 100]
    :pgibbs [:number-of-particles 100]
    :pgas [:number-of-particles 10]
    :pcascade [:number-of-particles 100 :number-of-threads 200]})
 
+(def scale-num-samples
+  "options that allow increase/reduction of number of samples"
+  {:ais 0.2})
+
 (deftest test-benchmarks
   (doseq [[id benchmark] benchmarks
           [algorithm opts] algorithm-opts]
     (testing [id algorithm]
-      (let [error (apply dobenchmark benchmark 10000 algorithm opts)]
+      (let [error (apply dobenchmark 
+                         benchmark 
+                         (* 10000 (get scale-num-samples 
+                                       algorithm 1.0))
+                         algorithm 
+                         opts)]
         (prn id algorithm error)
         (is (< error (:threshold benchmark)))))))
