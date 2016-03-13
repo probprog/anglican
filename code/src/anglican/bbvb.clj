@@ -2,11 +2,10 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [anglican.stat :refer [mean]]
             [anglican.gradients :refer :all]
-            [anglican.tag :refer [get-tag]]
             [clojure.core.matrix :as m :refer [add sub mul div mmul]])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        [anglican.runtime :only [sample observe log-sum-exp normal]]
+        [anglican.runtime :only [sample observe log-sum-exp normal get-tag finite?]]
         anglican.smc))
 
 ;;; Black-box variational bayes (BBVB)
@@ -19,7 +18,7 @@
           ":only must be a collection of at least one tag (otherwise no inference will be performed)")
   (into anglican.state/initial-state
         {::q-dist (atom {}) ;; {[id count type] (dist grad-squared)}
-         ::gradient-log-q {} ;; {[id count type] [grad]} 
+         ::gradient-log-q {} ;; {[id count type] [grad]}
          ::only (into #{} only)
          ::choice-counts {}
          ::choice-last-id nil}))
