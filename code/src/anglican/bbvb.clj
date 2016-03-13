@@ -29,7 +29,7 @@
   "return the learned approximating distributions at each address"
   ;; return format: {id {[count type] dist}}
   ([state]
-   (let [dist-list (for [[addr distinfo] @(::q-dist state)]
+   (let [dist-list (for [[addr distinfo] @(::variational (meta state))]
                      [(first addr) (rest addr) (first distinfo)])]
      (loop [dist-list dist-list
             learned {}]
@@ -184,6 +184,10 @@
   ;; for possible resampling
   (update-in obs [:state]
              add-log-weight (observe (:dist obs) (:value obs))))
+
+(defmethod checkpoint [::algorithm anglican.trap.result] [_ res]
+  ;; include in state metadata a pointer to the learned approximations
+  (update-in res [:state] #(vary-meta % assoc ::variational (::q-dist %))))
 
 (defmethod infer :bbvb [_ prog value
                         & {:keys [only
