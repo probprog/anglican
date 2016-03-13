@@ -51,6 +51,7 @@
                                          ::choice-last-id)]
     [(conj choice-id (type (:dist smp))) state]))
 
+;;; These are two small constants, used to guard against division by zero.
 (def ^:dynamic *epsilon-one* 1e-12)
 (def ^:dynamic *epsilon-two* 1e-100)
 
@@ -125,6 +126,7 @@
                     [address (list (grad-step dist grad rho) adagrad)])))))))
 
 (defn update-proposals!
+  "outer loop of gradient update procedure to update proposal dist atom"
   [particles stepsize use-adagrad]
   (let [gradient-log-q (map #(::gradient-log-q (:state %)) particles)
         particles (map #(assoc-in % [:state ::gradient-log-q] {}) particles)
@@ -137,27 +139,35 @@
              stepsize
              use-adagrad)))
 
-(defn get-or-create-q! [state address prior]
+(defn get-or-create-q!
+  "get the learned proposal at an address;
+   initialize proposal with prior at new addresses."
+  [state address prior]
   (let [proposals (::q-dist state)]
     (if (contains? @proposals address)
       (get @proposals address)
       (get (swap! proposals assoc address (list prior nil)) address))))
 
 (defn merge-q!
-  "force specific proposal distributions"
+  "force specific approximating distributions: used for initialization, or to
+   use as learned proposals within an importance sampler."
   [state proposals]
   (doall
    (for [[addr dist-map] proposals
          [id dist] dist-map]
      (get-or-create-q! state (cons addr id) dist))))
 
-(defn assoc-gradient [state address proposal value]
+(defn assoc-gradient
+  "store in state the gradient value at an address"
+  [state address proposal value]
   (assert (not (contains? (::gradient-log-q state) address))
           (str "[error] updating gradient for existing address" address
                "... which should not be possible. A bug exists."))
   (assoc-in state [::gradient-log-q address] ((grad-log proposal) value)))
 
-(defn ignore? [state dist]
+(defn ignore?
+  "determine whether to learn an approximation for a given distribution object"
+  [state dist]
   (not (contains? (::only state) (get-tag dist))))
 
 ;;; Sample and Observe implementations
