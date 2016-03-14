@@ -13,15 +13,19 @@
 (derive ::algorithm :anglican.inference/algorithm)
 
 (defn make-initial-state
-  [only]
-  (assert (and (not (nil? only)) (> (count only) 0))
-          ":only must be a collection of at least one tag (otherwise no inference will be performed)")
-  (into anglican.state/initial-state
-        {::q-dist (atom {}) ;; {[id count type] (dist grad-squared)}
-         ::gradient-log-q {} ;; {[id count type] [grad]}
-         ::only (into #{} only)
-         ::choice-counts {}
-         ::choice-last-id nil}))
+  [only exclude]
+  (let [use-only? (not (or (nil? only) (empty? only)))
+        use-exclude? (not (or (nil? exclude) (empty? exclude)))]
+    (assert (not (and use-only? use-exclude?))
+            "Cannot use both of :only and :exclude")
+    (into anglican.state/initial-state
+          {::q-dist (atom {}) ;; {[id count type] (dist grad-squared)}
+           ::gradient-log-q {} ;; {[id count type] [grad]}
+           ::ignore? (if use-only? :only (if use-exclude? :exclude nil))
+           ::only (if use-only? (into #{} only) nil)
+           ::exclude (if use-exclude? (into #{} exclude) nil)
+           ::choice-counts {}
+           ::choice-last-id nil})))
 
 ;;; Accessor method (public)
 
@@ -168,7 +172,13 @@
 (defn ignore?
   "determine whether to learn an approximation for a given distribution object"
   [state dist]
-  (not (contains? (::only state) (get-tag dist))))
+  ;; learn here if we are learning everything,
+  ;;   OR if this is one of the dists we are learning,
+  ;;   OR if this is not one of the dists we are excluding
+  (case (::ignore? state)
+    nil false
+    :only (not (contains? (::only state) (get-tag dist)))
+    :exclude (contains? (::exclude state) (get-tag dist))))
 
 ;;; Sample and Observe implementations
 
@@ -201,12 +211,14 @@
 
 (defmethod infer :bbvb [_ prog value
                         & {:keys [only
+                                  exclude
                                   number-of-particles
                                   base-stepsize
                                   adagrad
                                   initial-proposals
                                   robbins-monro]
                            :or {only nil
+                                exclude nil
                                 number-of-particles 100
                                 base-stepsize 1.0
                                 adagrad true
@@ -214,7 +226,7 @@
                                 robbins-monro 0.0}}]
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
-  (let [initial-state (make-initial-state only)]
+  (let [initial-state (make-initial-state only exclude)]
     (when initial-proposals
       (merge-q! initial-state initial-proposals))
     (letfn

@@ -21,12 +21,14 @@
 
 (defmethod infer :bbeb [_ prog value
                         & {:keys [only
+                                  exclude
                                   number-of-particles
                                   base-stepsize
                                   robbins-monro
                                   adagrad
                                   initial-proposals]
                            :or {only nil
+                                exclude nil
                                 number-of-particles 100
                                 base-stepsize 1.0
                                 robbins-monro 0.0
@@ -34,7 +36,7 @@
                                 initial-proposals nil}}]
   (assert (>= number-of-particles 1)
           ":number-of-particles must be at least 1")
-  (let [initial-state (make-initial-state only)]
+  (let [initial-state (make-initial-state only exclude)]
     (when initial-proposals
       (merge-q! initial-state initial-proposals))
     (letfn
