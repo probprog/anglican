@@ -12,6 +12,8 @@
 (def initial-state
   "Initial state for replay"
   (into anglican.state/initial-state
+        ;; contrary to the convention :log-prior is unqualified 
+        ;; to make it look like :predicts and :log-weight
         {:log-prior 0.0
          ::trace []}))
 
