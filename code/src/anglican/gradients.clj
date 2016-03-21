@@ -17,7 +17,7 @@
     (Math/log 0.0)
     (let [partial-sum (if (< x 1) (/ -1. x) 0.0)
           x (if (< x 1) (+ x 1.0) x)]
-      (+ partial-sum 
+      (+ partial-sum
          (Math/log x)
          (/ -1. (* 2 x))
          (/ -1. (* 12 (Math/pow x 2)))
@@ -33,14 +33,14 @@
   [x] (and (finite? x) (> x 0.)))
 
 ;;; Gradient protocol
-;;; 
+;;;
 ;;; Note that grad-log may take its gradients with respect to different
 ;;; parameters than those used to define the distribution --- for example,
 ;;; the gradient for `anglican.runtime.normal-distribution` is with respect
 ;;; to the mean and the log of the standard deviation.
 
 (defprotocol DistGradient
-  (grad-log [dist] 
+  (grad-log [dist]
     "returns a function for the gradient of the log density.")
   (grad-step [dist grad rho]
     "updates distribution parameters by performing one gradient step."))
@@ -54,8 +54,8 @@
       ;; parameterized by log-sd
       (fn [x]
         [(/ (- x mu) (pow sigma 2))
-         (+ (- 1.) 
-            (/ (pow (- x mu) 2) 
+         (+ (- 1.)
+            (/ (pow (- x mu) 2)
                (exp (* 2. z-sigma))))])))
   (grad-step [dist grad rho]
     (let [[mu z-sigma] (add [(:mean dist) (log (:sd dist))]
@@ -68,7 +68,7 @@
   (grad-log [dist]
     (let [alpha (:shape dist)
           beta (:rate dist)]
-      (when (not (>= alpha 0.0))        
+      (when (not (>= alpha 0.0))
         (println "Invalid:" dist))
       (fn [x]
         [(* alpha (+ (log beta) (log x) (- (digamma alpha))))
@@ -85,7 +85,23 @@
         (gamma alpha beta)))))
 
 (extend-protocol DistGradient
-  anglican.runtime.beta-distribution 
+  anglican.runtime.exponential-distribution
+  (grad-log [dist]
+    (let [beta (:rate dist)]
+      (fn [x]
+        [(* beta (- (/ 1.0 beta) x))])))
+  (grad-step [dist grad rho]
+    (let [[b] (add [(log (:rate dist))]
+                     (mul rho grad))
+          beta (exp b)]
+      (if (not (positive-and-finite? beta))
+        (do
+          (println "gradient step not reasonable:" dist grad rho)
+          (grad-step dist grad (div rho 10.0)))
+        (exponential beta)))))
+
+(extend-protocol DistGradient
+  anglican.runtime.beta-distribution
   (grad-log [dist]
     (let [a (:alpha dist)
           b (:beta dist)
@@ -108,7 +124,7 @@
         (beta a b)))))
 
 (extend-protocol DistGradient
-  anglican.runtime.flip-distribution 
+  anglican.runtime.flip-distribution
   (grad-log [dist]
     (let [p (:p dist)
           q (- 1. p)
@@ -122,7 +138,7 @@
       (assoc dist :p (/ 1. (+ 1 (exp (- z))))))))
 
 (extend-protocol DistGradient
-  anglican.runtime.dirichlet-distribution 
+  anglican.runtime.dirichlet-distribution
   (grad-log [dist]
     (let [alpha (:alpha dist)
           sum-alpha (reduce + alpha)]
@@ -138,8 +154,8 @@
                   ;; note: gamma rngs can return numerically zero samples.
                   ;; in order to avoid diverging gradients, we clip evaluation
                   ;; of the gradient at (>= x 1e-12)
-                  (map #(- (log (max %1 1e-12)) 
-                           (digamma %2)) 
+                  (map #(- (log (max %1 1e-12))
+                           (digamma %2))
                        x alpha))))))
   (grad-step [dist grad rho]
     (let [z-alpha (add (m/log (:alpha dist)) (mul rho grad))
@@ -152,7 +168,7 @@
         (dirichlet alpha)))))
 
 (extend-protocol DistGradient
-  anglican.runtime.discrete-distribution 
+  anglican.runtime.discrete-distribution
   (grad-log [dist]
     (let [w (vec (:weights dist))
           p (div w (reduce + w))
@@ -166,6 +182,29 @@
           z (into [] (add z (mul rho grad)))]
       (discrete (m/exp z)))))
 
+(extend-protocol DistGradient
+  anglican.runtime.categorical-distribution
+  (grad-log [dist]
+    (fn [x]
+      ((grad-log (:dist dist)) (get-in dist [:index x]))))
+  (grad-step [dist grad rho]
+    (let [updated-dist (grad-step (:dist dist) grad rho)
+          labels (map first (:categories dist))]
+      (assoc dist
+             :categories (mapv vector labels (:weights updated-dist))
+             :dist updated-dist))))
+
+(extend-protocol DistGradient
+  anglican.runtime.poisson-distribution
+  (grad-log [dist]
+    (fn [x]
+      [(- x (:lambda dist))]))
+  (grad-step [dist grad rho]
+    (let [theta (log (:lambda dist))
+          lambda (m/exp (add theta (mul rho grad)))]
+      (assert (= (count lambda) 1))
+      (poisson (first lambda)))))
+
 ;;; TODO: eventually, extend DistGradient for all random procedures
 
 (def implemented-gradients
@@ -175,4 +214,4 @@
 (defn adaptable?
   "test whether gradients are implemented for a distribution type"
   [dist-type]
-  (extends? DistGradient dist-type)) 
+  (extends? DistGradient dist-type))
