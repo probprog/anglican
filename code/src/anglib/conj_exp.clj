@@ -3,18 +3,11 @@
             :refer [defdist defproc distribution 
                     sample observe 
                     produce absorb
-                    discrete gamma mvn wishart 
+                    chi-squared discrete gamma mvn wishart 
                     log-gamma-fn]]
            [anglican.emit :as emit]
            [anglican.stat :as stat]
            [clojure.core.matrix :as mat]))
-
-(defdist chi-sq
-  "Chi-squared distribution. Equivalent to a gamma distribution with
-  rate nu/2 and scale 1/2."
-  [nu] [dist (gamma (* 0.5 nu) 0.5)]
-  (sample [this] (sample dist))
-  (observe [this value] (observe dist value)))
 
 (defdist multivariate-t
   "Multivariate T-distribution."
@@ -22,7 +15,7 @@
   [nu mu sigma]
   [dim (mat/ecount mu)
    mvn-dist (mvn (mat/zero-vector dim) sigma)
-   chi-sq-dist (chi-sq nu)]
+   chi-sq-dist (chi-squared nu)]
   (sample 
    [this]
    (let [y (sample mvn-dist)
@@ -46,15 +39,6 @@
                (+ 1.0
                   (* (/ 1.0 nu)
                      dy-sinv-dy)))))))))
-
-;; test code
-#_(let [nu 5.0
-      mu (mat/matrix [3.0 .0])
-      sigma (mat/matrix [[1.0 0.1] [0.1 1.0]])
-      t-dist (multivariate-t nu mu sigma)
-      samples (repeatedly 10000 #(sample t-dist))]
-  ;; this should produce something close to [mu sigma]
-  [(stat/mean samples) (mat/mul (stat/covariance samples) (/ (- nu 2) nu))])
 
 (defn- mvn-niw-posterior
   "Returns the posterior parameters for a mvn-niw process."
@@ -107,66 +91,6 @@
               (inc n) 
               (mat/add sum-x x)
               (mat/add sum-x-sq (mat/outer-product x x))))))
-
-;; test code
-#_(let [num-params 1000
-      num-samples 100
-      mu (mat/matrix [2.0 3.0])
-      kappa 10.0
-      nu 10.0
-      psi (mat/mul
-           (mat/matrix 
-            [[1.0 0.1] 
-             [0.1 1.0]]) 
-           nu)
-      prec-prior (wishart nu (mat/inverse psi))
-      sigmas (repeatedly 
-               num-params 
-               #(mat/inverse
-                 (mat/mul kappa 
-                          (sample prec-prior))))
-      means (map (fn [sigma] (sample (mvn mu sigma)))
-                 sigmas)
-      likes (map mvn means sigmas)]
-  (reduce (fn [[m c] like]
-            (let [xs (repeatedly num-samples 
-                                 #(sample like))]
-             [(mat/add m (mat/div (stat/mean xs) num-params))
-              (mat/add c (mat/div (stat/covariance xs) num-params))]))
-          [(mat/zero-vector 2)
-           (mat/zero-matrix 2 2)]
-          likes))
-
-;; delete me - for testing
-(defn- multi-sample 
-  [n proc]
-  (loop [samples []
-         proc proc]
-    (if (>= (count samples) n)
-      samples
-      (let [x (sample (produce proc))]
-        (recur (conj samples x)
-               (absorb proc x))))))
-;; test code
-#_(let [num-params 1000
-      num-samples 100
-      mu (mat/matrix [2.0 3.0])
-      kappa 10.0
-      nu 10.0
-      psi (mat/mul
-           (mat/matrix 
-            [[1.0 0.1] 
-             [0.1 1.0]]) 
-           nu)]
-  (reduce (fn [[m c] proc]
-            (let [xs (multi-sample 
-                        num-samples 
-                        proc)]
-             [(mat/add m (mat/div (stat/mean xs) num-params))
-              (mat/add c (mat/div (stat/covariance xs) num-params))]))
-          [(mat/zero-vector 2)
-           (mat/zero-matrix 2 2)]
-          (repeat num-params (mvn-niw mu kappa nu psi))))
 
 (defproc dirichlet-discrete
   "Dirichlet-discrete process."
