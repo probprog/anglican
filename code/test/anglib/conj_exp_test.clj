@@ -47,10 +47,9 @@
   (let [prec-prior (wishart nu (mat/inverse psi))
         sigmas (repeatedly 
                   num-params 
-                  #(mat/inverse
-                    (mat/mul kappa 
-                             (sample prec-prior))))
-        means (map (fn [sigma] (sample (mvn mu sigma)))
+                  #(mat/inverse (sample prec-prior)))
+        means (map (fn [sigma] 
+                     (sample (mvn mu (mat/div sigma kappa))))
                    sigmas)
         likes (map mvn means sigmas)]
     (reduce (fn [[m c] like]
@@ -74,13 +73,12 @@
            (mat/zero-matrix 2 2)]
           (repeat num-params (mvn-niw mu kappa nu psi))))
 
-
 (deftest test-mvn-niw
-  (let [num-params 1000
+  (let [num-params 100
         num-samples 100
         mu (mat/matrix [2.0 3.0])
-        kappa 10.0
-        nu 10.0
+        kappa 12.0
+        nu 7.0
         psi (mat/mul
              (mat/matrix 
               [[1.0 0.1] 
