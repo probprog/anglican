@@ -29,12 +29,18 @@
 (deftest test-multivariate-t
   (testing "sampling"
     (let [nu 5.0
-          mu (mat/matrix [3.0 0.0])
+          mu (mat/matrix [3.0 1.0])
           sigma (mat/matrix [[1.0 0.1] [0.1 1.0]])
           t-dist (multivariate-t nu mu sigma)
           samples (repeatedly 10000 #(sample t-dist))]
-      ;; this should produce something close to [mu sigma]
-      [(stat/mean samples) (mat/mul (stat/covariance samples) (/ (- nu 2) nu))])))
+      (is (within (stat/mean samples) mu (mat/mul 0.1 mu))
+          "sample mean does not fall within 10% of expected value")
+      (is (within (mat/mul 
+                   (stat/covariance samples) 
+                   (/ (- nu 2) nu))
+                  sigma
+                  (mat/mul 0.2 sigma))
+          "sample covariance does not fall within 20% of expected value"))))
          
 (defn sample-mvn-niw-generative 
   [num-params num-samples mu kappa nu psi]
