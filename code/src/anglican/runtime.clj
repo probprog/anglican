@@ -228,6 +228,20 @@
               (* rate value)
               @Z)))
 
+(defdist chi-squared
+  "Chi-squared distribution. Equivalent to a gamma distribution 
+  with shape nu/2 and rate 1/2."
+  [nu]
+  [
+   ;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
+   ;; In Colt library Gamma is parametrised in its second argument
+   ;; by rate, where scale = 1 / rate.
+   gamma-dist (gamma (* nu 0.5) 0.5)]
+  (sample [this]
+          (sample gamma-dist))
+  (observe [this value]
+           (observe gamma-dist value)))
+
 (from-colt normal [mean sd] double)
 (from-colt poisson [lambda] int)
 (from-colt uniform-continuous [min max] double
@@ -254,7 +268,6 @@
     "accepts a vector of random values and generates
     a sample from the multivariate distribution"))
 
-
 (defdist mvn
   "multivariate normal"
   [mean cov] [k (m/ecount mean)     ; number of dimensions
@@ -274,6 +287,37 @@
   multivariate-distribution
   (transform-sample [this samples] (transform-sample samples)))
 
+(defdist multivariate-t
+  "Multivariate T-distribution."
+  ; Implemented according to http://en.wikipedia.org/wiki/Multivariate_t-distribution
+  [nu mu sigma]
+  [dim (m/ecount mu)
+   mvn-dist (mvn (m/zero-vector dim) sigma)
+   chi-sq-dist (chi-squared nu)]
+  (sample 
+   [this]
+   (let [y (sample mvn-dist)
+         u (sample chi-sq-dist)]
+     (m/add mu (m/mul y (Math/sqrt (/ nu u))))))
+  (observe 
+   [this y]
+   (let [dy (m/sub mu y)
+         dy-sinv-dy (m/mget
+                     (m/mmul
+                      (m/transpose dy)
+                      (m/inverse sigma)
+                     dy))]
+     (- (log-gamma-fn (* 0.5 (+ nu dim)))
+        (+ (log-gamma-fn (* 0.5 nu))
+           (* 0.5 dim (Math/log nu))
+           (* 0.5 dim (Math/log Math/PI))
+           (* 0.5 (Math/log (m/det sigma)))
+           (* 0.5 (+ nu dim)
+              (Math/log
+               (+ 1.0
+                  (* (/ 1.0 nu)
+                     dy-sinv-dy)))))))))
+
 (defn log-mv-gamma-fn
   "multivariate Gamma function"
   [p a]
@@ -292,18 +336,6 @@
       (f r c))
     [rows columns]))
 
-(defdist chi-squared
-  "Chi-squared distribution"
-  [nu]
-  [
-   ;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
-   ;; In Colt library Gamma is parametrised in its second argument
-   ;; by rate, where scale = 1 / rate.
-   gamma-dist (gamma (* nu 0.5) 0.5)]
-  (sample [this]
-          (sample gamma-dist))
-  (observe [this value]
-           (observe gamma-dist value)))
 
 (defdist wishart
   "Wishart distribution"
@@ -503,6 +535,68 @@
         (fn [x] (normal (m x) (sqrt (k x x)))))))
   (absorb [this sample]
     (GP m$ k$ m k (conj points sample))))
+
+(defproc dirichlet-discrete
+  "Dirichlet-discrete process."
+  [counts]
+  (produce [this]
+    (discrete counts)) 
+  (absorb [this x]
+    (dirichlet-discrete
+      (assoc counts 
+        x (inc (get counts x))))))
+
+(defn- mvn-niw-posterior
+  "Returns the posterior parameters for a mvn-niw process."
+  [mu kappa nu psi n sum-x sum-x-sq]
+  (let [dim (m/ecount mu)
+        mean-x (if (> n 0) (m/div sum-x n) sum-x)
+        n-cov-x (if (> n 0) 
+                  (m/sub sum-x-sq 
+                           (m/outer-product sum-x mean-x))
+                  sum-x-sq)
+        delta-x (m/sub mean-x mu)
+        kappa-post (+ kappa n)
+        nu-post (+ nu n)
+        mu-post (m/div
+                 (m/add sum-x (m/mul mu kappa))
+                 kappa-post)
+        psi-post (m/add
+                   psi 
+                   n-cov-x
+                   (m/mul
+                    (m/outer-product delta-x delta-x)
+                    (/ (* kappa n) kappa-post)))]
+    [mu-post kappa-post nu-post psi-post]))
+
+(defn- mvn-niw-predictive
+  "Returns the parameters for the predictive distribution 
+  of a mvn-niw-process, which is a multivariate-t."
+  [mu kappa nu psi]
+  (let [t-nu (- (inc nu) (m/ecount mu))
+        t-mu mu
+        t-sigma (m/mul psi (/ (inc kappa) (* kappa t-nu)))]
+    [t-nu t-mu t-sigma]))
+
+(defproc mvn-niw
+  "Multivariate normal with unknown mean and covariance
+  matrix. Parameterized using a normal inverse-Wishart."
+  [mu kappa nu psi]
+  [n 0
+   sum-x (m/zero-vector (first (m/shape psi)))
+   sum-x-sq (apply m/zero-matrix (m/shape psi))]
+  (produce 
+   [this]
+   (apply multivariate-t
+          (apply mvn-niw-predictive
+                 (mvn-niw-posterior
+                   mu kappa nu psi n sum-x sum-x-sq))))
+  (absorb [this x]
+   (let [x (m/matrix x)]
+     (mvn-niw mu kappa nu psi
+              (inc n) 
+              (m/add sum-x x)
+              (m/add sum-x-sq (m/outer-product x x))))))
 
 ;;; Add semantic tags to different distribution objects
 
