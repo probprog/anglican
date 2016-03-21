@@ -33,6 +33,12 @@
 (defn sqrt [x] (Math/sqrt x))
 (defn pow [x y] (Math/pow x y))
 
+(defn finite?
+  "is the numeric value x finite?
+  returns false for Infinity, -Infinity, and NaN"
+  [x] (> (/ 1. 0.) x (/ -1. 0.)))
+
+
 ;;; Distributions
 
 (defprotocol distribution
@@ -497,3 +503,11 @@
         (fn [x] (normal (m x) (sqrt (k x x)))))))
   (absorb [this sample]
     (GP m$ k$ m k (conj points sample))))
+
+;;; Add semantic tags to different distribution objects
+
+(defn tag [id dist]
+  (vary-meta dist assoc :anglican-tag id))
+
+(defn get-tag [dist]
+  (:anglican-tag (meta dist)))

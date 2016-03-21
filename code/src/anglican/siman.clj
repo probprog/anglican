@@ -75,10 +75,13 @@
                 (observe (:dist smp) value)
                 ;; NaN is returned if value is not in support.
                 (catch Exception e (/ 0. 0.)))
-        value (if (< (/ -1. 0.) log-p (/ 1. 0.)) value
-                ;; The retained value is not in support,
-                ;; resample the value from the prior.
-                (sample (:dist smp)))
+        [value log-p] (if (< (/ -1. 0.) log-p (/ 1. 0.)) 
+                        [value log-p]
+                        ;; The retained value is not in support,
+                        ;; resample the value from the prior.
+                        (let [v (sample (:dist smp))
+                              lp (observe (:dist smp) v)]
+                          [v lp]))
         cont (fn [_ update]
                ;; Continuation which starts from this checkpoint
                ;; --- called when the random choice is selected
