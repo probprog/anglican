@@ -242,7 +242,7 @@
 (def benchmarks
   "benchmarks to be included in tests"
   {:branching branching
-   :crp-gmm crp-gmm
+   ;:crp-gmm crp-gmm
    :gaussian gaussian
    :hmm hmm})
 
@@ -253,6 +253,7 @@
    :almh nil
    :rmh [:alpha 0.5 :sigma 1]
    :ais [:number-of-steps 10]
+   :bbvb [:number-of-particles 10 :adagrad 0.9 :robbins-monro 0.5 :base-stepsize 0.1]
    :smc [:number-of-particles 100]
    :pimh [:number-of-particles 100]
    :pgibbs [:number-of-particles 100]
@@ -267,11 +268,11 @@
   (doseq [[id benchmark] benchmarks
           [algorithm opts] algorithm-opts]
     (testing [id algorithm]
-      (let [error (apply dobenchmark 
-                         benchmark 
-                         (* 10000 (get scale-num-samples 
+      (let [error (apply dobenchmark
+                         benchmark
+                         (* 10000 (get scale-num-samples
                                        algorithm 1.0))
-                         algorithm 
+                         algorithm
                          opts)]
         (prn id algorithm error)
         (is (< error (:threshold benchmark)))))))
