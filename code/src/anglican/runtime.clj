@@ -76,7 +76,10 @@
   (proxy [MersenneTwister] [(java.util.Date.)]
     ;; MersenneTwister is not re-entrant; calls
     ;; to nextInt must be synchronized.
-    (nextInt [] (locking this (proxy-super nextInt)))))
+    (nextInt [] (locking this (proxy-super nextInt)))
+    (nextLong [] (locking this (proxy-super nextLong)))
+    (nextFloat [] (locking this (proxy-super nextFloat)))
+    (nextDouble [] (locking this (proxy-super nextDouble)))))
 
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
