@@ -8,6 +8,7 @@
                  [org.clojure/data.json "0.2.6"]
                  [com.taoensso/timbre "4.3.1"]
                  [colt "1.2.0"]
+                 [org.apache.commons/commons-math3 "3.6"]
                  [net.mikera/core.matrix "0.50.0"]
                  [net.mikera/core.matrix.stats "0.7.0"]
                  [net.mikera/vectorz-clj "0.43.1"]]

@@ -70,10 +70,15 @@
 
 ;; Distribution types, in alphabetical order.
 
-(def RNG
+(def Colt-RNG
   "random number generator;
   used by Colt distribution objects"
   (MersenneTwister. (java.util.Date.)))
+
+(def RNG
+  "random number generator;
+  used by Apache Commons Math distribution objects"
+  (org.apache.commons.math3.random.Well19937c.))
 
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
@@ -118,7 +123,7 @@
 ;; imported automatically.
 
 (defmacro ^:private from-colt
-  "wraps colt distribution"
+  "wraps Colt distribution"
   ([name args vtype]
    `(from-colt ~name ~args ~vtype (~(str/capitalize name) ~@args)))
   ([name args vtype [colt-name & colt-args]]
@@ -126,15 +131,30 @@
       ~(format "%s distribution (imported from colt)" name)
       ~args
       [dist# (~(symbol (format "cern.jet.random.%s." colt-name))
-                       ~@colt-args RNG)]
+                       ~@colt-args Colt-RNG)]
       (~'sample [~'this] (~(symbol (format ".next%s"
                                            (str/capitalize vtype)))
                                    dist#))
       (~'observe [~'this ~'value] (log (~'.pdf dist# ~'value))))))
 
+(defmacro ^:private from-apache
+  "wraps Apache Commons Math distribution"
+  [name args type [apache-name & apache-args]]
+  (let [dist (gensym "dist")]
+    `(defdist ~(symbol name)
+       ~(format "%s distribution (imported from apache)" name)
+       ~args
+       [~dist (~(symbol (format "org.apache.commons.math3.distribution.%sDistribution." apache-name))
+                        RNG ~@apache-args)]
+       (~'sample [~'this] (.sample ~dist))
+       (~'observe [~'this ~'value] 
+         ~(case type
+            :integer `(~'.logProbability ~dist ~'value)
+            :real `(~'.logDensity ~dist ~'value))))))
+
 (defdist bernoulli
   "Bernoulli distribution"
-  [p] [dist (cern.jet.random.Uniform. RNG)]
+  [p] [dist (cern.jet.random.Uniform. Colt-RNG)]
   (sample [this] (if (< (.nextDouble dist) p) 1 0))
   (observe [this value]
     (Math/log (case value
@@ -159,7 +179,7 @@
 (defdist discrete
   "discrete distribution, accepts unnormalized weights"
   [weights] [total-weight (double (reduce + weights))
-             dist (cern.jet.random.Uniform. 0. total-weight RNG)]
+             dist (cern.jet.random.Uniform. 0. total-weight Colt-RNG)]
   (sample [this]
     (let [x (.nextDouble dist)]
       (loop [[weight & weights] weights
@@ -200,7 +220,7 @@
 
 (defdist flip
   "flip (Bernoulli boolean) distribution"
-  [p] [dist (cern.jet.random.Uniform. RNG)]
+  [p] [dist (cern.jet.random.Uniform. Colt-RNG)]
   (sample [this] (< (.nextDouble dist) p))
   (observe [this value]
            (Math/log (case value
@@ -211,7 +231,7 @@
 (defdist gamma
   "Gamma distribution, parameterized by shape and rate"
   [shape rate]
-  [dist (cern.jet.random.Gamma. shape rate RNG)
+  [dist (cern.jet.random.Gamma. shape rate Colt-RNG)
    Z (delay (- (cern.jet.stat.Gamma/logGamma shape)
                (* shape (log rate))))]
   (sample [this] (.nextDouble dist))
@@ -239,8 +259,11 @@
   (observe [this value]
            (observe gamma-dist value)))
 
-(from-colt normal [mean sd] double)
-(from-colt poisson [lambda] int)
+(from-apache normal [mean sd] :real
+  (Normal (double mean) (double sd)))
+(from-apache poisson [lambda] :integer
+  (Poisson (double lambda) 1E-12 10000000))
+
 (from-colt uniform-continuous [min max] double
   ;; The explicit type cast below is a fix to clojure
   ;; constructor matching (clojure.lang.Reflector.isCongruent).
