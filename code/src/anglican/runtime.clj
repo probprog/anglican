@@ -150,8 +150,8 @@
        (~'sample [~'this] (.sample ~dist))
        (~'observe [~'this ~'value] 
          ~(case type
-            :integer `(~'.logProbability ~dist ~'value)
-            :real `(~'.logDensity ~dist ~'value))))))
+            :discrete `(~'.logProbability ~dist ~'value)
+            :continuous `(~'.logDensity ~dist ~'value))))))
 
 (defdist bernoulli
   "Bernoulli distribution"
@@ -163,8 +163,10 @@
                 0 (- 1. p)
                 0.))))
 
-(from-colt beta [alpha beta] double)
-(from-colt binomial [n p] int)
+(from-apache beta [alpha beta] :continuous
+  (Beta (double alpha) (double beta)))
+(from-apache binomial [n p] :discrete
+  (Binomial (int n) (double p)))
 
 (declare discrete)
 (defdist categorical
@@ -217,7 +219,8 @@
                              alpha))
               @Z)))
 
-(from-colt exponential [rate] double)
+(from-apache exponential [rate] :continuous
+  (Exponential (/ 1. (double rate))))
 
 (defdist flip
   "flip (Bernoulli boolean) distribution"
@@ -260,9 +263,9 @@
   (observe [this value]
            (observe gamma-dist value)))
 
-(from-apache normal [mean sd] :real
+(from-apache normal [mean sd] :continuous
   (Normal (double mean) (double sd)))
-(from-apache poisson [lambda] :integer
+(from-apache poisson [lambda] :discrete
   (Poisson (double lambda) 1E-12 10000000))
 
 (from-colt uniform-continuous [min max] double

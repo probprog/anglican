@@ -154,7 +154,8 @@
             r (sample count-prior)
             l (if (< 4 r)
                 6
-                (+ (fib (* 3 r))
+                (+ 1
+                   (fib (* 3 r))
                    (sample count-prior)))]
         (observe (poisson l) 6)
         (predict :r r)
@@ -171,7 +172,8 @@
                s (range 40)]
            (let [l (if (< 4 r)
                      6
-                     (+ (fib (* 3 r))
+                     (+ 1
+                        (fib (* 3 r))
                         (sample count-prior)))]
              [r (+ (observe (poisson l) 6)
                    (observe count-prior r)
