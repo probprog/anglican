@@ -149,6 +149,7 @@
 
 (from-apache beta [alpha beta] :continuous
   (Beta (double alpha) (double beta)))
+
 (from-apache binomial [n p] :discrete
   (Binomial (int n) (double p)))
 
@@ -236,6 +237,7 @@
 
 (from-apache normal [mean sd] :continuous
   (Normal (double mean) (double sd)))
+
 (from-apache poisson [lambda] :discrete
   (Poisson (double lambda) 1E-12 10000000))
 
@@ -318,7 +320,6 @@
           c (range columns)]
       (f r c))
     [rows columns]))
-
 
 (defdist wishart
   "Wishart distribution"
