@@ -226,15 +226,10 @@
   "Chi-squared distribution. Equivalent to a gamma distribution
   with shape nu/2 and rate 1/2."
   [nu]
-  [
-   ;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
-   ;; In Colt library Gamma is parametrised in its second argument
-   ;; by rate, where scale = 1 / rate.
+  [;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, rate = 0.5).
    gamma-dist (gamma (* nu 0.5) 0.5)]
-  (sample [this]
-          (sample gamma-dist))
-  (observe [this value]
-           (observe gamma-dist value)))
+  (sample [this] (sample gamma-dist))
+  (observe [this value] (observe gamma-dist value)))
 
 (from-apache normal [mean sd] :continuous
   (Normal (double mean) (double sd)))
