@@ -78,7 +78,8 @@
 (def RNG
   "random number generator;
   used by Apache Commons Math distribution objects"
-  (org.apache.commons.math3.random.Well19937c.))
+  (org.apache.commons.math3.random.SynchronizedRandomGenerator.
+    (org.apache.commons.math3.random.Well19937c.)))
 
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
