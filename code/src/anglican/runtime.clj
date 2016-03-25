@@ -1,6 +1,6 @@
 (ns anglican.runtime
   "Runtime library"
-  (:import [anglican MersenneTwister])
+  (:import [cern.jet.random.engine MersenneTwister])
   (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]))
@@ -70,13 +70,20 @@
 
 ;; Distribution types, in alphabetical order.
 
-(def ^:private RNG
+(def RNG
   "random number generator;
   used by Colt distribution objects"
-  (proxy [MersenneTwister] [(java.util.Date.)]
-    ;; MersenneTwister is not re-entrant; calls
-    ;; to next* must be synchronized.
-    (nextInt [] (locking this (proxy-super nextInt)))))
+  (let [N 624         ; MersenneTwister.java:118
+        mti (atom 0)
+        twister (MersenneTwister. (java.util.Date.))]
+    (reify cern.jet.random.engine.RandomEngine
+      (nextInt [this]
+        (println "nextInt")
+        (when (>= (swap! mti inc) N)
+          (locking this
+            (.nextBlock twister)
+            (reset! mti 0)))
+        (.nextInt twister)))))
 
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
