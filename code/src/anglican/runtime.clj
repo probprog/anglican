@@ -125,7 +125,7 @@
          [~'o ~'m]
          (print-simple (str ~'o) ~'m)))))
 
-;; Many distributions are available in the Colt library and
+;; Many distributions are available in the Apache Commons Math library and
 ;; imported automatically.
 
 (defmacro ^:private from-apache
