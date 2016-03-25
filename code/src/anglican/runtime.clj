@@ -37,10 +37,17 @@
   returns false for Infinity, -Infinity, and NaN"
   [x] (> (/ 1. 0.) x (/ -1. 0.)))
 
+;;; Special functions used in distributions
+
 (defn erf
   "error function"
   [x]
   (org.apache.commons.math3.special.Erf/erf x))
+
+(defn log-gamma-fn
+  "log Gamma function"
+  [x]
+  (org.apache.commons.math3.special.Gamma/logGamma x))
 
 ;;; Distributions
 
@@ -55,7 +62,7 @@
 ;; Anglican. To generate random values without exposing the random
 ;; choice as a checkpoint, use `sample*'.
 
-(def sample* "draws a sample from the distribution" sample)
+(def ^:deprecated sample* "draws a sample from the distribution" sample)
 
 ;; Log probabilities are used pervasively. A precision-preserving
 ;; way to add probabilities (e.g. for computing union probability)
@@ -183,13 +190,7 @@
         ;; any value not in the support has zero probability.
         (catch IndexOutOfBoundsException _ 0.)))))
 
-(declare gamma) ; Gamma distribution used in Dirichlet distribution
-
-(defn log-gamma-fn
-  "log Gamma function"
-  [x]
-  (org.apache.commons.math3.special.Gamma/logGamma x))
-
+(declare gamma)
 (defdist dirichlet
   "Dirichlet distribution"
   ;; borrowed from Anglican runtime
