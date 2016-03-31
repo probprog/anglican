@@ -249,7 +249,7 @@
    :hmm hmm})
 
 (def algorithm-opts
-  "options for each algorithm to be included tests"
+  "options for each algorithm to be included in tests"
   {:importance nil
    :lmh nil
    :almh nil
