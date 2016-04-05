@@ -1,7 +1,7 @@
 (ns anglican.rmh-test
   (:require [clojure.test :refer [deftest testing is]])
   (:use anglican.rmh
-        anglib.rmh-dists
+        anglican.rmh-dists
         [anglican.runtime :only [observe sample]]))
 
 (deftest test-rmh-dists
@@ -32,11 +32,11 @@
   (testing "alt-proposal for exponential"
     (let [dist (anglican.runtime/exponential 1)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
-      (is (instance? anglib.rmh_dists.folded-normal-distribution alt-dist))))
+      (is (instance? anglican.rmh_dists.folded-normal-distribution alt-dist))))
   (testing "alt-proposal for gamma"
     (let [dist (anglican.runtime/gamma 1 2)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
-      (is (instance? anglib.rmh_dists.folded-normal-positive-distribution alt-dist))))
+      (is (instance? anglican.rmh_dists.folded-normal-positive-distribution alt-dist))))
   (testing "alt-proposal for normal"
     (let [dist (anglican.runtime/normal 1 2)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
@@ -44,7 +44,7 @@
   (testing "alt-proposal for poisson"
     (let [dist (anglican.runtime/poisson 1)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]
-      (is (instance? anglib.rmh_dists.folded-normal-discrete-distribution alt-dist))))
+      (is (instance? anglican.rmh_dists.folded-normal-discrete-distribution alt-dist))))
   (testing "alt-proposal for beta"
     (let [dist (anglican.runtime/beta 1 2)
           alt-dist (anglican.rmh/get-alt-proposal dist 1 2)]

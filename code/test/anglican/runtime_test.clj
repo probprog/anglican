@@ -21,9 +21,7 @@
       (is (= (observe dist 3) (Math/log 0.))
           "upper bound is not in the domain")
       (is (= (observe dist -1) (Math/log 0.))
-          "values not in the range have zero probability")
-      (is (= (observe dist 0.5) (Math/log 0.))
-          "values of wrong type have zero probability"))))
+          "values not in the range have zero probability"))))
 
 (defn approx
   [x y eps]
