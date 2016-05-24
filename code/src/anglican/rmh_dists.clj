@@ -1,6 +1,6 @@
-(ns anglib.rmh-dists
+(ns anglican.rmh-dists
   "Alternative proposal distributions used in Random-walk Metropolis-Hastings (rmh)"
-  (:use [anglican.runtime :only [observe sample defdist abs log exp normal sqrt round]]))
+  (:use [anglican.runtime :only [observe sample defdist abs log exp erf normal sqrt round]]))
 
 (defdist folded-normal
   "folded normal distribution
@@ -34,9 +34,8 @@
   "Cumulative probability density of a sample x drawn from a univariate normal
   with mean mean and standard deviation std"
   (+ 0.5
-     (* 0.5 (. cern.jet.stat.Probability errorFunction
-               (/ (- x mean)
-                  (* (sqrt 2) std))))))
+     (* 0.5 (erf (/ (- x mean)
+                    (* (sqrt 2) std))))))
 
 (defdist folded-normal-discrete
   "discrete version of the folded normal distribution

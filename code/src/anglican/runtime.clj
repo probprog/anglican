@@ -1,6 +1,5 @@
 (ns anglican.runtime
   "Runtime library"
-  (:import [cern.jet.random.engine MersenneTwister])
   (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]))
@@ -38,6 +37,17 @@
   returns false for Infinity, -Infinity, and NaN"
   [x] (> (/ 1. 0.) x (/ -1. 0.)))
 
+;;; Special functions used in distributions
+
+(defn erf
+  "error function"
+  [x]
+  (org.apache.commons.math3.special.Erf/erf x))
+
+(defn log-gamma-fn
+  "log Gamma function"
+  [x]
+  (org.apache.commons.math3.special.Gamma/logGamma x))
 
 ;;; Distributions
 
@@ -52,7 +62,7 @@
 ;; Anglican. To generate random values without exposing the random
 ;; choice as a checkpoint, use `sample*'.
 
-(def sample* "draws a sample from the distribution" sample)
+(def ^:deprecated sample* "draws a sample from the distribution" sample)
 
 ;; Log probabilities are used pervasively. A precision-preserving
 ;; way to add probabilities (e.g. for computing union probability)
@@ -70,13 +80,11 @@
 
 ;; Distribution types, in alphabetical order.
 
-(def ^:private RNG
+(def RNG
   "random number generator;
-  used by Colt distribution objects"
-  (proxy [MersenneTwister] [(java.util.Date.)]
-    ;; MersenneTwister is not re-entrant; calls
-    ;; to nextInt must be synchronized.
-    (nextInt [] (locking this (proxy-super nextInt)))))
+  used by Apache Commons Math distribution objects"
+  (org.apache.commons.math3.random.SynchronizedRandomGenerator.
+    (org.apache.commons.math3.random.Well19937c.)))
 
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
@@ -113,40 +121,44 @@
          (let ~bindings
            (~(symbol (format "->%s" record-name))
                      ~@parameters ~@variables)))
-       (defmethod print-method ~record-name 
+       (defmethod print-method ~record-name
          [~'o ~'m]
          (print-simple (str ~'o) ~'m)))))
 
-;; Many distributions are available in the Colt library and
+;; Many distributions are available in the Apache Commons Math library and
 ;; imported automatically.
 
-(defmacro ^:private from-colt
-  "wraps colt distribution"
-  ([name args vtype]
-   `(from-colt ~name ~args ~vtype (~(str/capitalize name) ~@args)))
-  ([name args vtype [colt-name & colt-args]]
-   `(defdist ~(symbol name)
-      ~(format "%s distribution (imported from colt)" name)
-      ~args
-      [dist# (~(symbol (format "cern.jet.random.%s." colt-name))
-                       ~@colt-args RNG)]
-      (~'sample [~'this] (~(symbol (format ".next%s"
-                                           (str/capitalize vtype)))
-                                   dist#))
-      (~'observe [~'this ~'value] (log (~'.pdf dist# ~'value))))))
+(defmacro ^:private from-apache
+  "wraps Apache Commons Math distribution"
+  [name args type [apache-name & apache-args]]
+  (let [dist (gensym "dist")]
+    `(defdist ~(symbol name)
+       ~(format "%s distribution (imported from apache)" name)
+       ~args
+       [~dist (~(symbol (format "org.apache.commons.math3.distribution.%sDistribution." apache-name))
+                        RNG ~@apache-args)]
+       (~'sample [~'this] (.sample ~dist))
+       (~'observe [~'this ~'value]
+         ~(case type
+            :discrete `(~'.logProbability ~dist ~'value)
+            :continuous `(~'.logDensity ~dist ~'value))))))
 
+(declare uniform-continuous)
 (defdist bernoulli
   "Bernoulli distribution"
-  [p] [dist (cern.jet.random.Uniform. RNG)]
-  (sample [this] (if (< (.nextDouble dist) p) 1 0))
+  [p] [dist (uniform-continuous 0.0 1.0)]
+  (sample [this] (if (< (sample dist) p) 1 0))
   (observe [this value]
     (Math/log (case value
                 1 p
                 0 (- 1. p)
                 0.))))
 
-(from-colt beta [alpha beta] double)
-(from-colt binomial [n p] int)
+(from-apache beta [alpha beta] :continuous
+  (Beta (double alpha) (double beta)))
+
+(from-apache binomial [n p] :discrete
+  (Binomial (int n) (double p)))
 
 (declare discrete)
 (defdist categorical
@@ -159,12 +171,13 @@
   (sample [this] (values (sample dist)))
   (observe [this value] (observe dist (index value -1))))
 
+(declare uniform-continuous)
 (defdist discrete
   "discrete distribution, accepts unnormalized weights"
   [weights] [total-weight (double (reduce + weights))
-             dist (cern.jet.random.Uniform. 0. total-weight RNG)]
+             dist (uniform-continuous 0. total-weight)]
   (sample [this]
-    (let [x (.nextDouble dist)]
+    (let [x (sample dist)]
       (loop [[weight & weights] weights
              acc 0. value 0]
         (let [acc (+ acc weight)]
@@ -177,13 +190,7 @@
         ;; any value not in the support has zero probability.
         (catch IndexOutOfBoundsException _ 0.)))))
 
-(declare gamma) ; Gamma distribution used in Dirichlet distribution
-
-(defn log-gamma-fn
-  "log Gamma function"
-  [x]
-  (cern.jet.stat.Gamma/logGamma x))
-
+(declare gamma)
 (defdist dirichlet
   "Dirichlet distribution"
   ;; borrowed from Anglican runtime
@@ -199,68 +206,42 @@
                              alpha))
               @Z)))
 
-(from-colt exponential [rate] double)
+(from-apache exponential [rate] :continuous
+  (Exponential (/ 1. (double rate))))
 
 (defdist flip
   "flip (Bernoulli boolean) distribution"
-  [p] [dist (cern.jet.random.Uniform. RNG)]
-  (sample [this] (< (.nextDouble dist) p))
+  [p] [dist (uniform-continuous 0.0 1.0)]
+  (sample [this] (< (sample dist) p))
   (observe [this value]
            (Math/log (case value
                        true p
                        false (- 1. p)
                        0.))))
 
-(defdist gamma
-  "Gamma distribution, parameterized by shape and rate"
-  [shape rate]
-  [dist (cern.jet.random.Gamma. shape rate RNG)
-   Z (delay (- (cern.jet.stat.Gamma/logGamma shape)
-               (* shape (log rate))))]
-  (sample [this] (.nextDouble dist))
-  (observe [this value]
-           ;;       shape  shape - 1
-           ;;     rate    x
-           ;; log --------------------
-           ;;      rate x
-           ;;     e       Gamma(shape)
-           (- (* (- shape 1.) (log value))
-              (* rate value)
-              @Z)))
+(from-apache gamma [shape rate] :continuous
+  (Gamma (double shape) (/ 1.0 (double rate))))
 
 (defdist chi-squared
-  "Chi-squared distribution. Equivalent to a gamma distribution 
+  "Chi-squared distribution. Equivalent to a gamma distribution
   with shape nu/2 and rate 1/2."
   [nu]
-  [
-   ;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, scale = 2.0).
-   ;; In Colt library Gamma is parametrised in its second argument
-   ;; by rate, where scale = 1 / rate.
+  [;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, rate = 0.5).
    gamma-dist (gamma (* nu 0.5) 0.5)]
-  (sample [this]
-          (sample gamma-dist))
-  (observe [this value]
-           (observe gamma-dist value)))
+  (sample [this] (sample gamma-dist))
+  (observe [this value] (observe gamma-dist value)))
 
-(from-colt normal [mean sd] double)
-(from-colt poisson [lambda] int)
-(from-colt uniform-continuous [min max] double
-  ;; The explicit type cast below is a fix to clojure
-  ;; constructor matching (clojure.lang.Reflector.isCongruent).
-  ;; If the constructor is overloaded with the same number of
-  ;; arguments, clojure refuses to extend numeric types.
-  (Uniform (double min) (double max)))
+(from-apache normal [mean sd] :continuous
+  (Normal (double mean) (double sd)))
 
-(defdist uniform-discrete
-  "uniform discrete distribution"
-  [min max] [dist (uniform-continuous min max)
-             p (/ 1. (- max min))]
-  (sample [this] (int (sample dist)))
-  (observe [this value]
-           (Math/log
-             (if (and (integer? value)
-                      (<= min value) (< value max))
-               p 0.))))
+(from-apache poisson [lambda] :discrete
+  (Poisson (double lambda) 1E-12 10000000))
+
+(from-apache uniform-continuous [min max] :continuous
+  (UniformReal (double min) (double max)))
+
+(from-apache uniform-discrete [min max] :discrete
+  (UniformInteger (int min) (dec (int max))))
 
 (defprotocol multivariate-distribution
   "additional methods for multivariate distributions"
@@ -294,12 +275,12 @@
   [dim (m/ecount mu)
    mvn-dist (mvn (m/zero-vector dim) sigma)
    chi-sq-dist (chi-squared nu)]
-  (sample 
+  (sample
    [this]
    (let [y (sample mvn-dist)
          u (sample chi-sq-dist)]
      (m/add mu (m/mul y (Math/sqrt (/ nu u))))))
-  (observe 
+  (observe
    [this y]
    (let [dy (m/sub mu y)
          dy-sinv-dy (m/mget
@@ -335,7 +316,6 @@
           c (range columns)]
       (f r c))
     [rows columns]))
-
 
 (defdist wishart
   "Wishart distribution"
@@ -414,7 +394,7 @@
            (str (list '~(qualify name) ~@parameters)))
          random-process
          ~@methods)
-       (defn ~name ~docstring 
+       (defn ~name ~docstring
          ;; Include parameters-only overload only if variables
          ;; are not empty.
          ~@(when (seq variables)
@@ -422,7 +402,7 @@
          ([~@parameters ~@variables]
           (~(symbol (format "->%s" record-name))
                     ~@parameters ~@variables)))
-       (defmethod print-method ~record-name 
+       (defmethod print-method ~record-name
          [~'o ~'m]
          (print-simple (str ~'o) ~'m)))))
 
@@ -450,10 +430,10 @@
   by a random sample, for use with CRP"
   [counts alpha] [dist (categorical
                          (vec (conj counts [::new alpha])))]
-  (sample [this] 
+  (sample [this]
     (let [s (sample dist)]
-      (if (= s ::new) 
-        ;; When a `new' value is drawn,  sample 
+      (if (= s ::new)
+        ;; When a `new' value is drawn,  sample
         ;; the smallest natural number with zero count.
         (loop [s 0]
           (if (contains? counts s)
@@ -472,7 +452,7 @@
   "Chinese Restaurant process"
   [alpha] [counts {}]
   (produce [this] (categorical-crp counts alpha))
-  (absorb [this sample] 
+  (absorb [this sample]
     (CRP alpha (update-in counts [sample] (fnil inc 0)))))
 
 (defdist categorical-dp
@@ -540,10 +520,10 @@
   "Dirichlet-discrete process."
   [counts]
   (produce [this]
-    (discrete counts)) 
+    (discrete counts))
   (absorb [this x]
     (dirichlet-discrete
-      (assoc counts 
+      (assoc counts
         x (inc (get counts x))))))
 
 (defn- mvn-niw-posterior
@@ -551,8 +531,8 @@
   [mu kappa nu psi n sum-x sum-x-sq]
   (let [dim (m/ecount mu)
         mean-x (if (> n 0) (m/div sum-x n) sum-x)
-        n-cov-x (if (> n 0) 
-                  (m/sub sum-x-sq 
+        n-cov-x (if (> n 0)
+                  (m/sub sum-x-sq
                            (m/outer-product sum-x mean-x))
                   sum-x-sq)
         delta-x (m/sub mean-x mu)
@@ -562,7 +542,7 @@
                  (m/add sum-x (m/mul mu kappa))
                  kappa-post)
         psi-post (m/add
-                   psi 
+                   psi
                    n-cov-x
                    (m/mul
                     (m/outer-product delta-x delta-x)
@@ -570,7 +550,7 @@
     [mu-post kappa-post nu-post psi-post]))
 
 (defn- mvn-niw-predictive
-  "Returns the parameters for the predictive distribution 
+  "Returns the parameters for the predictive distribution
   of a mvn-niw-process, which is a multivariate-t."
   [mu kappa nu psi]
   (let [t-nu (- (inc nu) (m/ecount mu))
@@ -585,7 +565,7 @@
   [n 0
    sum-x (m/zero-vector (first (m/shape psi)))
    sum-x-sq (apply m/zero-matrix (m/shape psi))]
-  (produce 
+  (produce
    [this]
    (apply multivariate-t
           (apply mvn-niw-predictive
@@ -594,7 +574,7 @@
   (absorb [this x]
    (let [x (m/matrix x)]
      (mvn-niw mu kappa nu psi
-              (inc n) 
+              (inc n)
               (m/add sum-x x)
               (m/add sum-x-sq (m/outer-product x x))))))
 

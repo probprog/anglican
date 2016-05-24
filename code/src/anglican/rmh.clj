@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        anglib.rmh-dists
+        anglican.rmh-dists
         [anglican.runtime :only [observe sample]]))
 
 ;;;; Random-walk Metropolis-Hastings
@@ -44,13 +44,13 @@
   (fn [distribution value sigma] (type distribution)))
 
 (defmethod get-alt-proposal anglican.runtime.exponential-distribution [_ value sigma]
-  (anglib.rmh-dists/folded-normal value sigma))
+  (anglican.rmh-dists/folded-normal value sigma))
 (defmethod get-alt-proposal anglican.runtime.gamma-distribution [_ value sigma]
-  (anglib.rmh-dists/folded-normal-positive value sigma))
+  (anglican.rmh-dists/folded-normal-positive value sigma))
 (defmethod get-alt-proposal anglican.runtime.normal-distribution [_ value sigma]
   (anglican.runtime/normal value sigma))
 (defmethod get-alt-proposal anglican.runtime.poisson-distribution [_ value sigma]
-  (anglib.rmh-dists/folded-normal-discrete value sigma))
+  (anglican.rmh-dists/folded-normal-discrete value sigma))
 (defmethod get-alt-proposal anglican.runtime.beta-distribution [_ value sigma]
   (anglican.runtime/uniform-continuous 0 1))
 (defmethod get-alt-proposal :default [distribution _ _]

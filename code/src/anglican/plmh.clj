@@ -1,7 +1,7 @@
 (ns anglican.plmh
   "Parallel Lighweight Metropolis-Hastings
    Options:
-     :number-of-threads (2 by default) 
+     :number-of-threads ((min 4 #cores) by default) 
        - number of threads to use"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :only [set-log-weight]]
@@ -31,9 +31,13 @@
                 [entry (next-state state entry)])
            number-of-threads))
 
+(def +ncores+
+  "number of available processor cores"
+  (.availableProcessors (Runtime/getRuntime)))
+
 (defmethod infer :plmh [_ prog value
                         & {:keys [number-of-threads]
-                           :or {number-of-threads 2}}]
+                           :or {number-of-threads (min 4 +ncores+)}}]
   (letfn
     [(next-seq [state] (next-state-seq state number-of-threads))
      (sample-seq [state next-states]
