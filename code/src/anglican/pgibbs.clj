@@ -111,11 +111,14 @@
           ":number-of-particles must be at least 2")
   (letfn [(sample-seq [retained-state]
             (lazy-seq
-              (let [particles (sweep ::algorithm
-                                prog value number-of-particles
-                                retained-state)
+              (let [particles (if retained-state
+                                (sweep ::algorithm
+                                     prog value number-of-particles
+                                     retained-state)
+                                (smc/sweep ::algorithm
+                                     prog value number-of-particles))
                     retained-state (retained-initial-state
                                      (rand-nth particles))]
                 (concat (map :state particles)
                         (sample-seq retained-state)))))]
-    (sample-seq initial-state)))
+    (sample-seq nil)))
