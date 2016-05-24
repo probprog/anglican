@@ -4,9 +4,9 @@
      :number-of-particles (2 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
+  (:require [anglican.smc :as smc])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        anglican.smc
         [anglican.runtime :only [observe sample]]))
 
 ;;;; Particle Gibbs
@@ -71,7 +71,7 @@
 
 ;;; Inference loop
 
-(defmethod sweep ::algorithm
+(defn sweep
   [algorithm prog value number-of-particles retained-state]
   (loop [particles 
          (conj
@@ -89,7 +89,7 @@
                   ;; including the retained one, but release the
                   ;; retained state so that the choices in resampled
                   ;; particles are drawn rather than recovered.
-                  (resample 
+                  (smc/resample 
                    (conj (rest particles)
                          (update-in (first particles) [:state]
                                     release-retained-state))
