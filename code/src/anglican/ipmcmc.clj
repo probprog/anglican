@@ -135,7 +135,6 @@
                             zetas
                             (map vector proposal-indices ps))
             k (sample (discrete ps))]
-        ;(prn :gibbs i k)
         (if (= k (count smc-indices))
           (recur (inc i)
                  csmc-indices
