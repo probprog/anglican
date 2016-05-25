@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/tools.cli "0.3.3"]
                  [org.clojure/data.json "0.2.6"]
+                 [com.climate/claypoole "1.1.2"]
                  [com.taoensso/timbre "4.3.1"]
                  [org.apache.commons/commons-math3 "3.6"]
                  [net.mikera/core.matrix "0.50.0"]
