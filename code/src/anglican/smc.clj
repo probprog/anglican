@@ -20,10 +20,6 @@
 
 (declare resample)
 
-#_(defmulti sweep
-  "a single sweep of SMC and friends"
-  (fn [algorithm prog value number-of-particles & _] algorithm))
-
 (defn sweep
   [algorithm prog value number-of-particles]
   (loop [particles (repeatedly number-of-particles
