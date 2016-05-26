@@ -109,16 +109,19 @@
                              :or {number-of-particles 2}}]
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
-  (letfn [(sample-seq [retained-state]
+  (letfn [(sample-seq [particles]
             (lazy-seq
-              (let [particles (if retained-state
-                                (sweep ::algorithm
-                                     prog value number-of-particles
-                                     retained-state)
-                                (smc/sweep ::algorithm
-                                     prog value number-of-particles))
-                    retained-state (retained-initial-state
-                                     (rand-nth particles))]
-                (concat (map :state particles)
-                        (sample-seq retained-state)))))]
-    (sample-seq nil)))
+             (let [retained-state (retained-initial-state
+                                   (rand-nth particles))
+                   next-particles (sweep
+                                   ::algorithm
+                                   prog value number-of-particles
+                                   retained-state)]
+               (concat (map :state particles)
+                       (sample-seq next-particles)))))]
+    ;; Since we don't have a retained particle for the first sweep,
+    ;; we use SMC sweep instead
+    (let [initial-particles (anglican.smc/sweep 
+                             ::algorithm 
+                             prog value number-of-particles)]
+      (sample-seq initial-particles))))
