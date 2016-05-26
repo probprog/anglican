@@ -1,6 +1,6 @@
 (ns anglican.pgas
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require [anglican.smc :as smc :refer [sweep]]
+  (:require [anglican.smc :as smc]
             [anglican.runtime :refer [sample observe discrete exp]])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference))
@@ -125,7 +125,7 @@
                (rdb (get-in (nth regenerated ancestor)
                             [:state ::trace]))))))
 
-(defmethod sweep ::algorithm
+(defn sweep 
   [algorithm prog value number-of-particles retained-db]
   (loop [particles (repeatedly (- number-of-particles 1)
                                #(exec algorithm
