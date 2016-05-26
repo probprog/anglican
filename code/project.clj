@@ -11,7 +11,7 @@
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [net.mikera/core.matrix "0.52.0"]
                  [net.mikera/core.matrix.stats "0.7.0"]
-                 [net.mikera/vectorz-clj "0.45.0"]]
+                 [net.mikera/vectorz-clj "0.44.0"]]
   :plugins [[codox "0.8.11"]]
   :scm {:name "git"
         :url "https://bitbucket.org/probprog/anglican"}
