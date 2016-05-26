@@ -89,7 +89,7 @@
                   ;; including the retained one, but release the
                   ;; retained state so that the choices in resampled
                   ;; particles are drawn rather than recovered.
-                  (smc/resample 
+                  (anglican.smc/resample 
                    (conj (rest particles)
                          (update-in (first particles) [:state]
                                     release-retained-state))
