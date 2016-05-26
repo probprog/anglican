@@ -14,7 +14,7 @@
                  [net.mikera/vectorz-clj "0.45.0"]]
   :plugins [[codox "0.8.11"]]
   :scm {:name "git"
-        :url "https://bitbucket.org/dtolpin/anglican"}
+        :url "https://bitbucket.org/probprog/anglican"}
   :repl-options {:timeout 600000}
   :main ^:skip-aot anglican.core
   :target-path "target/%s"
