@@ -205,7 +205,7 @@ Options:
 
 ;; Rich REPL
 ;;
-;; In an alternative paradigm of interaction results are
+;; In an alternative paradigm of interaction, results are
 ;; manipulated in the REPL (Leiningen, Gorilla). `doquery'
 ;; accepts the query as a callable object and returns a
 ;; lazy sequence of states.
