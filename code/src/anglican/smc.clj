@@ -20,11 +20,7 @@
 
 (declare resample)
 
-(defmulti sweep
-  "a single sweep of SMC and friends"
-  (fn [algorithm prog value number-of-particles & _] algorithm))
-
-(defmethod sweep ::algorithm
+(defn sweep
   [algorithm prog value number-of-particles]
   (loop [particles (repeatedly number-of-particles
                                #(exec algorithm

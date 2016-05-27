@@ -259,6 +259,7 @@
    :smc [:number-of-particles 100]
    :pimh [:number-of-particles 100]
    :pgibbs [:number-of-particles 100]
+   :ipmcmc [:number-of-particles 100 :number-of-nodes 10 :all-particles? true]
    :pgas [:number-of-particles 10]
    :pcascade [:number-of-particles 100 :number-of-threads 200]})
 
@@ -270,11 +271,13 @@
   (doseq [[id benchmark] benchmarks
           [algorithm opts] algorithm-opts]
     (testing [id algorithm]
-      (let [error (apply dobenchmark
+      (let [start-time (. System (nanoTime))
+            error (apply dobenchmark
                          benchmark
                          (* 10000 (get scale-num-samples
                                        algorithm 1.0))
                          algorithm
-                         opts)]
-        (prn id algorithm error)
+                         opts)
+            end-time (. System (nanoTime))]
+        (prn id algorithm error (/ (- end-time start-time) 1e6) 'ms)
         (is (< error (:threshold benchmark)))))))
