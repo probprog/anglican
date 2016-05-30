@@ -72,7 +72,9 @@
 ;;; Inference loop
 
 (defn sweep
-  [algorithm prog value number-of-particles retained-state]
+  "PMCMC sweep"
+  [algorithm prog value number-of-particles retained-state
+   & {:keys [initial-state] :or {initial-state initial-state}}]
   (loop [particles 
          (conj
           (repeatedly (- number-of-particles 1)
@@ -125,5 +127,6 @@
     (lazy-seq
       (let [initial-particles (anglican.smc/sweep 
                                 ::algorithm 
-                                prog value number-of-particles)]
+                                prog value number-of-particles
+                                :initial-state initial-state)]
         (sample-seq initial-particles)))))
