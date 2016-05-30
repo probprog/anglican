@@ -9,7 +9,7 @@
   (* 0.5 (+ 1 (erf (/ (- x mu)
                       (* (sqrt 2) sigma))))))
 
-(defn chi-squared-cdf 
+(defn- chi-squared-cdf 
   [nu x]
   (let [d (org.apache.commons.math3.distribution.ChiSquaredDistribution. (double nu))]
     (.cumulativeProbability d (double x))))
@@ -18,10 +18,24 @@
   [x] 
   (* x x))
 
+(defn ess 
+  "calculates the effective sample size, defined as the ratio of the
+  square of the sum and the sum of the squares"
+  [log-weights]
+  (let [max-log-weight (reduce max log-weights)
+        weights (map #(Math/exp (- % max-log-weight))
+                     log-weights)]
+    (if (seq weights)
+      (let [sum-w (reduce + weights)
+            sum-sq-w (reduce + (map #(* % %) weights))]
+        (/ (* sum-w sum-w) sum-sq-w))
+      0.0)))
+
 (defn sample-moments 
   [d num-samples]
   (let [samples (repeatedly num-samples #(sample d))]
-    [(stat/mean samples) (stat/variance samples)]))
+    [(stat/mean samples) 
+     (stat/variance samples)]))
 
 (defn importance-moments
   [p-dist q-dist num-samples]
@@ -32,7 +46,8 @@
                          samples)
         weighted (map vector samples log-weights)]
     [(stat/empirical-mean weighted)
-     (stat/empirical-variance weighted)]))
+     (stat/empirical-covariance weighted)
+     (ess log-weights)]))
 
 (defprotocol DistributionMoments
   (mean [self])
@@ -150,7 +165,6 @@
     (if (mat/scalar? m)
       ;; return the distance from the 0.5 quantile under CLT assumption
       (let [v (variance d)
-            mean-dist (normal m (sqrt (/ v num-samples)))
             q (normal-cdf m (sqrt (/ v num-samples)) sm)]
         [(/ (abs (- q 0.5)) 0.5) m v sm sv])
       ;; return the distance from the 0.5 quantile on mahalabonis distance
@@ -160,6 +174,21 @@
             r2 (mat/mmul dm (mat/mul (mat/inverse s) num-samples) dm)
             q (chi-squared-cdf (mat/ecount m) r2)]
         [q m (mat/diagonal s) sm sv]))))
+
+(defn importance-mean-quantile
+  [p q num-samples]
+  (let [m (mean p)
+        [sm sc eff-samples] (importance-moments p q num-samples)]
+    (if (mat/scalar? m)
+      ;; return the distance from the 0.5 quantile under CLT assumption
+      (let [f (normal-cdf m (sqrt (/ sc eff-samples)) sm)]
+        [(/ (abs (- f 0.5)) 0.5) m sm sc eff-samples])
+      ;; return the distance from the 0.5 quantile on mahalabonis distance
+      (let [;; calculate square of mahalabonis distance
+            dm (mat/sub sm m)
+            r2 (mat/mmul dm (mat/mul (mat/inverse sc) eff-samples) dm)
+            quantile (chi-squared-cdf (mat/ecount m) r2)]
+        [quantile m sm sc eff-samples]))))
 
 (def dists
   {'bernoulli 
@@ -220,3 +249,13 @@
                  "predicted from central limit theorem. "
                  "mean: " m ", sample mean: " sm 
                  ", variance: " v ", sample variance: " sv))))))
+
+(deftest test-importance-mean
+  (doseq [[s [p q]] dists]
+    (testing (symbol (str s "-distribution"))
+      (let [[q m sm sc eff-samples] (importance-mean-quantile p q 1000)]
+        (is (< q 0.99)
+            (str "importance sampling mean does not fall within 99% "
+                 "quantile predicted from central limit theorem. "
+                 "mean: " m ", sample mean: " sm ", sample covariance: " sc 
+                 ", effective sample size: " eff-samples)))))) 
