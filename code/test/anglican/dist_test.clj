@@ -18,7 +18,7 @@
   [x] 
   (* x x))
 
-(defn ess 
+(defn- ess 
   "calculates the effective sample size, defined as the ratio of the
   square of the sum and the sum of the squares"
   [log-weights]
@@ -31,23 +31,13 @@
         (/ (* sum-w sum-w) sum-sq-w))
       0.0)))
 
-(defn sample-moments 
-  [d num-samples]
-  (let [samples (repeatedly num-samples #(sample d))]
-    [(stat/mean samples) 
-     (stat/variance samples)]))
-
-(defn importance-moments
-  [p-dist q-dist num-samples]
-  (let [samples (repeatedly num-samples #(sample q-dist))
-        log-weights (map (fn [x] 
-                           (- (observe p-dist x)
-                              (observe q-dist x)))
-                         samples)
-        weighted (map vector samples log-weights)]
-    [(stat/empirical-mean weighted)
-     (stat/empirical-covariance weighted)
-     (ess log-weights)]))
+(defn- upper-diag 
+  "returns a vector of upper diagonal elements in a matrix"
+  [m]
+  (let [[k l] (mat/shape m)]
+    (assert (= k l)
+            "matrix m must be a square matrix")
+    (mat/matrix (mapcat (partial mat/diagonal m) (range k)))))
 
 (defprotocol DistributionMoments
   (mean [self])
@@ -157,40 +147,105 @@
       (mat/mul (mat/add (mat/mul V V) 
                         (mat/outer-product v v))
                n))))
-  
+
+(defn sample-moments 
+  [d num-samples]
+  (let [samples (repeatedly num-samples #(sample d))
+        m (stat/mean samples)
+        c (if (mat/matrix? m)
+            (if (mat/symmetric? m)
+              (stat/covariance (map upper-diag samples))
+              (stat/covariance (map mat/to-vector samples)))
+            (stat/covariance samples))]
+    [m c]))
+
+(defn importance-moments
+  [p-dist q-dist num-samples]
+  (let [samples (repeatedly num-samples #(sample q-dist))
+        log-weights (map (fn [x] 
+                           (- (observe p-dist x)
+                              (observe q-dist x)))
+                         samples)
+        weighted (map vector samples log-weights)
+        m (stat/empirical-mean weighted)
+        c (if (mat/matrix? m)
+            (if (mat/symmetric? m)
+              (stat/empirical-covariance 
+               (map #(update-in % [0] upper-diag) 
+                    weighted))
+              (stat/empirical-covariance 
+               (map #(update-in % [0] mat/to-vector) 
+                    weighted)))
+            (stat/empirical-covariance weighted))]
+    [m c (ess log-weights)]))
+
 (defn sample-mean-quantile
   [d num-samples]
   (let [m (mean d)
-        [sm sv] (sample-moments d num-samples)]
-    (if (mat/scalar? m)
+        [sm sc] (sample-moments d num-samples)]
+    (cond 
+      (mat/scalar? m)
       ;; return the distance from the 0.5 quantile under CLT assumption
       (let [v (variance d)
             q (normal-cdf m (sqrt (/ v num-samples)) sm)]
-        [(/ (abs (- q 0.5)) 0.5) m v sm sv])
-      ;; return the distance from the 0.5 quantile on mahalabonis distance
-      (let [;; calculate square of mahalabonis distance
-            s (covariance d)
+        [(/ (abs (- q 0.5)) 0.5) m sm sc])
+      ;; return the quantile on the mahalabonis distance
+      (mat/vec? m)
+      (let [s (covariance d)
             dm (mat/sub sm m)
-            r2 (mat/mmul dm (mat/mul (mat/inverse s) num-samples) dm)
+            r2 (mat/mmul dm 
+                         (mat/mul (mat/inverse s) 
+                                  num-samples) 
+                         dm)
             q (chi-squared-cdf (mat/ecount m) r2)]
-        [q m (mat/diagonal s) sm sv]))))
+        [q m sm sc])
+      ;; return quantile on mahalabonis distance for flattened mean
+      (mat/matrix? m)
+      (let [dm (if (mat/symmetric? m)
+                 (mat/sub (upper-diag m)
+                          (upper-diag sm))
+                 (mat/sub (mat/to-vector m)
+                          (mat/to-vector sm)))
+            r2 (mat/mmul dm 
+                          (mat/mul (mat/inverse sc) 
+                                   num-samples) 
+                          dm)
+            q (chi-squared-cdf (mat/ecount m) (mat/mget r2))]
+        [q m sm sc]))))
 
 (defn importance-mean-quantile
   [p q num-samples]
   (let [m (mean p)
         [sm sc eff-samples] (importance-moments p q num-samples)]
-    (if (mat/scalar? m)
+    (cond
+      (mat/scalar? m)
       ;; return the distance from the 0.5 quantile under CLT assumption
       (let [f (normal-cdf m (sqrt (/ sc eff-samples)) sm)]
         [(/ (abs (- f 0.5)) 0.5) m sm sc eff-samples])
-      ;; return the distance from the 0.5 quantile on mahalabonis distance
-      (let [;; calculate square of mahalabonis distance
-            dm (mat/sub sm m)
-            r2 (mat/mmul dm (mat/mul (mat/inverse sc) eff-samples) dm)
+      (mat/vec? m)
+      ;; return the quantile on the mahalabonis distance
+      (let [dm (mat/sub sm m)
+            r2 (mat/mmul dm 
+                         (mat/mul (mat/inverse sc) 
+                                  eff-samples) 
+                         dm)
             quantile (chi-squared-cdf (mat/ecount m) r2)]
-        [quantile m sm sc eff-samples]))))
+        [quantile m sm sc eff-samples])
+      (mat/matrix? m)
+      ;; quantile on mahalabonis distance for flattened mean
+      (let [dm (if (mat/symmetric? m)
+                 (mat/sub (upper-diag m)
+                          (upper-diag sm))
+                 (mat/sub (mat/to-vector m)
+                          (mat/to-vector sm)))
+            r2 (mat/mmul dm 
+                          (mat/mul (mat/inverse sc) 
+                                   eff-samples) 
+                          dm)
+            q (chi-squared-cdf (mat/ecount dm) (mat/mget r2))]
+        [q m sm sc eff-samples]))))
 
-(def dists
+(def test-dists
   {'bernoulli 
    [(bernoulli 0.7)
     (bernoulli 0.4)]
@@ -236,24 +291,24 @@
    'uniform-discrete 
    [(uniform-discrete 2 5)
     (uniform-discrete 0 6)]
-   #_'wishart
-   #_[(wishart 100 [[0.1 0.01] [0.01 0.1]])
-      (wishart 10 [[1.0 0.1] [0.1 1.0]])]})
+   'wishart
+   [(wishart 100 [[0.1 0.01] [0.01 0.1]])
+    (wishart 10 [[1.0 0.1] [0.1 1.0]])]})
 
 (deftest test-sample-mean
-  (doseq [[s [p q]] dists]
+  (doseq [[s [p-dist _]] test-dists]
     (testing (symbol (str s "-distribution"))
-      (let [[q m v sm sv] (sample-mean-quantile p 1000)]
+      (let [[q m sm sc] (sample-mean-quantile p-dist 1000)]
         (is (< q 0.99)
             (str "sample mean does not fall within 99% quantile "
                  "predicted from central limit theorem. "
                  "mean: " m ", sample mean: " sm 
-                 ", variance: " v ", sample variance: " sv))))))
+                 "sample covariance: " sc))))))
 
 (deftest test-importance-mean
-  (doseq [[s [p q]] dists]
+  (doseq [[s [p-dist q-dist]] test-dists]
     (testing (symbol (str s "-distribution"))
-      (let [[q m sm sc eff-samples] (importance-mean-quantile p q 1000)]
+      (let [[q m sm sc eff-samples] (importance-mean-quantile p-dist q-dist 1000)]
         (is (< q 0.99)
             (str "importance sampling mean does not fall within 99% "
                  "quantile predicted from central limit theorem. "
