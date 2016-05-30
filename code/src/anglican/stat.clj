@@ -50,8 +50,8 @@
   [x log-w], where x may be of a number or vector."
   [weighted]
   (let [mu (empirical-mean weighted)
-        x (map #(m/sub % mu) (map first weighted))
-        dx (m/sub x mu)]
+        dx (map #(m/sub % mu) 
+                (map first weighted))]
     (empirical-expectation #(m/outer-product % %) 
                            (map vector dx (map second weighted)))))
 
