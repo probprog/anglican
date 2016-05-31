@@ -28,75 +28,56 @@
 
 (derive ::algorithm :anglican.pgibbs/algorithm)
 
-(defn csmc-sweep
-  "Performs a conditional sequential Monte Carlo sweep. Returns a
-  pair [results log-Z] in which results is a sequence of result
-  records and log-Z is an estimate of the log marginal likelihood."
+(defn sweep
+  "Performs a sequential Monte Carlo or conditional sequential 
+  Monte Carlo sweep. Returns a pair [results log-Z] in which results 
+  is a sequence of result records and log-Z is an estimate of the 
+  log marginal likelihood."
   [algorithm prog value
-   number-of-particles retained-state]
+   number-of-particles all-particles?
+   retained-state]
   (loop [checkpoints
-         (conj
-          (repeatedly (- number-of-particles 1)
-                      #(exec algorithm prog value initial-state))
-          (exec algorithm prog value retained-state))
+         (if retained-state
+           ;; perform first step of CSMC
+           (conj
+            (repeatedly (- number-of-particles 1)
+                        #(exec algorithm prog value initial-state))
+            (exec algorithm prog value retained-state))
+           ;; perform first step of SMC
+           (repeatedly number-of-particles
+                        #(exec algorithm prog value initial-state)))
          log-Z 0.0]
     (cond
       (every? #(instance? anglican.trap.observe %) checkpoints)
-      (let [retained (first checkpoints)
-            resampled (smc/resample 
-                       (conj (rest checkpoints)
-                             (update-in retained [:state]
-                                        release-retained-state))
-                       (- number-of-particles 1))
-            log-mean-weight (get-in (first resampled)
+      (let [resampled (if retained-state
+                        ;; perform CSMC resampling step
+                        (conj (smc/resample 
+                               (conj (rest checkpoints)
+                                     (update-in (first checkpoints) 
+                                                [:state]
+                                                release-retained-state))
+                               (- number-of-particles 1))
+                              (first checkpoints))
+                        ;; perform SMC resampling
+                        (smc/resample checkpoints 
+                                      number-of-particles))
+            log-mean-weight (get-in (second resampled) 
                                     [:state :log-weight])]
         (recur (map #(exec algorithm (:cont %) nil
                            ;; Set weights of all particles (including
                            ;; the retained one) to the same value.
                            (set-log-weight (:state %) 0.))
-                    (conj resampled retained))
+                    resampled)
                (+ log-Z log-mean-weight)))
       (every? #(instance? anglican.trap.result %) checkpoints)
-      [checkpoints log-Z]
+      (if all-particles?
+        ;; return all particles
+        [checkpoints log-Z]
+        ;; select one particle at random
+        [(list (rand-nth checkpoints)) log-Z])
       :else (throw (AssertionError.
                     "some `observe' directives are not global")))))
   
-(defn smc-sweep
-  "Performs a sequential Monte Carlo sweep. Returns a pair 
-  [results log-Z] in which results is a sequence of result records 
-  and log-Z is an estimate of the log marginal likelihood."
-  [algorithm prog value 
-   number-of-particles]
-  (let [results (smc/sweep algorithm 
-                           prog value number-of-particles)]
-    [results 
-     (get-in (first results) 
-             [:state :log-weight])]))
-
-(defn sweep
-  "Performs a sequential Monte Carlo (SMC) or conditional SMC (CSMC)
-  sweep. SMC is performed when the value for retained-state is nil,
-  and CSMC is performed otherwise. 
-
-  Returns a pair [results log-Z] in which results is a sequence of
-  result records and log-Z is an estimate of the log marginal
-  likelihood. When all-particles? is false, the sequence of results
-  will contain a single element."
-  [algorithm prog value 
-   number-of-particles all-particles? retained-state]
-  (let [[results log-Z] (if retained-state
-                          (csmc-sweep 
-                           algorithm prog value 
-                           number-of-particles retained-state)
-                          (smc-sweep
-                           algorithm prog value 
-                           number-of-particles))]
-    (if all-particles?
-      ;; return all particles
-      [results log-Z]
-      ;; select one particle at random
-      [(list (rand-nth results)) log-Z])))
-
 (defn norm-exp 
   "Normalized exponential. Accepts a collection of log weights. 
   Returns a pair [ps log-Z] in which ps is a sequence of
