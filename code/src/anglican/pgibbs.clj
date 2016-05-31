@@ -84,19 +84,22 @@
                         ;; Set weights of all particles (including
                         ;; the retained one) to the same value.
                         (set-log-weight (:state %) 0.))
-                 (conj 
-                  ;; Resample all but one from all particles
-                  ;; including the retained one, but release the
-                  ;; retained state so that the choices in resampled
-                  ;; particles are drawn rather than recovered.
-                  (resample 
-                   (conj (rest particles)
-                         (update-in (first particles) [:state]
-                                    release-retained-state))
-                   (- number-of-particles 1))
+                 (if (retained-state? (:state (first particles)))
+                   (conj 
+                    ;; Resample all but one from all particles
+                    ;; including the retained one, but release the
+                    ;; retained state so that the choices in resampled
+                    ;; particles are drawn rather than recovered.
+                    (resample 
+                     (conj (rest particles)
+                           (update-in (first particles) [:state]
+                                      release-retained-state))
+                     (- number-of-particles 1))
 
-                  ;; Add the retained particle at the first position.
-                  (first particles))))
+                    ;; Add the retained particle at the first position.
+                    (first particles))
+                   ;; perform normal resampling as in smc
+                   (anglican.smc/resample particles number-of-particles))))
                        
      (every? #(instance? anglican.trap.result %) particles)
      particles
