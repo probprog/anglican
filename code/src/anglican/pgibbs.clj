@@ -4,9 +4,9 @@
      :number-of-particles (2 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require [anglican.smc :as smc])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
+        anglican.smc
         [anglican.runtime :only [observe sample]]))
 
 ;;;; Particle Gibbs
@@ -71,10 +71,8 @@
 
 ;;; Inference loop
 
-(defn sweep
-  "PMCMC sweep"
-  [algorithm prog value number-of-particles retained-state
-   & {:keys [initial-state] :or {initial-state initial-state}}]
+(defmethod sweep ::algorithm
+  [algorithm prog value number-of-particles retained-state]
   (loop [particles 
          (conj
           (repeatedly (- number-of-particles 1)
@@ -86,19 +84,22 @@
                         ;; Set weights of all particles (including
                         ;; the retained one) to the same value.
                         (set-log-weight (:state %) 0.))
-                 (conj 
-                  ;; Resample all but one from all particles
-                  ;; including the retained one, but release the
-                  ;; retained state so that the choices in resampled
-                  ;; particles are drawn rather than recovered.
-                  (anglican.smc/resample 
-                   (conj (rest particles)
-                         (update-in (first particles) [:state]
-                                    release-retained-state))
-                   (- number-of-particles 1))
+                 (if (retained-state? (:state (first particles)))
+                   (conj 
+                    ;; Resample all but one from all particles
+                    ;; including the retained one, but release the
+                    ;; retained state so that the choices in resampled
+                    ;; particles are drawn rather than recovered.
+                    (resample 
+                     (conj (rest particles)
+                           (update-in (first particles) [:state]
+                                      release-retained-state))
+                     (- number-of-particles 1))
 
-                  ;; Add the retained particle at the first position.
-                  (first particles))))
+                    ;; Add the retained particle at the first position.
+                    (first particles))
+                   ;; perform normal resampling as in smc
+                   (anglican.smc/resample particles number-of-particles))))
                        
      (every? #(instance? anglican.trap.result %) particles)
      particles
@@ -111,22 +112,13 @@
                              :or {number-of-particles 2}}]
   (assert (>= number-of-particles 2)
           ":number-of-particles must be at least 2")
-  (letfn [(sample-seq [particles]
-            (concat
-              (map :state particles)
-              (lazy-seq
-                (let [retained-state (retained-initial-state
-                                       (rand-nth particles))
-                      next-particles (sweep
-                                       ::algorithm
-                                       prog value number-of-particles
-                                       retained-state)]
-                  (sample-seq next-particles)))))]
-    ;; Since we don't have a retained particle for the first sweep,
-    ;; we use SMC sweep instead
-    (lazy-seq
-      (let [initial-particles (anglican.smc/sweep 
-                                ::algorithm 
+  (letfn [(sample-seq [retained-state]
+            (lazy-seq
+              (let [particles (sweep ::algorithm
                                 prog value number-of-particles
-                                :initial-state initial-state)]
-        (sample-seq initial-particles)))))
+                                retained-state)
+                    retained-state (retained-initial-state
+                                     (rand-nth particles))]
+                (concat (map :state particles)
+                        (sample-seq retained-state)))))]
+    (sample-seq initial-state)))

@@ -20,10 +20,12 @@
 
 (declare resample)
 
-(defn sweep
-  "SMC sweep"
-  [algorithm prog value number-of-particles 
-   & {:keys [initial-state] :or {initial-state initial-state}}]
+(defmulti sweep
+  "a single sweep of SMC and friends"
+  (fn [algorithm prog value number-of-particles & _] algorithm))
+
+(defmethod sweep ::algorithm
+  [algorithm prog value number-of-particles]
   (loop [particles (repeatedly number-of-particles
                                #(exec algorithm
                                       prog value initial-state))]
