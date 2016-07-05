@@ -57,7 +57,8 @@
 
 ;; Retrieval of final result
 
-(defn result-cont [v s] (->result s))
+(defn result-cont [v s] 
+  (->result (assoc s :value v)))
 
 (defmacro defn-with-named-cont
   "binds the continuation to a name"
