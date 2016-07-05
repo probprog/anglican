@@ -1,6 +1,6 @@
-# anglican
+# Anglican
 
-anglican is a probabilistic programming system
+Anglican is a probabilistic programming system
 implemented in Clojure, both the programming environment and
 the language. [Introduction to anglican](doc/intro.md) explains
 how to write and run programs in anglican.
