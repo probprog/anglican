@@ -45,6 +45,16 @@
   [weighted]
   (empirical-expectation identity weighted))
 
+(defn empirical-covariance
+  "calculates the covariance from a collection of weighted pairs
+  [x log-w], where x may be of a number or vector."
+  [weighted]
+  (let [mu (empirical-mean weighted)
+        dx (map #(m/sub % mu) 
+                (map first weighted))]
+    (empirical-expectation #(m/outer-product % %) 
+                           (map vector dx (map second weighted)))))
+
 (defn empirical-variance
   "calculates the variance from a collection of weighted pairs
   [x log-w], where x may be of a number or array"
