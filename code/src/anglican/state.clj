@@ -10,6 +10,7 @@
   "initial program state"
   {:log-weight 0.0
    :predicts []
+   :result nil
    ::mem {}
    ::store nil})
 
