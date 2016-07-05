@@ -163,7 +163,7 @@
   [f samples]
   (let [log-norm (Math/log (count samples))]
     (reduce (fn [weighted sample]
-              (let [v (f (get-predicts sample))
+              (let [v (f sample)
                     lw (- (get-log-weight sample)
                           log-norm)]
                 (if (weighted v)
