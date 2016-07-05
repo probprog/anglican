@@ -103,7 +103,7 @@
 (defn stripdown
   "removes algorithm-specific entries from the state"
   [state]
-  (select-keys state [:log-weight :value :predicts]))
+  (select-keys state [:log-weight :result :predicts]))
 
 ;;; Random functions for inference algorithms
 

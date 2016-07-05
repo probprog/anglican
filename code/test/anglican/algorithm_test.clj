@@ -70,7 +70,7 @@
    ;; result
    #((juxt stat/empirical-mean
            stat/empirical-std)
-     (collect-by :value %))
+     (collect-by :result %))
    ;; truth
    [7.25 (sqrt (/ 1.0 1.2))]
    ;; metric
@@ -110,7 +110,7 @@
    (fn [samples]
      (stat/empirical-mean
       (collect-by (comp #(index->ind % 0 2) 
-                        :value)
+                        :result)
                   samples)))
    ;; truth
    [[ 0.3775 0.3092 0.3133]
@@ -162,7 +162,7 @@
    nil
    ;; result
    #(stat/empirical-distribution 
-     (collect-by (comp :r :value) %))
+     (collect-by (comp :r :result) %))
    ;; truth
    (into (sorted-map)
       (stat/empirical-distribution
@@ -212,7 +212,7 @@
     1.72 0.0 100.0 1.0 10.0]
    ;; result
    #(stat/empirical-distribution 
-     (collect-by (comp :num-clusters :value) %))
+     (collect-by (comp :num-clusters :result) %))
    ;; truth
    (zipmap
     (range 1 11)
