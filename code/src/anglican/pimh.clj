@@ -58,7 +58,9 @@
                                      prog value number-of-particles)
                next-log-Z (get-log-Z next-particles)]
            ;; And accept with MH probability.
-           (if (> (- next-log-Z log-Z) (Math/log (rand)))
+           (if (or 
+                 (= log-Z (/ -1. 0.))
+                 (> (- next-log-Z log-Z) (Math/log (rand))))
              (add-samples next-particles next-log-Z)
              (add-samples particles log-Z)))))]
 
