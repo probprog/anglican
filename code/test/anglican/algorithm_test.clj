@@ -253,6 +253,8 @@
   {:importance nil
    :lmh nil
    :almh nil
+   :plmh nil
+   :palmh nil
    :rmh [:alpha 0.5 :sigma 1]
    :ais [:number-of-steps 10]
    :bbvb [:number-of-particles 10 :adagrad 0.9 :robbins-monro 0.5 :base-stepsize 0.1]
