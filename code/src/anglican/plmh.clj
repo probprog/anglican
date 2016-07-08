@@ -1,7 +1,7 @@
 (ns anglican.plmh
   "Parallel Lighweight Metropolis-Hastings
    Options:
-     :number-of-threads ((min 4 #cores) by default) 
+     :number-of-threads ((min 4 #cores) by default)
        - number of threads to use"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :only [set-log-weight]]
@@ -50,8 +50,10 @@
                [state next-states]
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
-               (if (> (- (utility next-state) (utility prev-state))
-                      (Math/log (rand)))
+               (if (or
+                    (= (utility prev-state) (/ -1. 0.))
+                    (> (- (utility next-state) (utility prev-state))
+                       (Math/log (rand))))
                  [next-state (next-seq next-state)]
                  [state (rest next-states)])]
            ;; Include the selected state into the sequence of

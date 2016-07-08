@@ -36,9 +36,11 @@
                [state next-states]
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
-               (if (> (- (utility next-state entry)
-                         (utility prev-state entry))
-                      (Math/log (rand)))
+               (if (or
+                    (= (utility prev-state entry) (/ -1. 0.))
+                    (> (- (utility next-state entry)
+                          (utility prev-state entry))
+                       (Math/log (rand))))
                  ;; The new state is accepted --- award choices
                  ;; according to changes in predicts to favor
                  ;; choices which affect more predicts.

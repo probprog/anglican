@@ -75,7 +75,7 @@
                 (observe (:dist smp) value)
                 ;; NaN is returned if value is not in support.
                 (catch Exception e (/ 0. 0.)))
-        [value log-p] (if (< (/ -1. 0.) log-p (/ 1. 0.)) 
+        [value log-p] (if (< (/ -1. 0.) log-p (/ 1. 0.))
                         [value log-p]
                         ;; The retained value is not in support,
                         ;; resample the value from the prior.
@@ -160,10 +160,12 @@
                  entry (rand-nth (state ::trace))
                  ;; Compute next state from the resampled choice.
                  next-state (next-state state entry)
-                 state (if (> (/ (- (get-log-weight next-state)
-                                    (get-log-weight state))
-                                 T)
-                              (Math/log (rand)))
+                 state (if (or
+                            (= (get-log-weight state) (/ -1. 0.))
+                            (> (/ (- (get-log-weight next-state)
+                                     (get-log-weight state))
+                                  T)
+                               (Math/log (rand))))
                          next-state
                          state)
                  state (if predict-trace
