@@ -11,6 +11,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
+        [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe sample]]))
 
 ;;;; Finding MAP of the trace using simulated annealing
@@ -130,6 +131,11 @@
   [_ temperature rate]
   (/ temperature (+ 1. (* (- 1. rate) temperature))))
 
+(defn utility
+  "compute utility of state at current temperature"
+  [state T]
+  (/ (get-log-weight state) T))
+
 (defmethod infer :siman
   [_ prog value
    & {:keys [;; A real number slightly smaller than 1.,
@@ -160,12 +166,8 @@
                  entry (rand-nth (state ::trace))
                  ;; Compute next state from the resampled choice.
                  next-state (next-state state entry)
-                 state (if (or
-                            (= (get-log-weight state) (/ -1. 0.))
-                            (> (/ (- (get-log-weight next-state)
-                                     (get-log-weight state))
-                                  T)
-                               (Math/log (rand))))
+                 state (if (accept? (utility next-state T)
+                                    (utility state T))
                          next-state
                          state)
                  state (if predict-trace

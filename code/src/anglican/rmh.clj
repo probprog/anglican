@@ -4,6 +4,7 @@
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
         anglican.rmh-dists
+        [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe sample]]))
 
 ;;;; Random-walk Metropolis-Hastings
@@ -302,10 +303,7 @@
                prev-state (prev-state state next-state entry)
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
-               state (if (or 
-                           (= (utility prev-state) (/ -1. 0.))
-                           (> (- (utility next-state) (utility prev-state))
-                             (Math/log (rand))))
+               state (if (accept? (utility next-state) (utility prev-state))
                        next-state
                        state)]
            ;; Include the selected state into the sequence of

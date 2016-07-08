@@ -50,10 +50,7 @@
                [state next-states]
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
-               (if (or
-                    (= (utility prev-state) (/ -1. 0.))
-                    (> (- (utility next-state) (utility prev-state))
-                       (Math/log (rand))))
+               (if (accept? (utility next-state) (utility prev-state))
                  [next-state (next-seq next-state)]
                  [state (rest next-states)])]
            ;; Include the selected state into the sequence of

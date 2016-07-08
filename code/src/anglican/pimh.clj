@@ -6,6 +6,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use anglican.state
         anglican.inference
+        [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe]]
         anglican.smc))
 
@@ -58,9 +59,7 @@
                                      prog value number-of-particles)
                next-log-Z (get-log-Z next-particles)]
            ;; And accept with MH probability.
-           (if (or 
-                 (= log-Z (/ -1. 0.))
-                 (> (- next-log-Z log-Z) (Math/log (rand))))
+           (if (accept? next-log-Z log-Z)
              (add-samples next-particles next-log-Z)
              (add-samples particles log-Z)))))]
 
