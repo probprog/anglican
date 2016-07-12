@@ -101,7 +101,7 @@
   and the trace entry to resample"
   ([state entry] (next-state state entry {}))
   ([state entry update]
-   (:state (exec ::algorithm (:cont entry) nil 
+   (:state (exec ::algorithm (:cont entry) nil
                  ;; Remove the selected entry from RDB.
                  (into update
                        {::rdb (dissoc (rdb (state ::trace))
@@ -138,6 +138,13 @@
      (get-log-retained-probability state)
      (- (Math/log (count (state ::trace))))))
 
+(defn accept?
+  "compute acceptance ratio for a sample, given the new state utility
+  and the old state utility"
+  [u-next u-prev]
+  (or (= u-prev (/ -1. 0.))
+      (> (- u-next u-prev) (Math/log (rand)))))
+
 (defn correct-log-weight
   "corrects log weight of a sample, setting it to 0
   if the sample is in the support, -Infinity otherwise"
@@ -160,8 +167,7 @@
                prev-state (prev-state state next-state entry)
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
-               state (if (> (- (utility next-state) (utility prev-state))
-                            (Math/log (rand)))
+               state (if (accept? (utility next-state) (utility prev-state))
                        next-state
                        state)]
            ;; Include the selected state into the sequence of
