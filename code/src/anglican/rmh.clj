@@ -5,7 +5,7 @@
         anglican.inference
         anglican.rmh-dists
         [anglican.lmh :only [accept?]]
-        [anglican.runtime :only [observe sample]]))
+        [anglican.runtime :only [observe* sample*]]))
 
 ;;;; Random-walk Metropolis-Hastings
 
@@ -66,15 +66,15 @@
   [distribution value alpha sigma]
   (let [alt-proposal (get-alt-proposal distribution value sigma)]
     (reify anglican.runtime/distribution
-      (sample [this]
-              (if (sample (anglican.runtime/flip alpha))
-                (sample alt-proposal)
-                (sample distribution)))
-      (observe [this value]
+      (sample* [this]
+              (if (sample* (anglican.runtime/flip alpha))
+                (sample* alt-proposal)
+                (sample* distribution)))
+      (observe* [this value]
                (Math/log (+ (* alpha
-                               (Math/exp (observe alt-proposal value)))
+                               (Math/exp (observe* alt-proposal value)))
                             (* (- 1 alpha)
-                               (Math/exp (observe distribution value)))))))))
+                               (Math/exp (observe* distribution value)))))))))
 
 ;;; Trace
 
@@ -127,39 +127,39 @@
                 (get-kernel-proposal (:dist smp) current-value (::alpha state) (::sigma state)))
         value (if use-kernel
                 ;; Sample from k(next | prev)
-                (sample kappa)
+                (sample* kappa)
                 ;; Continue without sampling from k(next | prev)
                 (if (contains? (state ::rdb) choice-id)
                   ;; Reuse value from RDB
                   ((state ::rdb) choice-id)
                   ;; Sample new value
-                  (sample (:dist smp))))
+                  (sample* (:dist smp))))
 
         ;; Verifying whether reused sample is in support
         log-p (if (not use-kernel)
-                (try (observe (:dist smp) value)
+                (try (observe* (:dist smp) value)
                   ;; NaN is returned if value is not the same type as the
-                  ;; distribution e.g. (observe (runtime/normal 0 1) false)
+                  ;; distribution e.g. (observe* (runtime/normal 0 1) false)
                   (catch Exception e (/ 0. 0.))))
         value (if (not use-kernel)
                 ;; Outside of the support when
                 ;;   - probability mass is zero, i.e. log-p is -Infinity
                 ;;   - wrong argument, e.g.
-                ;;     (observe (runtime/gamma 0 -1) 1) returns error
+                ;;     (observe* (runtime/gamma 0 -1) 1) returns error
                 ;;   - wrong value type, e.g.
-                ;;     (observe (runtime/normal 0 1) true) returns error
+                ;;     (observe* (runtime/normal 0 1) true) returns error
                 ;;   - NaN
                 (if (< (/ -1. 0.) log-p (/ 1. 0.))
                   value
                   ;; The retained value is not in support,
                   ;; resample the value from the prior.
-                  (sample (:dist smp)))
+                  (sample* (:dist smp)))
                 value)
 
         ;; Score sample
         log-p (if use-kernel
-                (observe kappa value)
-                (observe (:dist smp) value))
+                (observe* kappa value)
+                (observe* (:dist smp) value))
 
         cont (fn [_ update]
                ;; Continuation which starts from this checkpoint
@@ -178,7 +178,7 @@
 
         ;; Store probability of x'_{nk} under prior,
         ;; p(x'_{nk} | previous random choices)
-        log-p-from-prior (if use-kernel (observe (:dist smp) value))
+        log-p-from-prior (if use-kernel (observe* (:dist smp) value))
         state (if use-kernel
                 (assoc state ::log-new-val-from-prior log-p-from-prior)
                 state)]
@@ -238,11 +238,11 @@
                         ::trace (state ::trace)
 
                         ;; Store log-kappa probability k(x_{nk} | x'_{nk})
-                        ::log-kappa (observe kappa-reverse old-value)
+                        ::log-kappa (observe* kappa-reverse old-value)
 
                         ;; Store log probability of the old choice under prior
                         ;; p(x_{nk} | previous random choices)
-                        ::log-new-val-from-prior (observe (:dist current-sample) old-value)})))))
+                        ::log-new-val-from-prior (observe* (:dist current-sample) old-value)})))))
 
 ;; Transition probability
 

@@ -7,7 +7,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        [anglican.runtime :only [sample observe normal]]))
+        [anglican.runtime :only [sample* observe* normal]]))
 
 ;;;;; Maximum a Posteriori Estimation through Sampling
 
@@ -52,8 +52,8 @@
       (bb-update [rb reward]
         (reward-belief
           (+ sum reward) (+ sum2 (* reward reward)) (+ cnt 1.)))
-      (bb-sample [rb] (sample dist))
-      (bb-sample-mean [rb] (sample mean-dist))
+      (bb-sample [rb] (sample* dist))
+      (bb-sample-mean [rb] (sample* mean-dist))
       (bb-as-prior [rb]
         ;; The current belief is converted to a prior belief
         ;; by setting the sample count to 1 and preserving
@@ -193,13 +193,13 @@
         ;; Select value:
 
         ;; Select a value as a bandit arm.
-        value (select-value bandit #(observe (:dist smp) %))
+        value (select-value bandit #(observe* (:dist smp) %))
         ;; Remember whether a new arm was drawn;
         ;; new arm belief is updated during back-propagation.
         bandit (assoc bandit :new-arm-drawn (not-a-value? value))
         ;; Sample a new value if a new arm was drawn.
         value (if (not-a-value? value)
-                (sample (:dist smp))
+                (sample* (:dist smp))
                 value)
 
         ;; Update state:
@@ -208,7 +208,7 @@
                state bandit-id value (get-log-weight state))
         ;; Increment the log weight by the probability
         ;; of the sampled value.
-        state (add-log-weight state (observe (:dist smp) value))
+        state (add-log-weight state (observe* (:dist smp) value))
         ;; Re-insert the bandit; the bandit may be fresh,
         ;; and the new-arm-drawn flag may have been updated.
         state (assoc-in state [::bandits bandit-id] bandit)]

@@ -1,7 +1,7 @@
 (ns anglican.pgas
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [anglican.smc :as smc :refer [sweep]]
-            [anglican.runtime :refer [sample observe discrete exp]])
+            [anglican.runtime :refer [sample* observe* discrete exp]])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference))
 
@@ -55,7 +55,7 @@
 
 (defmethod checkpoint [::algorithm anglican.trap.observe] [_ obs]
   (let [state (add-log-weight (:state obs)
-                              (observe (:dist obs) (:value obs)))]
+                              (observe* (:dist obs) (:value obs)))]
     ;; return checkpoint to inference algorithm
     (assoc obs :state state)))
 
@@ -67,12 +67,12 @@
         id-in-rdb? (contains? (state ::rdb) choice-id)
         value (when id-in-rdb?
                 ((state ::rdb) choice-id))
-        log-p (try (observe (:dist smp) value)
+        log-p (try (observe* (:dist smp) value)
                 (catch Exception e nil))
         entry (if (and id-in-rdb? log-p)
                 (->entry choice-id value log-p false)
-                (let [value (sample (:dist smp))
-                      log-p (observe (:dist smp) value)]
+                (let [value (sample* (:dist smp))
+                      log-p (observe* (:dist smp) value)]
                   (->entry choice-id value log-p true)))
         state (update-in state
                          [::trace] conj entry)]
@@ -118,7 +118,7 @@
                           regenerated)
          max-log-weight (reduce max log-weights)
          weights (map #(exp (- % max-log-weight)) log-weights)
-         ancestor (sample (discrete weights))]
+         ancestor (sample* (discrete weights))]
      ;; return new retained particle with regenerated db
      (assoc-in (nth all-particles ancestor)
                [:state ::rdb]

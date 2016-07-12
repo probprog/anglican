@@ -7,7 +7,7 @@
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
         anglican.smc
-        [anglican.runtime :only [observe sample]]))
+        [anglican.runtime :only [sample*]]))
 
 ;;;; Particle Gibbs
 
@@ -65,7 +65,7 @@
   (let [state (:state smp)
         [state value] (if (retained-state? state)
                         (retrieve-retained-sample state)
-                        [state (sample (:dist smp))])
+                        [state (sample* (:dist smp))])
         state (store-sample state value)]
     #((:cont smp) value state)))
 

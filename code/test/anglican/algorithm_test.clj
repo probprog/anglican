@@ -174,10 +174,10 @@
                      6
                      (+ 1
                         (fib (* 3 r))
-                        (sample count-prior)))]
-             [r (+ (observe (poisson l) 6)
-                   (observe count-prior r)
-                   (observe count-prior s))])))))
+                        (sample* count-prior)))]
+             [r (+ (observe* (poisson l) 6)
+                   (observe* count-prior r)
+                   (observe* count-prior s))])))))
    ;; metric
    kl-categorical
    ;; threshold

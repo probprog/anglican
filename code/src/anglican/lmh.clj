@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        [anglican.runtime :only [observe sample]]))
+        [anglican.runtime :only [observe* sample*]]))
 
 ;;;; Lightweight (single-site) Metropolis-Hastings
 
@@ -68,8 +68,8 @@
   (let [[choice-id state] (choice-id smp (:state smp))
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)
-                (sample (:dist smp)))
-        log-p (try (observe (:dist smp) value)
+                (sample* (:dist smp)))
+        log-p (try (observe* (:dist smp) value)
                    ;; NaN is returned if value is not in support.
                    (catch Exception e (/ 0. 0.)))
         value (if (< (/ -1. 0.) log-p (/ 1. 0.)) value
@@ -78,7 +78,7 @@
                 ;; resampled, log-p is no longer valid, but log-p
                 ;; of a resampled value is ignored anyway (see
                 ;; `utility' below).
-                (sample (:dist smp)))
+                (sample* (:dist smp)))
         cont (fn [_ update]
                ;; Continuation which starts from this checkpoint
                ;; --- called when the random choice is selected

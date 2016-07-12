@@ -88,8 +88,8 @@
                    [-0.2 0.8]]
                   [[1.0   0.1]
                    [0.1  1.0]])]
-    (sample (produce (reduce absorb
-                             proc
-                             [[0. 0.]
-                              [0.5 -0.5]])))))
+    (sample* (produce (reduce absorb
+                              proc
+                              [[0. 0.]
+                               [0.5 -0.5]])))))
 

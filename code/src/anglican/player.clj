@@ -3,7 +3,7 @@
     (:refer-clojure :exclude [rand rand-int rand-nth])
     (:use [anglican.state :exclude [initial-state]]
           anglican.inference 
-          [anglican.runtime :only [observe]]))
+          [anglican.runtime :only [observe*]]))
 
 (derive ::algorithm :anglican.inference/algorithm)
 
@@ -45,7 +45,7 @@
             (format "inconsistent replay trace id %s, should be %s"
                     id (:id smp)))
     #((:cont smp) val (add-log-prior state
-                                     (observe (:dist smp) val)))))
+                                     (observe* (:dist smp) val)))))
 
 ;; A trace is a sequence of 2-tuples [sample-id sampled-value]
 

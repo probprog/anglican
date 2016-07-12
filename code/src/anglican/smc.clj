@@ -6,7 +6,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use anglican.state
         anglican.inference
-        [anglican.runtime :only [observe]]))
+        [anglican.runtime :only [observe*]]))
 
 ;;; SMC
 
@@ -16,7 +16,7 @@
   ;; update the weight and return the observation checkpoint
   ;; for possible resampling
   (update-in obs [:state]
-             add-log-weight (observe (:dist obs) (:value obs))))
+             add-log-weight (observe* (:dist obs) (:value obs))))
 
 (declare resample)
 

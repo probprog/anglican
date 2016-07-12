@@ -12,7 +12,7 @@
 
 (def test-weighted
   (for [x (range 11)]
-    [x (observe (normal 5 2) x)]))
+    [x (observe* (normal 5 2) x)]))
 
 (deftest test-sum
   (is (m/equals [12 15 18 21]
