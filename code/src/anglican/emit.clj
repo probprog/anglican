@@ -135,7 +135,7 @@
         ;; of predicts in a single sample from the inferred
         ;; sample sequence.
         (sample [this]
-          (get-predicts (next-sample)))
+          (:result (next-sample)))
 
         ;; Observing a value requires source code analysis,
         ;; not implemented yet. For a future implementation,
