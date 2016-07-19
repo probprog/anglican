@@ -64,13 +64,13 @@
                 (observe likelihood obs))
               nil
               observations)
-      (predict :mu mu)))
+      mu))
    ;; args
    [[9.0 8.0] (sqrt 2.0) 1.0 (sqrt 5.0)]
    ;; result
    #((juxt stat/empirical-mean
            stat/empirical-std)
-     (collect-by :mu %))
+     (collect-by :result %))
    ;; truth
    [7.25 (sqrt (/ 1.0 1.2))]
    ;; metric
@@ -89,16 +89,14 @@
    ;; query
    (query
     [observations init-dist trans-dists obs-dists]
-    (predict
-     :states
-     (reduce
-      (fn [states obs]
-        (let [state (sample (get trans-dists
-                                 (peek states)))]
-          (observe (get obs-dists state) obs)
-          (conj states state)))
-      [(sample init-dist)]
-      observations)))
+    (reduce
+     (fn [states obs]
+       (let [state (sample (get trans-dists
+                                (peek states)))]
+         (observe (get obs-dists state) obs)
+         (conj states state)))
+     [(sample init-dist)]
+     observations))
    ;; args
    [[0.9 0.8 0.7 0.0 -0.025 -5.0 -2.0 -0.1 0.0 0.13 0.45 6 0.2 0.3 -1 -1]
     (discrete [1.0 1.0 1.0])
@@ -111,7 +109,8 @@
    ;; result
    (fn [samples]
      (stat/empirical-mean
-      (collect-by (comp #(index->ind % 0 2) :states)
+      (collect-by (comp #(index->ind % 0 2) 
+                        :result)
                   samples)))
    ;; truth
    [[ 0.3775 0.3092 0.3133]
@@ -158,12 +157,12 @@
                    (fib (* 3 r))
                    (sample count-prior)))]
         (observe (poisson l) 6)
-        (predict :r r)
-        (predict :l l))))
+        {:r r, :l l})))
    ;; args
    nil
    ;; result
-   #(stat/empirical-distribution (collect-by :r %))
+   #(stat/empirical-distribution 
+     (collect-by (comp :r :result) %))
    ;; truth
    (into (sorted-map)
       (stat/empirical-distribution
@@ -194,9 +193,8 @@
              obs-dists {}
              states []]
         (if (empty? observations)
-          (do
-            (predict :states states)
-            (predict :num-clusters (count obs-dists)))
+          {:states states 
+           :num-clusters (count obs-dists)}
           (let [state (sample (produce state-proc))
                 obs-dist (get obs-dists
                               state
@@ -213,7 +211,8 @@
    [[10 11 12 -100 -150 -200 0.001 0.01 0.005 0.0]
     1.72 0.0 100.0 1.0 10.0]
    ;; result
-   #(stat/empirical-distribution (collect-by :num-clusters %))
+   #(stat/empirical-distribution 
+     (collect-by (comp :num-clusters :result) %))
    ;; truth
    (zipmap
     (range 1 11)

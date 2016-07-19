@@ -10,6 +10,7 @@
   "initial program state"
   {:log-weight 0.0
    :predicts []
+   :result nil
    ::mem {}
    ::store nil})
 
@@ -51,6 +52,16 @@
   "clear predicts"
   [state]
   (update-in state [:predicts] empty))
+
+(defn get-result
+  "Returns the result value of the state." 
+  [state]
+  (:result state))
+
+(defn set-result
+  "Sets the result value for the state."
+  [state value]
+  (assoc state :result value))
 
 ;; The following three methods are used by the `mem' form. The
 ;; memoized values are kept in the state, independently for each
