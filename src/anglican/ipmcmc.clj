@@ -3,24 +3,26 @@
    Options:
      :number-of-particles (2 by default)
        - Number of particles per sweep
-     :number-of-nodes (2 by default)
+     :number-of-nodes (32 by default)
        - Number of nodes running SMC and CSMC.
-     :number-of-csmc-nodes (nil by default) 
-       - Number of nodes running as CSMC.  Must be between 
-         1 and (- :number-of-nodes 1). Defaults to 
+     :number-of-csmc-nodes (nil by default)
+       - Number of nodes running as CSMC.  Must be between
+         1 and (- :number-of-nodes 1). Defaults to
          (/ :number-of-nodes 2) when not specified.
-     :all-particles? (false by default)
-       - Return all particles, instead of 1 
-         particle per sweep on each node.
+     :all-particles? (true by default)
+       - Return all particles, instead of 1 particle per sweep
+         on each node.  Note that even when :all-particles? is
+         false, particles are still weighted due to Rao-
+         Blackwellization of the Gibbs updates for the CSMC indices.
      :pool (:builtin by default)
-       - Threadpool argument for pmap operation over nodes. 
+       - Threadpool argument for pmap operation over nodes.
          Defaults to creating a pool of containing (+ (ncpus) 2)
          threads. See com.climate.claypoole/pmap for further info."
   (require [clojure.core.matrix :as mat]
            [com.climate.claypoole :as cp]
            [anglican.inference :refer [infer exec]]
-           [anglican.pgibbs :as pgibbs 
-            :refer [initial-state release-retained-state 
+           [anglican.pgibbs :as pgibbs
+            :refer [initial-state release-retained-state
                     retained-initial-state]]
            [anglican.runtime :refer [sample* discrete]]
            [anglican.smc :as smc]
@@ -29,9 +31,9 @@
 (derive ::algorithm :anglican.pgibbs/algorithm)
 
 (defn sweep
-  "Performs a sequential Monte Carlo or conditional sequential 
-  Monte Carlo sweep. Returns a pair [results log-Z] in which results 
-  is a sequence of result records and log-Z is an estimate of the 
+  "Performs a sequential Monte Carlo or conditional sequential
+  Monte Carlo sweep. Returns a pair [results log-Z] in which results
+  is a sequence of result records and log-Z is an estimate of the
   log marginal likelihood."
   [algorithm prog value
    number-of-particles all-particles?
@@ -51,17 +53,17 @@
       (every? #(instance? anglican.trap.observe %) checkpoints)
       (let [resampled (if retained-state
                         ;; perform CSMC resampling step
-                        (conj (smc/resample 
+                        (conj (smc/resample
                                (conj (rest checkpoints)
-                                     (update-in (first checkpoints) 
+                                     (update-in (first checkpoints)
                                                 [:state]
                                                 release-retained-state))
                                (- number-of-particles 1))
                               (first checkpoints))
                         ;; perform SMC resampling
-                        (smc/resample checkpoints 
+                        (smc/resample checkpoints
                                       number-of-particles))
-            log-mean-weight (get-in (second resampled) 
+            log-mean-weight (get-in (second resampled)
                                     [:state :log-weight])]
         (recur (map #(exec algorithm (:cont %) nil
                            ;; Set weights of all particles (including
@@ -77,28 +79,33 @@
         [(list (rand-nth checkpoints)) log-Z])
       :else (throw (AssertionError.
                     "some `observe' directives are not global")))))
-  
-(defn norm-exp 
-  "Normalized exponential. Accepts a collection of log weights. 
+
+(defn norm-exp
+  "Normalized exponential. Accepts a collection of log weights.
   Returns a pair [ps log-Z] in which ps is a sequence of
-  normalized probabilities and log-Z is the log mean weight."
+  normalized probabilities and log-Z is the log mean weight.
+  If all weights are -infinity then they are assumed to be
+  equal."
   [log-weights]
-  (let [max-log-weight (reduce max log-weights)
-        weights (map #(Math/exp (- % max-log-weight))
-                     log-weights)
-        total-weight (reduce + weights)
-        probabilities (map #(/ % total-weight) weights)
-        log-mean-weight (+ (Math/log (/ total-weight
-                                        (count log-weights)))
-                           max-log-weight)]
-    [probabilities log-mean-weight]))
+  (let [max-log-weight (reduce max log-weights)]
+    (if (= (/ -1. 0.) max-log-weight)
+      (let [M (count log-weights)]
+        [(repeat M (/ 1 M)) (/ -1. 0.)])
+      (let [weights (map #(Math/exp (- % max-log-weight))
+                         log-weights)
+            total-weight (reduce + weights)
+            probabilities (map #(/ % total-weight) weights)
+            log-mean-weight (+ (Math/log (/ total-weight
+                                            (count log-weights)))
+                               max-log-weight)]
+        [probabilities log-mean-weight]))))
 
 (defn gibbs-update-csmc-indices
   "Performs a Gibbs sweep on the indices of conditional nodes by
   sampling each index conditioned on the values of the other indices.
 
-  Returns a pair [csmc-indices zetas] in which the csmc-indices is a
-  vector of indices for newly selected conditional nodes and zetas is
+  Returns a pair [csmc-indices zeta-sums] in which the csmc-indices is a
+  vector of indices for newly selected conditional nodes and zeta-sums is
   a vector of weights for each node (needed when returning all
   particles)."
   [log-Zs number-of-csmc-nodes]
@@ -106,27 +113,27 @@
          csmc-indices (vec (range number-of-csmc-nodes))
          smc-indices (vec (range number-of-csmc-nodes
                                  (count log-Zs)))
-         zetas (vec (repeat (count log-Zs) 0.0))]
+         zeta-sums (vec (repeat (count log-Zs) 0.0))]
     (if (= i number-of-csmc-nodes)
-      [csmc-indices zetas]
+      [csmc-indices zeta-sums]
       (let [proposal-indices (conj smc-indices i)
             [ps _] (norm-exp (map log-Zs proposal-indices))
-            zetas (reduce (fn [zs [i p]]
+            zeta-sums (reduce (fn [zs [i p]]
                             (assoc zs i (+ (zs i) p)))
-                            zetas
+                            zeta-sums
                             (map vector proposal-indices ps))
             k (sample* (discrete ps))]
         (if (= k (count smc-indices))
           (recur (inc i)
                  csmc-indices
                  smc-indices
-                 zetas)
+                 zeta-sums)
           (recur (inc i)
                  (assoc csmc-indices i
                         (smc-indices k))
                  (assoc smc-indices k
                         (csmc-indices i))
-                 zetas))))))
+                 zeta-sums))))))
 
 (defmethod infer :ipmcmc
   [_ prog value
@@ -136,58 +143,56 @@
              all-particles?
              pool]
       :or {number-of-particles 2
-           number-of-nodes 2
-           pool :builtin 
-           all-particles? false}}]
+           number-of-nodes 32
+           pool :builtin
+           all-particles? true}}]
   (assert (> number-of-particles 1)
           ":number-of-particles must be larger than 1")
   (assert (> number-of-nodes 1)
           ":number-of-nodes must be larger 1")
-  (let [number-of-csmc-nodes 
+  (let [number-of-csmc-nodes
           (or number-of-csmc-nodes
               (/ number-of-nodes 2))
-        number-of-smc-nodes (- number-of-nodes 
+        number-of-smc-nodes (- number-of-nodes
                                number-of-csmc-nodes)]
     (assert (< number-of-csmc-nodes
                number-of-nodes)
             (str ":number-of-csmc-nodes must be smaller "
                  "than :number-of-nodes"))
-    (letfn [(sample-seq 
+    (letfn [(sample-seq
               [retained-states]
               (lazy-seq
                (let [;; run CSMC and SMC sweeps
-                     task (partial sweep ::algorithm prog value 
+                     task (partial sweep ::algorithm prog value
                                    number-of-particles all-particles?)
-                     sweeps (cp/pmap pool task 
+                     sweeps (cp/pmap pool task
                                      (concat retained-states
                                              (repeat number-of-smc-nodes
                                                      nil)))
                      resultss (mapv first sweeps)
                      log-Zs (mapv second sweeps)
                      ;; sample indices for new CSMC nodes
-                     [cs zetas] (gibbs-update-csmc-indices 
+                     [cs zeta-sums] (gibbs-update-csmc-indices
                                  log-Zs number-of-csmc-nodes)
                      ;; construct new retained states
                      retained-results (map rand-nth (map resultss cs))
                      retained-states (map retained-initial-state
                                           retained-results)
                      ;; get states for samples
-                     states (if all-particles?
-                              (mapcat 
-                               (fn [results zeta]
-                                 (let [log-weight 
-                                       (Math/log 
-                                        (/ zeta 
-                                           number-of-particles))]
-                                   (map
-                                    #(set-log-weight % log-weight)
-                                    (map :state results))))
-                               resultss
-                               zetas)
-                              (map :state retained-results))]
+                     states (mapcat
+                             (fn [results zeta-sum]
+                               (let [log-weight
+                                     (Math/log
+                                      (/ zeta-sum
+                                         number-of-particles))]
+                                 (map
+                                  #(set-log-weight % log-weight)
+                                  (map :state results))))
+                             resultss
+                             zeta-sums)]
                  ;; continue to next sweep
                  (concat states
                          (sample-seq retained-states)))))]
       ;; initialize by running SMC for all nodes
       (sample-seq (repeat number-of-csmc-nodes nil)))))
-              
+
