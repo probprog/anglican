@@ -92,14 +92,14 @@ of uniform-continuous distribution:
 	  (let [dist (uniform-continuous 0. 1.)]
 		(reify
 		  distribution
-		  (sample [this] (if (< (sample dist) p) 1 0))
-		  (observe [this value]
+		  (sample* [this] (if (< (sample* dist) p) 1 0))
+		  (observe* [this value]
 				   (Math/log (case value
 							   1 p
 							   0 (- 1. p)
 							   0.))))))
 
-where `sample` and `observe` are two methods of the
+where `sample*` and `observe*` are two methods of the
 `distribution` protocol that must be provided.
 
 A better and easier way to implement a distribution is macro
@@ -111,8 +111,8 @@ The above declaration using `defdist` is:
 	(defdist bernoulli
 	  "Bernoulli distribution"
 	  [p] [dist (uniform-continuous 0. 1.)]
-	  (sample [this] (if (< (sample dist) p) 1 0))
-	  (observe [this value]
+	  (sample* [this] (if (< (sample* dist) p) 1 0))
+	  (observe* [this value]
 			   (Math/log (case value
 						   1 p
 						   0 (- 1. p)
@@ -144,9 +144,9 @@ process can be defined in the following way:
 		(let [dist (discrete (conj counts alpha))]
 		  (reify 
 			distribution
-			(sample [this] (sample dist))
-			(observe [this value]
-			  (observe dist (min (count counts) value))))))
+			(sample* [this] (sample* dist))
+			(observe* [this value]
+			  (observe* dist (min (count counts) value))))))
 	  (absorb [this sample] 
 		(CRP alpha
 			 (-> counts
