@@ -18,7 +18,6 @@
   :repl-options {:timeout 600000}
   :main ^:skip-aot anglican.core
   :target-path "target/%s"
-  :resource-paths ["../examples"]
   :profiles {:uberjar {:aot :all}}
   :deploy-branches ["master" "development"]
   :aliases {"publish" ["do" ["clean"] ["test"] ["uberjar"]]})
