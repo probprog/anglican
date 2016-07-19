@@ -46,13 +46,12 @@ https://bitbucket.org/dtolpin/anglican:
 
     $ git clone https://bitbucket.org/dtolpin/anglican
 
-Anglican is in `code`. Change the current directory to `code`,
-open `project.clj` and add the path to the directory in which
+Open `project.clj` and add the path to the directory in which
 `example.clj` resides to `:resource-paths`.
 For example, if example.clj is in '/home/user/anglican', the
-`:resource-paths` line might look like:
+`:resource-paths` that needs to be added would look like:
 
-    :resource-paths ["/home/user/anglican" "../examples"]
+    :resource-paths ["/home/user/anglican"]
 
 You can now run
 
@@ -91,18 +90,6 @@ from the command line, or
 
 in the REPL to get the full command line syntax and the list of
 options.
-
-## Examples
-
-Some program examples are in [`../examples`](../examples/).
-Since "../examples" is already in `:resource-paths`, you can run
-any example (a file with `.clj` extension) by simply supplying
-its name to `m!` in the REPL or to `lein run` on the command
-line. For example, the following commands run `branching` in the
-REPL and on the command line, correspondingly:
-
-    (m! -n 1000 branching)
-    lein run -- -n 1000 branching
 
 ## Language
 
@@ -256,16 +243,13 @@ Yet another way to run Anglican programs is [Gorilla
 REPL](http://gorilla-repl.org). Anglican distribution contains
 a wrapper for gorilla REPL, in `mrepl` directory of the
 repository. Go `mrepl` and run `lein gorilla`.
-Open the REPL URL in the browser, and either start a new
-worksheet, or load a sample worksheet from `worksheets/`
-subfolder. `worksheets/tworoads.clj` is provided as a starting
-point.
+Open the REPL URL in the browser, which will open a new worksheet.
 
 A worksheet should start with a namespace declaration that
 imports necessary and useful symbols into the worksheet's
 namespace:
 
-    (ns tworoads
+    (ns example-worksheet
       (:require [gorilla-plot.core :as plot])
         (:use [mrepl core]
                 [anglican emit runtime]))
@@ -288,8 +272,6 @@ debugging.
 stack trace of exception thrown during inference is printed
 on the standard output.
 
-Take a look at
-[worksheets/tworoads.clj](../../mrepl/worksheets/tworoads.clj),
-as well as at [Gorilla REPL
-documentation](http://gorilla-repl.org/start.html) to get
-inspired.
+Take a look at the [Gorilla REPL
+documentation](http://gorilla-repl.org/start.html) for further
+information.
