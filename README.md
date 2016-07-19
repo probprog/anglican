@@ -16,7 +16,7 @@ inference algorithms.
 
 ## License
 
-Copyright © 2014, 2015 Wood group
+Copyright © 2014, 2015, 2016 Wood group
 
 This file is part of Anglican, a probabilistic programming system.
 
