@@ -4,7 +4,7 @@
      :number-of-threads (2 by default) - number of threads"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use anglican.inference
-        [anglican.lmh :only [get-trace correct-log-weight]]
+        [anglican.lmh :only [accept? get-trace correct-log-weight]]
         [anglican.plmh :only [ncall]]
         anglican.almh))
 
@@ -36,9 +36,8 @@
                [state next-states]
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
-               (if (> (- (utility next-state entry)
-                         (utility prev-state entry))
-                      (Math/log (rand)))
+               (if (accept? (utility next-state entry)
+                            (utility prev-state entry))
                  ;; The new state is accepted --- award choices
                  ;; according to changes in predicts to favor
                  ;; choices which affect more predicts.

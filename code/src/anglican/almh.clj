@@ -47,7 +47,7 @@
 (defrecord predict [value     ; predicted value
                     choices]) ; pending choices
 
-(def ^:private +not-a-predict+ 
+(def ^:private +not-a-predict+
   "a value different from any possible predict,
   for non-global predicts missing in the state"
   ::not-a-predict)
@@ -69,7 +69,7 @@
   [predict choice-id]
   (update-in predict [:choices choice-id] (fnil inc 0)))
 
-;;; Choice reward 
+;;; Choice reward
 
 ;; Choice reward is a tuple [sum count] of normalized
 ;; total reward and total weight.
@@ -83,7 +83,7 @@
   [[sum cnt] reward discnt]
   [(+ sum (* discnt reward)) (+ cnt discnt)])
 
-(defn update-rewards 
+(defn update-rewards
   "updates rewards in pending choices;
   returns updated choice-rewards"
   [choice-rewards pending-choices reward discnt]
@@ -212,7 +212,7 @@
 
     (map (ucb total-count) trace-rewards)))
 
-(defn select-entry 
+(defn select-entry
   "selects trace entry based on reward beliefs"
   [state]
   ((get-trace state) (rand-roulette (trace-weights state))))
@@ -230,7 +230,7 @@
                        (map (fn [entry weight]
                               [(:choice-id entry) weight])
                             (get-trace state) trace-weights))
-        total-weight (reduce + trace-weights)] 
+        total-weight (reduce + trace-weights)]
     (Math/log (/ entry-weight total-weight))))
 
 ;; Transition probability
@@ -287,9 +287,8 @@
 
                ;; Apply Metropolis-Hastings acceptance rule to select
                ;; either the new or the current state.
-               state (if (> (- (utility next-state entry)
-                               (utility prev-state entry))
-                            (Math/log (rand)))
+               state (if (accept? (utility next-state entry)
+                                  (utility prev-state entry))
                        ;; The new state is accepted --- award choices
                        ;; according to changes in predicts to favor
                        ;; choices which affect more predicts.
