@@ -1,2 +1,0 @@
-(is-setosa (features test-not-setosa)), false, 0.
-(is-setosa (features test-setosa)), true, 0.

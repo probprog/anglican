@@ -7,7 +7,7 @@
                               fn-cps mem-cps primitive-procedure-cps]]
         anglican.runtime
         [anglican.inference :only [infer equalize]]
-        [anglican.state :only [get-log-weight get-predicts]]))
+        [anglican.state :only [get-log-weight get-predicts get-result]]))
 
 ;;;; Top-level forms for Anglican programs
 
@@ -135,7 +135,7 @@
         ;; of predicts in a single sample from the inferred
         ;; sample sequence.
         (sample* [this]
-          (get-predicts (next-sample)))
+          (get-result (next-sample)))
 
         ;; Observing a value requires source code analysis,
         ;; not implemented yet. For a future implementation,
