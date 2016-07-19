@@ -12,7 +12,7 @@
     [distribution-instance (chi-squared nu)]
     (repeatedly
      number-of-samples
-     (fn [] (sample distribution-instance)))))
+     (fn [] (sample* distribution-instance)))))
 
 (defn get-empirical-mean-for-chi-squared
   "returns an empirical mean for requested number
@@ -71,10 +71,10 @@
   "a boolean assertion inequality
   for the lnpdf of the Wishart distribution"
   [nu x value threshold]
-  (< (abs (- (observe (chi-squared nu) x) value)) threshold))
+  (< (abs (- (observe* (chi-squared nu) x) value)) threshold))
 
 (deftest test-chi-squared-observe
-  (testing "Chi-squared lnpdf (observe). Deterministic test."
+  (testing "Chi-squared lnpdf (observe*). Deterministic test."
     ;; scipy.stats.chi2.pdf(1.0, 3.5) = 0.1962028031081274
     (is (chi-squared-lnpdf-test-assertion 3.5 1.0 (Math/log 0.1962028031081274) 0.001))
 

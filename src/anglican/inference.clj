@@ -5,9 +5,9 @@
             [clojure.data.json :as json]
             anglican.trap)
   (:use anglican.state
-        [anglican.runtime :only [sample observe
-                               uniform-continuous
-                               discrete log-sum-exp]]))
+        [anglican.runtime :only [sample* observe*
+                                 uniform-continuous
+                                 discrete log-sum-exp]]))
 
 ;;; Inference multimethod
 
@@ -30,10 +30,10 @@
 
 (defmethod checkpoint [::algorithm anglican.trap.observe] [_ obs]
   #((:cont obs) nil (add-log-weight (:state obs)
-                                    (observe (:dist obs) (:value obs)))))
+                                    (observe* (:dist obs) (:value obs)))))
 
 (defmethod checkpoint [::algorithm anglican.trap.sample] [_ smp]
-  #((:cont smp) (sample (:dist smp)) (:state smp)))
+  #((:cont smp) (sample* (:dist smp)) (:state smp)))
 
 (defmethod checkpoint [::algorithm anglican.trap.result] [_ res]
   res)
@@ -115,7 +115,7 @@
     "Returns a random floating point number
     between 0 (inclusive) and n (default 1) (exclusive)"
     ([] (rand 1.))
-    ([n] (* n (sample @dist)))))
+    ([n] (* n (sample* @dist)))))
 
 (defn rand-int
    "Returns a random integer between 0 (inclusive)
@@ -133,7 +133,7 @@
 (defn rand-roulette
   "random roulette selection,
   accepts unnormalized weights"
-  [weights] (sample (discrete weights)))
+  [weights] (sample* (discrete weights)))
 
 ;;; Equalizing output
 

@@ -22,7 +22,7 @@
            [anglican.pgibbs :as pgibbs 
             :refer [initial-state release-retained-state 
                     retained-initial-state]]
-           [anglican.runtime :refer [sample discrete]]
+           [anglican.runtime :refer [sample* discrete]]
            [anglican.smc :as smc]
            [anglican.state :refer [set-log-weight]]))
 
@@ -115,7 +115,7 @@
                             (assoc zs i (+ (zs i) p)))
                             zetas
                             (map vector proposal-indices ps))
-            k (sample (discrete ps))]
+            k (sample* (discrete ps))]
         (if (= k (count smc-indices))
           (recur (inc i)
                  csmc-indices

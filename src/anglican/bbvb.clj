@@ -5,7 +5,8 @@
             [clojure.core.matrix :as m :refer [add sub mul div mmul]])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        [anglican.runtime :only [sample observe log-sum-exp normal get-tag finite?]]
+        [anglican.runtime 
+         :only [sample* observe* log-sum-exp normal get-tag finite?]]
         anglican.smc))
 
 ;;; Black-box variational bayes (BBVB)
@@ -188,14 +189,14 @@
         prior (:dist smp)
         ignore (ignore? state prior)]
     (if ignore
-      #((:cont smp) (sample prior) state)
+      #((:cont smp) (sample* prior) state)
       (let [proposal (first (get-or-create-q! state address (:dist smp)))
             ;;_ (when (keyword? (first address)) (println "dist" prior "->" proposal))
-            value (sample proposal)
+            value (sample* proposal)
             state (assoc-gradient state address proposal value)
-            log-p (observe prior value)
+            log-p (observe* prior value)
             log-weight-increment (if (> log-p (/ -1. 0.))
-                                   (- log-p (observe proposal value))
+                                   (- log-p (observe* proposal value))
                                    (/ -1. 0.))]
         #((:cont smp) value (add-log-weight state log-weight-increment))))))
 
@@ -203,7 +204,7 @@
   ;; update the weight and return the observation checkpoint
   ;; for possible resampling
   (update-in obs [:state]
-             add-log-weight (observe (:dist obs) (:value obs))))
+             add-log-weight (observe* (:dist obs) (:value obs))))
 
 (defmethod checkpoint [::algorithm anglican.trap.result] [_ res]
   ;; include in state metadata a pointer to the learned approximations

@@ -20,7 +20,7 @@
     [distribution-instance (wishart n V)]
     (repeatedly
      number-of-samples
-     (fn [] (sample distribution-instance)))))
+     (fn [] (sample* distribution-instance)))))
 
 (defn get-empirical-mean-for-wishart
   "returns an empirical mean for requested number
@@ -89,12 +89,12 @@
   "a boolean assertion inequality
   for the lnpdf of the Wishart distribution"
   [n V x value threshold]
-  (< (abs (- (observe (wishart n V) x) value)) threshold))
+  (< (abs (- (observe* (wishart n V) x) value)) threshold))
 
 (deftest test-wishart-observe
   ;; a function wishpdfln and an utility function logmvgamma
   ;; are provided in /resources/matlab/wishart/
-  (testing "Wishart lnpdf (observe). Deterministic test."
+  (testing "Wishart lnpdf (observe*). Deterministic test."
     ;; wishpdfln([1 0 ; 0 1], 3.5, [ 0.7 0 ; 0 0.07 ]) = -5.3950
     (is (wishart-lnpdf-test-assertion 3.5
                                       [[0.7 0] [0 0.07]]

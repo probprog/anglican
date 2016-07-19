@@ -53,16 +53,10 @@
 
 (defprotocol distribution
   "random distribution"
-  (sample [this]
+  (sample* [this]
     "draws a sample from the distribution")
-  (observe [this value]
+  (observe* [this value]
     "return the probability [density] of the value"))
-
-;; `sample' is both a protocol method and a special form in
-;; Anglican. To generate random values without exposing the random
-;; choice as a checkpoint, use `sample*'.
-
-(def ^:deprecated sample* "draws a sample from the distribution" sample)
 
 ;; Log probabilities are used pervasively. A precision-preserving
 ;; way to add probabilities (e.g. for computing union probability)
@@ -137,8 +131,8 @@
        ~args
        [~dist (~(symbol (format "org.apache.commons.math3.distribution.%sDistribution." apache-name))
                         RNG ~@apache-args)]
-       (~'sample [~'this] (.sample ~dist))
-       (~'observe [~'this ~'value]
+       (~'sample* [~'this] (.sample ~dist))
+       (~'observe* [~'this ~'value]
          ~(case type
             :discrete `(~'.logProbability ~dist ~'value)
             :continuous `(~'.logDensity ~dist ~'value))))))
@@ -147,8 +141,8 @@
 (defdist bernoulli
   "Bernoulli distribution"
   [p] [dist (uniform-continuous 0.0 1.0)]
-  (sample [this] (if (< (sample dist) p) 1 0))
-  (observe [this value]
+  (sample* [this] (if (< (sample* dist) p) 1 0))
+  (observe* [this value]
     (Math/log (case value
                 1 p
                 0 (- 1. p)
@@ -168,22 +162,22 @@
   [categories] [values (mapv first categories)
                 index (into {} (map-indexed (fn [i v] [v i]) values))
                 dist (discrete (map second categories))]
-  (sample [this] (values (sample dist)))
-  (observe [this value] (observe dist (index value -1))))
+  (sample* [this] (values (sample* dist)))
+  (observe* [this value] (observe* dist (index value -1))))
 
 (declare uniform-continuous)
 (defdist discrete
   "discrete distribution, accepts unnormalized weights"
   [weights] [total-weight (double (reduce + weights))
              dist (uniform-continuous 0. total-weight)]
-  (sample [this]
-    (let [x (sample dist)]
+  (sample* [this]
+    (let [x (sample* dist)]
       (loop [[weight & weights] weights
              acc 0. value 0]
         (let [acc (+ acc weight)]
           (if (< x acc) value
             (recur weights acc (inc value)))))))
-  (observe [this value]
+  (observe* [this value]
     (Math/log
       (try
         (/ (nth weights value) total-weight)
@@ -196,11 +190,11 @@
   ;; borrowed from Anglican runtime
   [alpha] [Z (delay (- (reduce + (map log-gamma-fn alpha))
                        (log-gamma-fn (reduce + alpha))))]
-  (sample [this]
-          (let [g (map #(sample (gamma % 1)) alpha)
+  (sample* [this]
+          (let [g (map #(sample* (gamma % 1)) alpha)
                 t (reduce + g)]
             (map #(/ % t) g)))
-  (observe [this value]
+  (observe* [this value]
            (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1)))
                              value
                              alpha))
@@ -212,8 +206,8 @@
 (defdist flip
   "flip (Bernoulli boolean) distribution"
   [p] [dist (uniform-continuous 0.0 1.0)]
-  (sample [this] (< (sample dist) p))
-  (observe [this value]
+  (sample* [this] (< (sample* dist) p))
+  (observe* [this value]
            (Math/log (case value
                        true p
                        false (- 1. p)
@@ -228,8 +222,8 @@
   [nu]
   [;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, rate = 0.5).
    gamma-dist (gamma (* nu 0.5) 0.5)]
-  (sample [this] (sample gamma-dist))
-  (observe [this value] (observe gamma-dist value)))
+  (sample* [this] (sample* gamma-dist))
+  (observe* [this value] (observe* gamma-dist value)))
 
 (from-apache normal [mean sd] :continuous
   (Normal (double mean) (double sd)))
@@ -260,9 +254,9 @@
               iLcov (delay (m/inverse Lcov))
               transform-sample (fn [samples]
                                  (m/add mean (m/mmul Lcov samples)))]
-  (sample [this] (transform-sample
-                   (repeatedly k #(sample unit-normal))))
-  (observe [this value]
+  (sample* [this] (transform-sample
+                   (repeatedly k #(sample* unit-normal))))
+  (observe* [this value]
            (let [dx (m/mmul @iLcov (m/sub value mean))]
              (- (* -0.5 (m/dot dx dx)) @Z)))
   multivariate-distribution
@@ -275,12 +269,12 @@
   [dim (m/ecount mu)
    mvn-dist (mvn (m/zero-vector dim) sigma)
    chi-sq-dist (chi-squared nu)]
-  (sample
+  (sample*
    [this]
-   (let [y (sample mvn-dist)
-         u (sample chi-sq-dist)]
+   (let [y (sample* mvn-dist)
+         u (sample* chi-sq-dist)]
      (m/add mu (m/mul y (Math/sqrt (/ nu u))))))
-  (observe
+  (observe*
    [this y]
    (let [dy (m/sub mu y)
          dy-sinv-dy (m/mget
@@ -342,7 +336,7 @@
      (let
        [LA (m/mmul L A)]
        (m/mmul LA (m/transpose LA))))]
-  (sample [this]
+  (sample* [this]
           ;; Bartlett decomposition
           ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
           ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
@@ -350,12 +344,12 @@
             [A (gen-matrix
                 (fn [row column]
                   (cond
-                   (= row column) (sqrt (sample (get chi-squared-dists row)))
-                   (> row column) (sample unit-normal)
+                   (= row column) (sqrt (sample* (get chi-squared-dists row)))
+                   (> row column) (sample* unit-normal)
                    :else 0.0))
                 p p)]
             (transform-sample A)))
-  (observe [this value]
+  (observe* [this value]
            (- (* 0.5 (- n p 1) (Math/log (m/det value)))
               (* 0.5 (m/trace (m/mmul (m/inverse (m/matrix V)) value)))
               @Z))
@@ -430,8 +424,8 @@
   by a random sample, for use with CRP"
   [counts alpha] [dist (categorical
                          (vec (conj counts [::new alpha])))]
-  (sample [this]
-    (let [s (sample dist)]
+  (sample* [this]
+    (let [s (sample* dist)]
       (if (= s ::new)
         ;; When a `new' value is drawn,  sample
         ;; the smallest natural number with zero count.
@@ -441,12 +435,12 @@
             s))
         s)))
 
-  (observe [this value]
+  (observe* [this value]
     (if (contains? counts value)
       ;; The value is one of absorbed values.
-      (observe dist value)
+      (observe* dist value)
       ;; The value is a new value.
-      (observe dist ::new))))
+      (observe* dist ::new))))
 
 (defproc CRP
   "Chinese Restaurant process"
@@ -460,17 +454,17 @@
   by a random sample, for use with DP"
   [counts H alpha] [dist (categorical
                            (vec (conj counts [::new alpha])))]
-  (sample [this]
-    (let [s (sample dist)]
+  (sample* [this]
+    (let [s (sample* dist)]
       ;; When a `new' value is drawn, sample the actual
       ;; value from the base measure.
-      (if (= s ::new) (sample H) s)))
-  (observe [this value]
+      (if (= s ::new) (sample* H) s)))
+  (observe* [this value]
     (log-sum-exp
       ;; The value is one of absorbed values.
-      (observe dist value)
+      (observe* dist value)
       ;; The value is drawn from the base distribution.
-      (+ (observe dist ::new) (observe H value)))))
+      (+ (observe* dist ::new) (observe* H value)))))
 
 (defproc DP
   "Dirichlet process"

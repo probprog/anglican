@@ -10,8 +10,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        [anglican.lmh :exclude [utility]]
-        [anglican.runtime :only [observe sample]]))
+        [anglican.lmh :exclude [utility]]))
 
 ;;;; Annealed Importance Sampling
 

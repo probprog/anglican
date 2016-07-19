@@ -8,19 +8,19 @@
 (deftest test-categorical
   (testing "categorical"
     (let [dist (categorical '((x 1) (y 2)))]
-      (is (= (observe dist 'x) (Math/log (/ 1. 3.)))
+      (is (= (observe* dist 'x) (Math/log (/ 1. 3.)))
           "observing value in support")
-      (is (= (observe dist 'z) (Math/log 0.))
+      (is (= (observe* dist 'z) (Math/log 0.))
           "observing value not in support"))))
 
 (deftest test-uniform-discrete
   (testing "uniform-discrete"
     (let [dist (uniform-discrete 0 3)]
-      (is (= (observe dist 1) (Math/log (/ 1. 3.)))
+      (is (= (observe* dist 1) (Math/log (/ 1. 3.)))
           "values in domain are uniformly distributed")
-      (is (= (observe dist 3) (Math/log 0.))
+      (is (= (observe* dist 3) (Math/log 0.))
           "upper bound is not in the domain")
-      (is (= (observe dist -1) (Math/log 0.))
+      (is (= (observe* dist -1) (Math/log 0.))
           "values not in the range have zero probability"))))
 
 (defn approx
@@ -31,26 +31,26 @@
 (deftest test-mvn
   (testing "mvn"
     (let [dist (mvn [0 0 0] [[2 0 0] [0 1 0] [0 0 3]])]
-      (is (approx (observe dist [3 4 5]) -18.0694 0.1))
-      (is (approx (observe dist [0 0 0]) -3.6527 0.1))
-      (is (approx (observe dist [10 20 30]) -378.6527 0.1)))))
+      (is (approx (observe* dist [3 4 5]) -18.0694 0.1))
+      (is (approx (observe* dist [0 0 0]) -3.6527 0.1))
+      (is (approx (observe* dist [10 20 30]) -378.6527 0.1)))))
 
 (deftest test-CRP
   (testing  "CRP"
     (let [proc (CRP 0.1 {1 1 2 2 3 3})]
-      (is (= (observe (produce proc) 3) 
+      (is (= (observe* (produce proc) 3) 
              (Math/log (/ 3 6.1)))
           "observing existing value")
-      (is (= (observe (produce proc) 0) 
+      (is (= (observe* (produce proc) 0) 
              (Math/log (/ 0.1 6.1)))
           "observing new value")
-      (is (= (observe (produce (absorb proc 3)) 3) 
+      (is (= (observe* (produce (absorb proc 3)) 3) 
              (Math/log (/ 4 7.1)))
           "observing absorbed existing value")
-      (is (= (observe (produce (absorb proc 0)) 1) 
+      (is (= (observe* (produce (absorb proc 0)) 1) 
              (Math/log (/ 1 7.1)))
           "observing absorbed new value greater than count")
-      (is (= (observe (produce (absorb proc 1)) 0) 
+      (is (= (observe* (produce (absorb proc 1)) 0) 
              (Math/log (/ 0.1 7.1)))
           "observing unabsorbed value less than count"))))
 
@@ -78,7 +78,7 @@
          proc proc]
     (if (>= (count samples) n)
       samples
-      (let [x (sample (produce proc))]
+      (let [x (sample* (produce proc))]
         (recur (conj samples x)
                (absorb proc x))))))
 
@@ -88,7 +88,7 @@
           mu (mat/matrix [3.0 1.0])
           sigma (mat/matrix [[1.0 0.1] [0.1 1.0]])
           t-dist (multivariate-t nu mu sigma)
-          samples (repeatedly 10000 #(sample t-dist))]
+          samples (repeatedly 10000 #(sample* t-dist))]
       (is (within (stat/mean samples) mu (mat/mul 0.2 mu))
           "sample mean does not fall within 20% of expected value")
       (is (within (mat/mul 
@@ -103,14 +103,14 @@
   (let [prec-prior (wishart nu (mat/inverse psi))
         sigmas (repeatedly 
                   num-params 
-                  #(mat/inverse (sample prec-prior)))
+                  #(mat/inverse (sample* prec-prior)))
         means (map (fn [sigma] 
-                     (sample (mvn mu (mat/div sigma kappa))))
+                     (sample* (mvn mu (mat/div sigma kappa))))
                    sigmas)
         likes (map mvn means sigmas)]
     (reduce (fn [[m c] like]
               (let [xs (repeatedly num-samples 
-                                   #(sample like))]
+                                   #(sample* like))]
                 [(mat/add m (mat/div (stat/mean xs) num-params))
                  (mat/add c (mat/div (stat/covariance xs) num-params))]))
             [(mat/zero-vector 2)

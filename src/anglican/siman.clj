@@ -12,7 +12,7 @@
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
         [anglican.lmh :only [accept?]]
-        [anglican.runtime :only [observe sample]]))
+        [anglican.runtime :only [observe* sample*]]))
 
 ;;;; Finding MAP of the trace using simulated annealing
 
@@ -71,17 +71,17 @@
   (let [[choice-id state] (choice-id smp (:state smp))
         value (if (contains? (state ::rdb) choice-id)
                 ((state ::rdb) choice-id)
-                (sample (:dist smp)))
+                (sample* (:dist smp)))
         log-p (try
-                (observe (:dist smp) value)
+                (observe* (:dist smp) value)
                 ;; NaN is returned if value is not in support.
                 (catch Exception e (/ 0. 0.)))
         [value log-p] (if (< (/ -1. 0.) log-p (/ 1. 0.))
                         [value log-p]
                         ;; The retained value is not in support,
                         ;; resample the value from the prior.
-                        (let [v (sample (:dist smp))
-                              lp (observe (:dist smp) v)]
+                        (let [v (sample* (:dist smp))
+                              lp (observe* (:dist smp) v)]
                           [v lp]))
         cont (fn [_ update]
                ;; Continuation which starts from this checkpoint

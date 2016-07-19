@@ -7,7 +7,7 @@
   (:use anglican.state
         anglican.inference
         [anglican.lmh :only [accept?]]
-        [anglican.runtime :only [observe]]
+        [anglican.runtime :only [observe*]]
         anglican.smc))
 
 ;;; Particle Independent Metropolis-Hastings (PIMH)
@@ -18,7 +18,7 @@
   ;; update the weight and return the observation checkpoint
   ;; for possible resampling
   (update-in obs [:state]
-             add-log-weight (observe (:dist obs) (:value obs))))
+             add-log-weight (observe* (:dist obs) (:value obs))))
 
 (defmethod sweep ::algorithm
   [algorithm prog value number-of-particles]

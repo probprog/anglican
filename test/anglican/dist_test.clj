@@ -150,7 +150,7 @@
 
 (defn sample-moments 
   [d num-samples]
-  (let [samples (repeatedly num-samples #(sample d))
+  (let [samples (repeatedly num-samples #(sample* d))
         m (stat/mean samples)
         c (if (mat/matrix? m)
             (if (mat/symmetric? m)
@@ -161,10 +161,10 @@
 
 (defn importance-moments
   [p-dist q-dist num-samples]
-  (let [samples (repeatedly num-samples #(sample q-dist))
+  (let [samples (repeatedly num-samples #(sample* q-dist))
         log-weights (map (fn [x] 
-                           (- (observe p-dist x)
-                              (observe q-dist x)))
+                           (- (observe* p-dist x)
+                              (observe* q-dist x)))
                          samples)
         weighted (map vector samples log-weights)
         m (stat/empirical-mean weighted)

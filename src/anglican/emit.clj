@@ -134,14 +134,14 @@
         ;; A sample from the distribution is the collection
         ;; of predicts in a single sample from the inferred
         ;; sample sequence.
-        (sample [this]
+        (sample* [this]
           (get-result (next-sample)))
 
         ;; Observing a value requires source code analysis,
         ;; not implemented yet. For a future implementation,
         ;; the source code of query is in the meta-data for
         ;; key `:source'.
-        (observe [this value]
+        (observe* [this value]
           (throw (Exception. "not implemented"))))))))
 
 ;; The original Scheme-like syntax is now deprecated, but

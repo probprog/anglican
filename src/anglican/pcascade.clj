@@ -7,7 +7,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        [anglican.runtime :only [log-sum-exp observe sample]]))
+        [anglican.runtime :only [log-sum-exp observe* sample*]]))
 
 ;;;; Parallel Cascade
 
@@ -75,7 +75,7 @@
 (defmethod checkpoint [::algorithm anglican.trap.observe] [_ obs]
   (let [;; Incorporate new observation
         state (add-log-weight (:state obs)
-                              (observe (:dist obs) (:value obs)))
+                              (observe* (:dist obs) (:value obs)))
 
         ;; Compute unique observe-id of this observe,
         ;; required for non-global observes.
