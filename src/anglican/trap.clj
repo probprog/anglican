@@ -634,5 +634,5 @@
 (def ^:dynamic *primitive-namespaces*
   "functions in these namespaces are primitive"
   '#{clojure.core
-     embang.runtime
-     embang.state})
+     anglican.runtime
+     anglican.state})
