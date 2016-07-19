@@ -82,13 +82,15 @@ from the command line, or:
     (m! namespace [program] [\"option\" ...])
 
 in the REPL, where `namespace' is the namespace containing the
-embedded Anglican program to run, for example:
+embedded Anglican program to run. For example, if the namespace
+is called `helloworld` then the program in this namespace can be
+run using
 
-    bash$ lein run anglib.branching -a pgibbs -n 500 \\
+    bash$ lein run helloworld -a pgibbs -n 500 \\
                -o \":number-of-particles 50\"
 
     anglican.core=> (m! -a pgibbs -n 500 -o \":number-of-particles 50\"
-                      anglib.branching)
+                      helloworld)
 
 `program' is the first argument of `defquery'. The namespace
 may contain multiple programs. If `program' is omitted, it defaults
