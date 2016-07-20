@@ -1,6 +1,6 @@
 (ns anglican.core-test
   (:require [clojure.test :refer :all])
-  (use [anglican core emit runtime]))
+  (:use [anglican core emit runtime]))
 
 (deftest stripdown-test
   (let [q (query []
