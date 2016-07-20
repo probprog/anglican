@@ -234,5 +234,5 @@ Options:
         ;; A state may contain private algorithm-specific entries.
         ;; Strip them down for cleaner output.
         (if (:stripdown options* true)
-          (map stripdown states)
+          (keep stripdown states)
           states)))))

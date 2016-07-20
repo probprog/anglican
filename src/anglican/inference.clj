@@ -101,9 +101,11 @@
 ;; entries and contains only predicts and log-weight.
 
 (defn stripdown
-  "removes algorithm-specific entries from the state"
+  "removes algorithm-specific entries from the state. 
+  returns nil when state has a :log-weight of -Infinity"
   [state]
-  (select-keys state [:log-weight :result :predicts]))
+  (when (> (:log-weight state) (/ -1.0 0.0))
+    (select-keys state [:log-weight :result :predicts])))
 
 ;;; Random functions for inference algorithms
 
