@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [rand rand-nth rand-int])
   (:require [clojure.string :as str]
             [clojure.data.json :as json]
-            anglican.trap)
+            anglican.trap
+            anglican.stat)
   (:use anglican.state
         [anglican.runtime :only [sample* observe*
                                  uniform-continuous
@@ -154,23 +155,10 @@
                       (sample-seq (cons sample samples))))))]
     (sample-seq samples)))
 
-(defn collect-by
-  "calculates contribution to log marginal by value;
-  - accepts a (finite) sequence of samples
-  - returns a map containing the log sum weight weight for
-    each unique value returned when applying f to a sample,
-    normalized by the total number of samples"
-  [f samples]
-  (let [log-norm (Math/log (count samples))]
-    (reduce (fn [weighted sample]
-              (let [v (f sample)
-                    lw (- (get-log-weight sample)
-                          log-norm)]
-                (if (weighted v)
-                  (update-in weighted [v] log-sum-exp lw)
-                  (assoc weighted v lw))))
-            {}
-            samples)))
+(def ^:deprecated collect-by 
+  "alias to anglican.stat/collect-by, provided for backwards
+  compatibility previous releases" 
+  anglican.stat/collect-by)
 
 (defn log-marginal
   "calculates the empirical estimate of the log marginal likelihood
