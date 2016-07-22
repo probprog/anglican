@@ -6,7 +6,7 @@
             [clojure.string :as str]
             [clojure.tools.cli :as cli])
   (:use [anglican.inference :only [infer 
-                                   warmup stripdown 
+                                   warmup stripdown drop-invalid
                                    print-predicts]])
   (:use [anglican.results :only [redir freqs meansd diff]]))
 
@@ -227,12 +227,18 @@ Options:
                             [(warmup query value) nil]
                             [query value])
 
-            ;; Finally, call the inference to create
+            ;; Call the inference to create
             ;; a lazy sequence of states.
-            states (apply infer algorithm query value options)]
+            states (apply infer algorithm query value options)
+
+            ;; Some program states can have a zero weight.
+            ;; Filter out these states by default.
+            valid-states (if (:drop-invalid options* true)
+                           (drop-invalid states)
+                           states)]
 
         ;; A state may contain private algorithm-specific entries.
         ;; Strip them down for cleaner output.
         (if (:stripdown options* true)
-          (map stripdown states)
-          states)))))
+          (map stripdown valid-states)
+          valid-states)))))

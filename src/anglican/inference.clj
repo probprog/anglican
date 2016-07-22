@@ -137,6 +137,14 @@
 
 ;;; Equalizing output
 
+(defn drop-invalid
+  "drop zero-weight samples;
+  - accepts a lazy sequence of samples;
+  - returns a sequence that excludes zero-weight samples"
+  [samples]
+  (filter #(> (get-log-weight %) (/ -1.0 0.0))
+          samples))
+
 (defn equalize
   "equalizes samples;
   - accepts a lazy sequence of samples;
