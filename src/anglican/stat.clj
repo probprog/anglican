@@ -26,6 +26,26 @@
             {}
             samples)))
 
+(defn collect-predicts
+  "constructs a map of weighted predict values 
+  - accepts a key and a (finite) sequence of samples
+  - returns a map {v log-w} containing an entry v for each unique
+  predict value with key k, along with its log sum weight normalized
+  by the total number of samples"
+  [k samples]
+  (collect-by #(get (get-predicts %) k)
+              samples))
+
+(defn collect-results
+  "constructs a map of weighted result values 
+  - accepts a (finite) sequence of samples
+  - returns a map {v log-w} containing an entry v for each unique
+  predict value along with its log sum weight normalized by the 
+  total number of samples"
+  [samples]
+  (collect-by :result
+              samples))
+
 (defn empirical-distribution
   "calculates an empirical distribution from weighted samples;
   - accepts a map or sequence of log weighted values [x log-w]
