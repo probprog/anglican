@@ -1,5 +1,7 @@
 (ns anglican.emit-test
-  (:require [clojure.test :refer [deftest testing is]])
+  (:require [clojure.test :refer [deftest testing is]]
+            anglican.importance
+            [anglican.runtime :refer [sample*]])
   (:use [anglican.trap :only [value-cont]]
         anglican.emit))
 
@@ -78,3 +80,10 @@
               value-cont nil 2))
            3)
         "partially applied +")))
+
+(deftest test-conditional
+  (let [q (query [v] v)
+        c (conditional q :importance)]
+    (is (sample* (c true))
+        "sampling from a conditional distribution should return the
+        result value")))
