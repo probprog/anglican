@@ -5,7 +5,7 @@
   (:use [anglican
           core runtime emit
           [state :only [get-predicts get-log-weight]]
-          [inference :only [collect-by]]]))
+          [stat :only [collect-by]]]))
 
 (defrecord benchmark
   [;; query to be run in benchmark
