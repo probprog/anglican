@@ -5,9 +5,6 @@
            runtime
            [state :only [get-predicts get-log-weight]]]))
 
-(defn- power [x n]
-  (apply m/mul (repeat n x)))
-
 (defn collect-by
   "calculates contribution to log marginal by value;
   - accepts a (finite) sequence of samples
@@ -121,77 +118,3 @@
   (let [mu (empirical-mean weighted)
         s (empirical-std weighted)]
     (empirical-expectation #(power (m/div (m/sub % mu) s) 4) weighted)))
-
-
-(defn sum
-  "sums array slices along specified dimension"
-  ([a dimension]
-   (reduce
-     m/add
-     (m/slices a dimension)))
-  ([a]
-   (sum a 0)))
-
-(defn mean
-  "mean of array slices along specified dimension"
-  ([a dimension]
-   (m/div (sum a dimension)
-          (get (m/shape a) dimension)))
-  ([a]
-   (mean a 0)))
-
-(defn variance
-  "variance of array slices along specified dimension"
-  ([a dimension]
-   (let [e-a (mean a dimension)
-         e-a2 (mean (power a 2) dimension)]
-     (m/sub e-a2 (power e-a 2))))
-  ([a]
-   (variance a 0)))
-
-(defn covariance
-  "covariance of array slices along specified dimension"
-  ([x dimension]
-   (let [x-mean (mean x dimension)]
-     (mean (map (fn [x-slice]
-                  (let [dx-slice (m/sub x-slice x-mean)]
-                    (m/outer-product dx-slice dx-slice)))
-                (m/slices x dimension)))))
-  ([x]
-   (covariance x 0)))
-
-(defn std
-  "standard deviation (sqrt of variance) of array slices
-  along specified dimension"
-  ([a dimension]
-   (m/sqrt (variance a dimension)))
-  ([a]
-   (std a 0)))
-
-(defn skew
-  "standardized skew of array slices along specified dimension"
-  ([a dimension]
-   (let [mu (mean a dimension)
-         s (std a dimension)]
-     (power (m/div (m/sub a mu) s) 3)))
-  ([a]
-   (skew a 0)))
-
-(defn kurtosis
-  "standardized skew of array slices along specified dimension"
-  ([a dimension]
-   (let [mu (mean a dimension)
-         s (std a dimension)]
-     (power (m/div (m/sub a mu) s) 4)))
-  ([a]
-   (kurtosis a 0)))
-
-(defn l2-norm
-  "calculates L2 norm (sum of squared differences) between a and b"
-  [a b]
-  (reduce +
-          (map #(power (- %1 %2) 2)
-               (m/to-vector a)
-               (m/to-vector b))))
-
-

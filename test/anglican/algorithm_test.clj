@@ -131,7 +131,7 @@
     [ 0.2017 0.0472 0.7511]
     [ 0.2545 0.0611 0.6844]]
    ;; metric
-   (comp sqrt #(/ % (* 3 16)) stat/l2-norm)
+   (comp sqrt #(/ % (* 3 16)) l2-norm)
    ;; threshold
    0.1))
 
