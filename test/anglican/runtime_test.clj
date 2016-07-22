@@ -69,7 +69,7 @@
       mat/abs
       (mat/le e)
       mat/to-vector
-      stat/sum
+      sum
       (mat/equals (mat/ecount a))))
 
 (defn- multi-sample 
@@ -89,10 +89,10 @@
           sigma (mat/matrix [[1.0 0.1] [0.1 1.0]])
           t-dist (multivariate-t nu mu sigma)
           samples (repeatedly 10000 #(sample* t-dist))]
-      (is (within (stat/mean samples) mu (mat/mul 0.2 mu))
+      (is (within (mean samples) mu (mat/mul 0.2 mu))
           "sample mean does not fall within 20% of expected value")
       (is (within (mat/mul 
-                   (stat/covariance samples) 
+                   (covariance samples) 
                    (/ (- nu 2) nu))
                   sigma
                   (mat/mul 0.5 sigma))
@@ -111,8 +111,8 @@
     (reduce (fn [[m c] like]
               (let [xs (repeatedly num-samples 
                                    #(sample* like))]
-                [(mat/add m (mat/div (stat/mean xs) num-params))
-                 (mat/add c (mat/div (stat/covariance xs) num-params))]))
+                [(mat/add m (mat/div (mean xs) num-params))
+                 (mat/add c (mat/div (covariance xs) num-params))]))
             [(mat/zero-vector 2)
              (mat/zero-matrix 2 2)]
             likes)))
@@ -123,8 +123,8 @@
             (let [xs (multi-sample 
                       num-samples 
                       proc)]
-              [(mat/add m (mat/div (stat/mean xs) num-params))
-               (mat/add c (mat/div (stat/covariance xs) num-params))]))
+              [(mat/add m (mat/div (mean xs) num-params))
+               (mat/add c (mat/div (covariance xs) num-params))]))
           [(mat/zero-vector 2)
            (mat/zero-matrix 2 2)]
           (repeat num-params (mvn-niw mu kappa nu psi))))
