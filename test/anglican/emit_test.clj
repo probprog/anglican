@@ -85,5 +85,5 @@
   (let [q (query [v] v)
         c (conditional q :importance)]
     (is (sample* (c true))
-        "sampling from a conditional distribution should return the
-        result value")))
+        (str "sampling from a conditional distribution should return"
+             "the result value"))))
