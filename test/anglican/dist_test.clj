@@ -40,107 +40,107 @@
     (mat/matrix (mapcat (partial mat/diagonal m) (range k)))))
 
 (defprotocol DistributionMoments
-  (mean [self])
-  (variance [self])
-  (covariance [self]))
+  (dmean [self])
+  (dvariance [self])
+  (dcovariance [self]))
 
 (extend-protocol DistributionMoments
   anglican.runtime.bernoulli-distribution
-  (mean [d]
+  (dmean [d]
     (:p d))
-  (variance [d]
+  (dvariance [d]
     (* (:p d) (- 1.0 (:p d))))
   anglican.runtime.beta-distribution
-  (mean [d] 
+  (dmean [d] 
     (let [a (:alpha d)
           b (:beta d)]
       (/ a (+ a b))))
-  (variance [d] 
+  (dvariance [d] 
     (let [a (:alpha d)
           b (:beta d)]
       (/ (* a b)
          (* (sqr (+ a b))
             (+ a b 1)))))
   anglican.runtime.binomial-distribution
-  (mean [d]
+  (dmean [d]
     (* (:n d) (:p d)))
-  (variance [d]
+  (dvariance [d]
     (* (:n d) (:p d) (- 1.0 (:p d))))
   anglican.runtime.chi-squared-distribution
-  (mean [d]
+  (dmean [d]
     (:nu d))
-  (variance [d]
+  (dvariance [d]
     (* 2 (:nu d)))
   anglican.runtime.discrete-distribution
-  (mean [d]
+  (dmean [d]
     (let [ws (:weights d)
           ks (range (count ws))
           sum-w (:total-weight d)]
       (/ (reduce + (map * ws ks))
          sum-w)))
-  (variance [d]
+  (dvariance [d]
     (let [ws (:weights d)
           k2s (map sqr (range (count ws)))
           sum-w (:total-weight d)]
       (- (/ (reduce + (map * ws k2s))
             sum-w)
-         (sqr (mean d)))))
+         (sqr (dmean d)))))
   anglican.runtime.exponential-distribution
-  (mean [d]
+  (dmean [d]
     (/ 1.0 (:rate d)))
-  (variance [d]
+  (dvariance [d]
     (/ 1.0 (sqr (:rate d))))
   anglican.runtime.gamma-distribution
-  (mean [d]
+  (dmean [d]
     (let [a (:shape d)
           b (:rate d)]
       (/ a b)))
-  (variance [d]
+  (dvariance [d]
     (let [a (:shape d)
           b (:rate d)]
       (/ a (sqr b))))
   anglican.runtime.multivariate-t-distribution
-  (mean [d]
+  (dmean [d]
     (:mu d))
-  (variance [d]
-    (mat/diagonal (covariance d)))
-  (covariance [d]
+  (dvariance [d]
+    (mat/diagonal (dcovariance d)))
+  (dcovariance [d]
     (mat/mul (/ (:nu d)
                 (- (:nu d) 2))
              (:sigma d)))
   anglican.runtime.mvn-distribution
-  (mean [d]
+  (dmean [d]
     (:mean d))
-  (variance [d]
-    (mat/diagonal (covariance d)))
-  (covariance [d]
+  (dvariance [d]
+    (mat/diagonal (dcovariance d)))
+  (dcovariance [d]
     (:cov d))
   anglican.runtime.normal-distribution
-  (mean [d] 
+  (dmean [d] 
     (:mean d))
-  (variance [d] 
+  (dvariance [d] 
     (sqr (:sd d)))
   anglican.runtime.poisson-distribution
-  (mean [d]
+  (dmean [d]
     (:lambda d))
-  (variance [d]
+  (dvariance [d]
     (:lambda d))
   anglican.runtime.uniform-continuous-distribution
-  (mean [d]
+  (dmean [d]
     (* 0.5 (+ (:min d) (:max d))))
-  (variance [d]
+  (dvariance [d]
     (/ (sqr (- (:max d) (:min d)))
        12.0))
   anglican.runtime.uniform-discrete-distribution
-  (mean [d]
+  (dmean [d]
     (* 0.5 (+ (:min d) (dec (:max d)))))
-  (variance [d]
+  (dvariance [d]
     (/ (sqr (- (:max d) (:min d)))
        12.0))
   anglican.runtime.wishart-distribution
-  (mean [d]
+  (dmean [d]
     (mat/mul (:V d) (:n d)))
-  (variance [d]
+  (dvariance [d]
     (let [V (:V d)
           v (mat/diagonal V)
           n (:n d)]
@@ -151,12 +151,12 @@
 (defn sample-moments 
   [d num-samples]
   (let [samples (repeatedly num-samples #(sample* d))
-        m (stat/mean samples)
+        m (mean samples)
         c (if (mat/matrix? m)
             (if (mat/symmetric? m)
-              (stat/covariance (map upper-diag samples))
-              (stat/covariance (map mat/to-vector samples)))
-            (stat/covariance samples))]
+              (covariance (map upper-diag samples))
+              (covariance (map mat/to-vector samples)))
+            (covariance samples))]
     [m c]))
 
 (defn importance-moments
@@ -181,17 +181,17 @@
 
 (defn sample-mean-quantile
   [d num-samples]
-  (let [m (mean d)
+  (let [m (dmean d)
         [sm sc] (sample-moments d num-samples)]
     (cond 
       (mat/scalar? m)
       ;; return the distance from the 0.5 quantile under CLT assumption
-      (let [v (variance d)
+      (let [v (dvariance d)
             q (normal-cdf m (sqrt (/ v num-samples)) sm)]
         [(/ (abs (- q 0.5)) 0.5) m sm sc])
       ;; return the quantile on the mahalabonis distance
       (mat/vec? m)
-      (let [s (covariance d)
+      (let [s (dcovariance d)
             dm (mat/sub sm m)
             r2 (mat/mmul dm 
                          (mat/mul (mat/inverse s) 
@@ -215,7 +215,7 @@
 
 (defn importance-mean-quantile
   [p q num-samples]
-  (let [m (mean p)
+  (let [m (dmean p)
         [sm sc eff-samples] (importance-moments p q num-samples)]
     (cond
       (mat/scalar? m)

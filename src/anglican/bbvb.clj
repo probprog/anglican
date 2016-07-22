@@ -1,12 +1,12 @@
 (ns anglican.bbvb
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require [anglican.stat :refer [mean]]
-            [anglican.gradients :refer :all]
+  (:require [anglican.gradients :refer :all]
             [clojure.core.matrix :as m :refer [add sub mul div mmul]])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
         [anglican.runtime 
-         :only [sample* observe* log-sum-exp normal get-tag finite?]]
+         :only [sample* observe* log-sum-exp 
+                normal get-tag finite? mean]]
         anglican.smc))
 
 ;;; Black-box variational bayes (BBVB)
