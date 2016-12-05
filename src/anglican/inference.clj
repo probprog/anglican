@@ -89,7 +89,7 @@
 (defn warmup
   "runs until the first checkpoint and returns
   a continuation that starts with that checkpoint"
-  ([prog] (warmup nil))
+  ([prog] (warmup prog nil))
   ([prog value]
    (let [cpt (exec ::warmup prog value initial-state)]
      (fn [value initial-state]
@@ -193,7 +193,7 @@
   (println))
 
 (defmethod print-predict :default [_ label value log-weight]
-  (print-predict label value log-weight :anglican))
+  (print-predict :anglican label value log-weight))
 
 (defn print-predicts
   "print predicts as returned by a probabilistic program
