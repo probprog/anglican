@@ -217,6 +217,37 @@
              '(clojure.core/apply foo ret $state xs))
           "compound apply"))))
 
+(deftest test-cps-of-try
+  (binding [*gensym* symbol]
+    (testing "cps-of-try"
+      (is (= (cps-of-try '(1) 'ret)
+             '(let [$state (anglican.state/push-try-cont $state ret)]
+                (fn []
+                  ((fn CP [V $state]
+                     (fn []
+                       (ret V (anglican.state/pop-try-cont $state))))
+                   1
+                   $state))))
+          "try simple expression"))))
+
+(deftest test-cps-of-throw
+  (binding [*gensym* symbol]
+    (testing "cps-of-throw"
+      (is (= (cps-of-throw '(1) 'ret)
+             '(fn []
+                ((anglican.state/peek-try-cont $state)
+                 1
+                 (anglican.state/pop-try-cont $state))))
+          "throw simple expression")
+      (is (= (cps-of-throw '((foo)) 'ret)
+             '(foo (fn arg [A $state]
+                     (fn []
+                       ((anglican.state/peek-try-cont $state)
+                        A
+                        (anglican.state/pop-try-cont $state))))
+                   $state))
+          "throw compound expression"))))
+
 (deftest test-cps-of-predict
   (binding [*gensym* symbol]
     (testing "cps-of-predict"

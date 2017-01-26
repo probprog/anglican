@@ -12,7 +12,8 @@
    :predicts []
    :result nil
    ::mem {}
-   ::store nil})
+   ::store nil
+   ::try-cont-stack nil})
 
 ;; The weight is not read or written by the deterministic
 ;; computation, and can be maintained outside the state;
@@ -98,3 +99,21 @@
   "retrieves store contents"
   [state & keys]
   (get-in (state ::store) keys))
+
+;; Methods for manipulating the try continuation stack
+(defn push-try-cont
+  "pushes continuation to the stack of try continuations"
+  [state cont]
+  (update state ::try-cont-stack conj cont))
+
+(defn pop-try-cont
+  "pops continuation from stack of try continuations,
+  returns updated state"
+  [state]
+  (update state ::try-cont-stack rest))
+
+(defn peek-try-cont
+  "observes top-most element of stack of try continuations without removing it
+  from the stack"
+  [state]
+  (first (::try-cont-stack state)))
