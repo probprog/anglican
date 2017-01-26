@@ -472,7 +472,7 @@
 
          (make-of-slist substs)))))
 
-;;; Exception handling try/throw
+;;; Exception handling: try, throw
 
 (defn cps-of-try
   "transforms try to CPS,
@@ -490,7 +490,7 @@
   returns to the nearest surrounding `try` form"
   [args cont]
   (assert (<= (count args) 1)
-          (format "Invalid number of args (%d) passed to if"
+          (format "Invalid number of args (%d) passed to throw"
                   (count args)))
   (make-of-args args
                 (fn [args*]
