@@ -225,24 +225,13 @@
   (sample* [this] (sample* gamma-dist))
   (observe* [this value] (observe* gamma-dist value)))
 
-(from-apache normal [mean sd] :continuous
-  (Normal (double mean) (double sd)))
-
-(from-apache poisson [lambda] :discrete
-  (Poisson (double lambda) 1E-12 10000000))
-
-(from-apache uniform-continuous [min max] :continuous
-  (UniformReal (double min) (double max)))
-
-(from-apache uniform-discrete [min max] :discrete
-  (UniformInteger (int min) (dec (int max))))
-
 (defprotocol multivariate-distribution
   "additional methods for multivariate distributions"
   (transform-sample [this samples]
     "accepts a vector of random values and generates
     a sample from the multivariate distribution"))
 
+(declare normal)
 (defdist mvn
   "multivariate normal"
   [mean cov] [k (m/ecount mean)     ; number of dimensions
@@ -292,6 +281,28 @@
                (+ 1.0
                   (* (/ 1.0 nu)
                      dy-sinv-dy)))))))))
+
+(from-apache normal [mean sd] :continuous
+  (Normal (double mean) (double sd)))
+
+(from-apache laplace [loc scale] :continuous
+  (Laplace (double loc) (double scale)))
+
+(from-apache poisson [lambda] :discrete
+  (Poisson (double lambda) 1E-12 10000000))
+
+(from-apache student-t [nu] :continuous
+  (T (double nu)))
+
+(defdist student-t-loc-scale [nu loc scale] [dist (student-t nu)]
+  (sample* [this] (+ (* (sample* dist) scale) loc))
+  (observe* [this value] (- (observe* dist (/ (- value loc) scale)) (Math/log scale))))
+
+(from-apache uniform-continuous [min max] :continuous
+  (UniformReal (double min) (double max)))
+
+(from-apache uniform-discrete [min max] :discrete
+  (UniformInteger (int min) (dec (int max))))
 
 (defn log-mv-gamma-fn
   "multivariate Gamma function"
@@ -582,7 +593,7 @@
 
 ;;; Functions for computing sums, mean, variance, etc..
 
-(defn power 
+(defn power
   "computes x^n for integer powers n by multiplication. vectorizes
   and preserves input types, at the expense of being slower than pow."
   [x n]
