@@ -99,6 +99,11 @@
     (let [a (:shape d)
           b (:rate d)]
       (/ a (sqr b))))
+  anglican.runtime.laplace-distribution
+  (dmean [d]
+    (:loc d))
+  (dvariance [d]
+    (* 2 (:scale d) (:scale d)))
   anglican.runtime.multivariate-t-distribution
   (dmean [d]
     (:mu d))
@@ -125,6 +130,17 @@
     (:lambda d))
   (dvariance [d]
     (:lambda d))
+  anglican.runtime.student-t-distribution
+  (dmean [d] 0)
+  (dvariance [d]
+    (cond (<= (:nu d) 1) Double/NaN
+          (and (> (:nu d) 1) (<= (:nu d) 2)) Double/POSITIVE_INFINITY
+          (> (:nu d) 2) (/ (:nu d) (- (:nu d) 2))))
+  anglican.runtime.student-t-loc-scale-distribution
+  (dmean [d]
+    (if (> (:nu d) 1) (:loc d) Double/NaN))
+  (dvariance [d]
+    (if (> (:nu d) 2) (* (:scale d) (:scale d) (/ (:nu d) (- (:nu d) 2))) Double/NaN))
   anglican.runtime.uniform-continuous-distribution
   (dmean [d]
     (* 0.5 (+ (:min d) (:max d))))
@@ -267,6 +283,9 @@
    'gamma
    [(gamma 2.1 1.4)
     (gamma 1.0 1.0)]
+   'laplace
+   [(laplace 2.1 1.4)
+    (laplace 1.0 2.0)]
    'multivariate-t
    [(multivariate-t 5.0 
                     [0.5 0.2] 
@@ -285,6 +304,16 @@
    'poisson
    [(poisson 2.1)
     (poisson 3.2)]
+   'student-t
+   [(student-t 3.1)
+    (student-t 2.5)]
+   'student-t-loc-scale
+   [(student-t-loc-scale 3.1 0 1)
+    (student-t-loc-scale 2.5 0 1)
+    (student-t-loc-scale 3.1 10 1)
+    (student-t-loc-scale 2.5 10 1)
+    (student-t-loc-scale 3.1 -10 2)
+    (student-t-loc-scale 2.5 -10 2)]
    'uniform-continuous
    [(uniform-continuous 0.3 1.2)
     (uniform-continuous 0.2 2.0)]
