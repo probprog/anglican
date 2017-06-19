@@ -31,9 +31,30 @@
 (deftest test-mvn
   (testing "mvn"
     (let [dist (mvn [0 0 0] [[2 0 0] [0 1 0] [0 0 3]])]
-      (is (approx (observe* dist [3 4 5]) -18.0694 0.1))
-      (is (approx (observe* dist [0 0 0]) -3.6527 0.1))
-      (is (approx (observe* dist [10 20 30]) -378.6527 0.1)))))
+      (is (approx (observe* dist [3 4 5]) -18.0694 0.0001))
+      (is (approx (observe* dist [0 0 0]) -3.6527 0.0001))
+      (is (approx (observe* dist [10 20 30]) -378.6527 0.0001)))))
+
+(deftest test-laplace
+  (testing "laplace"
+    (let [dist (laplace 2.1 1.4)]
+      (is (approx (observe* dist 1) -1.8153 0.0001))
+      (is (approx (observe* dist 2) -1.1011 0.0001))
+      (is (approx (observe* dist 10) -6.6725 0.0001)))))
+
+(deftest test-student-t
+  (testing "student-t"
+    (let [dist (student-t 3.1)]
+      (is (approx (observe* dist 1) -1.5715 0.0001))
+      (is (approx (observe* dist 2) -2.6971 0.0001))
+      (is (approx (observe* dist 10) -8.1821 0.0001)))))
+
+(deftest test-student-t-loc-scale
+  (testing "student-t-loc-scale"
+    (let [dist (student-t-loc-scale 3.1 10 2)]
+      (is (approx (observe* dist 1) -5.8308 0.0001))
+      (is (approx (observe* dist 2) -5.4190 0.0001))
+      (is (approx (observe* dist 10) -1.6915 0.0001)))))
 
 (deftest test-CRP
   (testing  "CRP"
