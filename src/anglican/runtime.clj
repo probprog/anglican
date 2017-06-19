@@ -593,7 +593,7 @@
 
 ;;; Functions for computing sums, mean, variance, etc..
 
-(defn power
+(defn power 
   "computes x^n for integer powers n by multiplication. vectorizes
   and preserves input types, at the expense of being slower than pow."
   [x n]
