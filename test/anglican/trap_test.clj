@@ -217,35 +217,59 @@
              '(clojure.core/apply foo ret $state xs))
           "compound apply"))))
 
-(deftest test-cps-of-try
+(deftest test-cps-of-catch
   (binding [*gensym* symbol]
-    (testing "cps-of-try"
-      (is (= (cps-of-try '(1) 'ret)
-             '(let [$state (anglican.state/push-try-cont $state ret)]
+    (testing "cps-of-catch"
+      (is (= (cps-of-catch '(:a 1) 'ret)
+             '(let [$state (anglican.state/push-catch $state ret :a)]
                 (fn []
                   ((fn CP [V $state]
-                     (fn []
-                       (ret V (anglican.state/pop-try-cont $state))))
+                     (fn [] (ret V (anglican.state/pop-catch $state))))
                    1
                    $state))))
-          "try simple expression"))))
+          "catch simple expression")
+      (is (= (cps-of-catch '(:a (foo)) 'ret)
+             '(let [$state (anglican.state/push-catch $state ret :a)]
+                (foo
+                 (fn CP [V $state]
+                   (fn [] (ret V (anglican.state/pop-catch $state))))
+                 $state)))
+          "catch compound expression"))))
 
 (deftest test-cps-of-throw
   (binding [*gensym* symbol]
     (testing "cps-of-throw"
-      (is (= (cps-of-throw '(1) 'ret)
-             '(fn []
-                ((anglican.state/peek-try-cont $state)
-                 1
-                 (anglican.state/pop-try-cont $state))))
+      (is (= (cps-of-throw '(:a 1) 'ret)
+             '(let [[catch updated-state]
+                    (anglican.state/pop-catch-until-tag
+                     $state
+                     :a
+                     :anglican.emit/top-level-tag)]
+                (if (= (anglican.state/get-catch-tag catch)
+                       :anglican.emit/top-level-tag)
+                  (anglican.trap/throw-anglican-uncaught-error :a 1)
+                  (fn []
+                    ((anglican.state/get-catch-cont catch)
+                     1
+                     updated-state)))))
           "throw simple expression")
-      (is (= (cps-of-throw '((foo)) 'ret)
-             '(foo (fn arg [A $state]
+      (is (= (cps-of-throw '(:a (foo)) 'ret)
+             '(foo
+               (fn arg [A $state]
+                 (let
+                   [[catch updated-state]
+                    (anglican.state/pop-catch-until-tag
+                     $state
+                     :a
+                     :anglican.emit/top-level-tag)]
+                   (if (= (anglican.state/get-catch-tag catch)
+                          :anglican.emit/top-level-tag)
+                     (anglican.trap/throw-anglican-uncaught-error :a A)
                      (fn []
-                       ((anglican.state/peek-try-cont $state)
+                       ((anglican.state/get-catch-cont catch)
                         A
-                        (anglican.state/pop-try-cont $state))))
-                   $state))
+                        updated-state)))))
+               $state))
           "throw compound expression"))))
 
 (deftest test-cps-of-predict
