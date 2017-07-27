@@ -491,9 +491,10 @@
             ~(cps-of-do exprs cont-pop))))
 
 (defn throw-anglican-uncaught-error [tag value]
-  (throw (ex-info "Uncaught throw from Anglican" {:error-type :anglican-uncaught-throw
-                                                  :throw-tag tag
-                                                  :value value})))
+  (throw (ex-info "Uncaught throw from Anglican"
+                  {:error-type :anglican-uncaught-throw
+                   :throw-tag tag
+                   :value value})))
 
 (defn cps-of-throw
   "transforms throw to CPS,
@@ -506,13 +507,20 @@
     (assert (<= (count exprs) 1)
             (format "Invalid number of expressions (%d) passed to throw"
                     (count exprs)))
-    (make-of-args exprs
-                  (fn [exprs*]
-                    (let [expr* (first exprs*)]
-                      `(~'let [[~'catch ~'updated-state] (pop-catch-until-tag ~'$state ~tag :anglican.emit/top-level-tag)]
-                              (~'if (~'= (get-catch-tag ~'catch) :anglican.emit/top-level-tag)
-                                    (throw-anglican-uncaught-error ~tag ~expr*)
-                                    ~(continue `(get-catch-cont catch) expr* 'updated-state))))))))
+    (make-of-args
+     exprs
+     (fn [exprs*]
+       (let [expr* (first exprs*)]
+         `(~'let [[~'catch ~'updated-state]
+                  (pop-catch-until-tag ~'$state
+                                       ~tag
+                                       :anglican.emit/top-level-tag)]
+                 (~'if (~'= (get-catch-tag ~'catch)
+                            :anglican.emit/top-level-tag)
+                       (throw-anglican-uncaught-error ~tag ~expr*)
+                       ~(continue `(get-catch-cont catch)
+                                  expr*
+                                  'updated-state))))))))
 
 ;;; Probabilistic forms
 
