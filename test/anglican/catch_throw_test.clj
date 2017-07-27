@@ -14,13 +14,16 @@
                  (let [a 5]
                    (throw :a x)
                    a))]
-    (is (thrown? RuntimeException (get-result (first (doquery :importance q [4]))))
+    (is (thrown? RuntimeException
+                 (get-result (first (doquery :importance q [4]))))
         "no catch, one throw")
     (is (try 
           (get-result (first (doquery :importance q [4])))
           (catch clojure.lang.ExceptionInfo e
             (= (ex-data e)
-               {:error-type :anglican-uncaught-throw, :throw-tag :a, :value 4})))
+               {:error-type :anglican-uncaught-throw
+                :throw-tag :a
+                :value 4})))
         "clojure try-catch to catch an anglican-uncaught-throw"))
   (let [q (query [x]
                  (catch :b 
