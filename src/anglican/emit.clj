@@ -70,7 +70,8 @@
       (shading-primitive-procedures (if (vector? value) value [value])
         `(with-meta
            (~'fn ~(*gensym* "query") [~value ~'$state]
-             ~(cps-of-expression `(~'catch ::top-level-tag ~@source) result-cont))
+             ~(cps-of-expression `(~'catch ::top-level-tag ~@source)
+                                 result-cont))
            {:source '(~'query ~@args)})))))
 
 (defmacro defquery

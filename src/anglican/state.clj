@@ -122,22 +122,19 @@
   (empty? (::catch-stack state)))
 
 (defn push-catch
-  "pushes catch continuation and catch tag to the catch stack,
-  returns updated state"
+  "pushes catch continuation and catch tag to the catch stack, returns updated
+  state"
   [state cont tag]
   (update state ::catch-stack conj [cont tag]))
 
 (defn pop-catch
-  "pops catch from the catch stack. if tag is given, pops catch until (and
-  including) a tag is matched;
-  returns updated state"
+  "pops catch from the catch stack, returns updated state"
   [state]
   (update state ::catch-stack rest))
 
 (defn peek-catch
-  "observes top-most catch of catch stack without removing it. if tag is given,
-  returns the top-most catch that matches this tag; returns nil if such catch
-  doesn't exist."
+  "returns top-most catch of the catch stack without removing it, returns nil
+  if catch stack is empty"
   [state]
   (first (::catch-stack state)))
 
