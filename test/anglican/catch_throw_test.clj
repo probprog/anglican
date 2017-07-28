@@ -46,4 +46,15 @@
                  (catch :d (catch :c (catch :b (catch :a x)))))
         result (get-result (first (doquery :importance q [4])))]
     (is (= result 4)
-        "four catches, no throws")))
+        "four catches, no throws"))
+  (let [q (query [a b c]
+                 (catch :foo
+                   (let [a a]
+                     (when (< a 0)
+                       (throw :foo b))
+                     a)
+                   c))]
+    (is (= (get-result (first (doquery :importance q [-1 2 3]))) 2)
+        "one catch, one throw")
+    (is (= (get-result (first (doquery :importance q [1 2 3]))) 3)
+        "one catch, one throw")))
