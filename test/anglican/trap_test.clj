@@ -244,9 +244,9 @@
                     (anglican.state/pop-catch-until-tag
                      $state
                      :a
-                     :anglican.emit/top-level-tag)]
+                     :anglican.emit/uncaught)]
                 (if (= (anglican.state/get-catch-tag catch)
-                       :anglican.emit/top-level-tag)
+                       :anglican.emit/uncaught)
                   (anglican.trap/throw-anglican-uncaught-error :a 1)
                   (fn []
                     ((anglican.state/get-catch-cont catch)
@@ -261,9 +261,9 @@
                     (anglican.state/pop-catch-until-tag
                      $state
                      :a
-                     :anglican.emit/top-level-tag)]
+                     :anglican.emit/uncaught)]
                    (if (= (anglican.state/get-catch-tag catch)
-                          :anglican.emit/top-level-tag)
+                          :anglican.emit/uncaught)
                      (anglican.trap/throw-anglican-uncaught-error :a A)
                      (fn []
                        ((anglican.state/get-catch-cont catch)
