@@ -33,13 +33,14 @@
         result (get-result (first (doquery :importance q [4])))]
     (is (= result 9)
         "two catches, two throws"))
-  (let [q (query [x]
-                 (let [a (catch :max 
-                           (when (> x 0)
-                             (throw :max x)))]
-                   a))
-        result (get-result (first (doquery :importance q [4])))]
-    (is (= result 4)
+  (let [q (query [a]
+                 (catch :max
+                   (when (> a 0)
+                     (throw :max a))
+                   0))]
+    (is (= (get-result (first (doquery :importance q [4]))) 4)
+        "one catch, one throw")
+    (is (= (get-result (first (doquery :importance q [-1]))) 0)
         "one catch, one throw"))
   (let [q (query [x]
                  (catch :d (catch :c (catch :b (catch :a x)))))
