@@ -514,9 +514,9 @@
          `(~'let [[~'catch ~'updated-state]
                   (pop-catch-until-tag ~'$state
                                        ~tag
-                                       :anglican.emit/top-level-tag)]
+                                       :anglican.emit/uncaught)]
                  (~'if (~'= (get-catch-tag ~'catch)
-                            :anglican.emit/top-level-tag)
+                            :anglican.emit/uncaught)
                        (throw-anglican-uncaught-error ~tag ~expr*)
                        ~(continue `(get-catch-cont catch)
                                   expr*
