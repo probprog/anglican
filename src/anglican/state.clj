@@ -12,7 +12,8 @@
    :predicts []
    :result nil
    ::mem {}
-   ::store nil})
+   ::store nil
+   ::catch-stack nil})
 
 ;; The weight is not read or written by the deterministic
 ;; computation, and can be maintained outside the state;
@@ -98,3 +99,71 @@
   "retrieves store contents"
   [state & keys]
   (get-in (state ::store) keys))
+
+;; Methods for manipulating the catch stack
+(defn get-catch-stack
+  "returns the catch stack"
+  [state]
+  (::catch-stack state))
+
+(defn get-catch-cont
+  "returns continuation of a catch"
+  [catch]
+  (first catch))
+
+(defn get-catch-tag
+  "returns tag of a catch"
+  [catch]
+  (second catch))
+
+(defn empty-catch-stack?
+  "check whether catch stack is empty"
+  [state]
+  (empty? (::catch-stack state)))
+
+(defn push-catch
+  "pushes catch continuation and catch tag to the catch stack, returns updated
+  state"
+  [state cont tag]
+  (update state ::catch-stack conj [cont tag]))
+
+(defn pop-catch
+  "pops catch from the catch stack, returns updated state"
+  [state]
+  (update state ::catch-stack rest))
+
+(defn peek-catch
+  "returns top-most catch of the catch stack without removing it, returns nil
+  if catch stack is empty"
+  [state]
+  (first (::catch-stack state)))
+
+(defn pop-catch-until
+  "recursively peeks and pops catch from the catch stack until (pred catch) is
+  true,
+  returns [catch updated-state] where
+  - catch is the first catch for which (pred catch) is true (nil if
+  such catch doesn't exist) and
+  - updated-state contains the state whose catch stack is popped until (and
+  including the case when) (pred catch) is true (updated-state contains an
+  empty catch stack if a matching catch doesn't exist)."
+  [state pred]
+  (loop [state state]
+    (if (empty-catch-stack? state)
+      [nil state]
+      (if (pred (peek-catch state))
+        [(peek-catch state) (pop-catch state)]
+        (recur (pop-catch state))))))
+
+(defn pop-catch-until-tag
+  "recursively peeks and pops catch from the catch stack until either one of
+  the tags matches with the catch's tag,
+  returns [catch updated-state] where
+  - catch is the first catch whose tag matches either one of tags (nil if
+  such catch doesn't exist) and
+  - updated-state contains the state whose catch stack is popped until (and
+  including the case when) catch's tag matches either one of tags
+  (updated-state contains an empty catch stack if a matching catch doesn't
+  exist)."
+  [state & tags]
+  (pop-catch-until state #((set tags) (get-catch-tag %))))
