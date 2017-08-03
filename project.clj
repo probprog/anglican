@@ -1,8 +1,8 @@
 (defproject anglican "1.1.0-SNAPSHOT"
   :description "Anglican, a probabilistic programming system"
   :url "http://bitbucket.org/probprog/anglican"
-  :license {:name "GNU General Public License Version 3"
-            :url "http://www.gnu.org/licenses/gpl.html"}
+  :license {:name "Eclipse Public License"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/tools.cli "0.3.5"]
                  [org.clojure/data.json "0.2.6"]
