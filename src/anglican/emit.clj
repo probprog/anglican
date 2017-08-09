@@ -70,7 +70,7 @@
       (shading-primitive-procedures (if (vector? value) value [value])
         `(with-meta
            (~'fn ~(*gensym* "query") [~value ~'$state]
-             ~(cps-of-expression `(~'catch ::uncaught ~@source)
+             ~(cps-of-expression `(~'do ~@source)
                                  result-cont))
            {:source '(~'query ~@args)})))))
 
