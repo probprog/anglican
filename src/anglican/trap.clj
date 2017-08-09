@@ -480,47 +480,24 @@
   tag"
   [args cont]
   (let [[tag & exprs] args
-        cont-pop-name (*gensym* "CP")
-        cont-pop-value-name (*gensym* "V")
-        cont-pop `(~'fn ~cont-pop-name [~cont-pop-value-name ~'$state]
-                        ~(continue cont
-                                   cont-pop-value-name
-                                   `(pop-catch ~'$state)))
-        push-cont `(push-catch ~'$state ~cont ~tag)]
-    `(~'let [~'$state ~push-cont]
-            ~(cps-of-do exprs cont-pop))))
-
-(defn throw-anglican-uncaught-error [tag value]
-  (throw (ex-info "Uncaught throw from Anglican"
-                  {:error-type :anglican-uncaught-throw
-                   :throw-tag tag
-                   :value value})))
+        value (*gensym* "V")]
+    `(~'let [~'$state (push-catch ~'$state ~tag ~cont)]
+            ~(cps-of-do exprs
+                        `(~'fn ~(*gensym*  "pop-catch") [~value ~'$state]
+                               ~(continue cont value
+                                          `(pop-catch ~'$state)))))))
 
 (defn cps-of-throw
   "transforms throw to CPS,
   returns to the nearest surrounding `catch` form with a matching tag"
-  [args cont]
-  (assert (= (count args) 2)
-          (format "Invalid number of args (%d) passed to throw"
-                  (count args)))
-  (let [[tag & exprs] args]
-    (assert (<= (count exprs) 1)
-            (format "Invalid number of expressions (%d) passed to throw"
-                    (count exprs)))
-    (make-of-args
-     exprs
-     (fn [exprs*]
-       (let [expr* (first exprs*)]
-         `(~'let [[~'catch ~'updated-state]
-                  (pop-catch-until-tag ~'$state
-                                       ~tag
-                                       :anglican.emit/uncaught)]
-                 (~'if (~'= (get-catch-tag ~'catch)
-                            :anglican.emit/uncaught)
-                       (throw-anglican-uncaught-error ~tag ~expr*)
-                       ~(continue `(get-catch-cont catch)
-                                  expr*
-                                  'updated-state))))))))
+  [args _]
+  (let [cont (*gensym* "C")]
+    (make-of-args args
+                  (fn [[tag value]]
+                    `(~'let [~'$state (pop-catch-until-tag ~'$state ~tag)
+                             ~cont (current-catch-cont ~'$state)
+                             ~'$state (pop-catch ~'$state)]
+                            ~(continue cont value '$state))))))
 
 ;;; Probabilistic forms
 

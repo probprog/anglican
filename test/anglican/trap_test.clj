@@ -223,7 +223,7 @@
       (is (= (cps-of-catch '(:a 1) 'ret)
              '(let [$state (anglican.state/push-catch $state ret :a)]
                 (fn []
-                  ((fn CP [V $state]
+                  ((fn pop-catch [V $state]
                      (fn [] (ret V (anglican.state/pop-catch $state))))
                    1
                    $state))))
@@ -231,7 +231,7 @@
       (is (= (cps-of-catch '(:a (foo)) 'ret)
              '(let [$state (anglican.state/push-catch $state ret :a)]
                 (foo
-                 (fn CP [V $state]
+                 (fn pop-catch [V $state]
                    (fn [] (ret V (anglican.state/pop-catch $state))))
                  $state)))
           "catch compound expression"))))
