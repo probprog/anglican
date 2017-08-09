@@ -1,7 +1,8 @@
-(ns anglican.catch-throw-test
+(ns anglican.semantic-test
   (:require [clojure.test :refer :all]
             [anglican.state :refer [get-result]])
   (:use [anglican core emit runtime]))
+
 
 (deftest catch-throw-test
   (let [q (query [x]
@@ -11,12 +12,21 @@
     (is (= result 9)
         "no catch, no throws"))
   (let [q (query [x]
+                 (catch :c
+                   (catch :b 
+                     (let [a (catch :a (throw :a 5))]
+                       (throw :b (+ a x))
+                       10))))
+        result (get-result (first (doquery :importance q [4])))]
+    (is (= result 9)
+        "three catches, two throws"))
+  (let [q (query [x]
                  (let [a 5]
                    (throw :a x)
                    a))]
     (is (thrown? RuntimeException
                  (get-result (first (doquery :importance q [4]))))
-        "no catch, one throw")
+        "no catch, one throw should throw a runtime exception")
     (is (try 
           (get-result (first (doquery :importance q [4])))
           (catch clojure.lang.ExceptionInfo e
@@ -25,36 +35,23 @@
                 :throw-tag :a
                 :value 4})))
         "clojure try-catch to catch an anglican-uncaught-throw"))
-  (let [q (query [x]
-                 (catch :b 
-                   (let [a (catch :a (throw :a 5))]
-                     (throw :b (+ a x))
-                     10)))
-        result (get-result (first (doquery :importance q [4])))]
-    (is (= result 9)
-        "two catches, two throws"))
   (let [q (query [a]
                  (catch :max
                    (when (> a 0)
                      (throw :max a))
                    0))]
     (is (= (get-result (first (doquery :importance q [4]))) 4)
-        "one catch, one throw")
+        "max(0, 4) is 4")
     (is (= (get-result (first (doquery :importance q [-1]))) 0)
-        "one catch, one throw"))
-  (let [q (query [x]
-                 (catch :d (catch :c (catch :b (catch :a x)))))
-        result (get-result (first (doquery :importance q [4])))]
-    (is (= result 4)
-        "four catches, no throws"))
+        "max(0, -1) is -1"))
   (let [q (query [a b c]
                  (catch :foo
-                   (let [a a]
+                   (do
                      (when (< a 0)
                        (throw :foo b))
                      a)
                    c))]
     (is (= (get-result (first (doquery :importance q [-1 2 3]))) 2)
-        "one catch, one throw")
+        "when a is less than 0, return b")
     (is (= (get-result (first (doquery :importance q [1 2 3]))) 3)
-        "one catch, one throw")))
+        "when a is not loss than 0, return c")))
