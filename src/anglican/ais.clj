@@ -10,11 +10,11 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :exclude [initial-state]]
         anglican.inference
-        [anglican.lmh :exclude [utility]]))
+        [anglican.rmh :exclude [utility]]))
 
 ;;;; Annealed Importance Sampling
 
-(derive ::algorithm :anglican.lmh/algorithm)
+(derive ::algorithm :anglican.rmh/algorithm)
 
 (defn linspace
   "returns a equally spaced sequence of points"
