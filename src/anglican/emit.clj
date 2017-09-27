@@ -11,25 +11,6 @@
 
 ;;;; Top-level forms for Anglican programs
 
-;;; Helper: stable gensyms
-
-;; Anglican uses anglican.trap/*gensym* to generate
-;; automatic checkpoint identifiers. This works well
-;; for inference in general, however there are use cases
-;; where predictable identifiers which stay the same
-;; between compilations suite better: debugging, compiled
-;; inference are some examples.
-
-(def ^:private make-stable-gensym 
-  """Creates a function which returns a fresh identifier
-  of form name-prefix#, where # is a counter starting at 1.
-  """
-  [name]
-  (let [i (atom 0)]              
-    (fn [& [prefix]]
-      (swap! i inc)
-      (symbol (str name "-" prefix @i)))))
-
 ;;; Code manipulation
 
 ;; Higher-order functions cannot be re-used from Clojure,
