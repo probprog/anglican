@@ -1,7 +1,7 @@
 (ns anglican.emit
   "Top-level forms for Anglican programs"
   (:use [anglican.xlat :only [program alambda]]
-        [anglican.trap :only [*gensym*
+        [anglican.trap :only [*gensym* *checkpoint-gensym*
                               shading-primitive-procedures
                               cps-of-expression result-cont 
                               fn-cps mem-cps primitive-procedure-cps]]
@@ -20,15 +20,14 @@
 ;; between compilations suite better: debugging, compiled
 ;; inference are some examples.
 
-(def ^:private make-stable-gensym 
-  """Creates a function which returns a fresh identifier
-  of form name-prefix#, where # is a counter starting at 1.
-  """
+(defn ^:private make-stable-gensym 
+  "Creates a function which returns a fresh identifier
+  of form name-prefix#, where # is a counter starting at 1."
   [name]
   (let [i (atom 0)]              
     (fn [& [prefix]]
       (swap! i inc)
-      (symbol (str name "-" prefix @i)))))
+      (symbol (str name "-" (or prefix "G") @i)))))
 
 ;;; Code manipulation
 
