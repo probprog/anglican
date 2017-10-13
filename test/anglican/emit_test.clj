@@ -5,23 +5,23 @@
   (:use [anglican.trap :only [value-cont]]
         anglican.emit))
 
-;; How to test this? macroexpand-1 won't work properly at load time
-;;
-;; (deftest test-query
-;;   (testing "query"
-;;     (is (= (second (macroexpand-1 '(query x y z))) 'x)
-;;         "query with explicit name")
-;;     (is (= (second (next (macroexpand-1 '(query x (foo x))))) 'x)
-;;         "query with generated name")
-;;     (is (= (second (next (macroexpand-1 '(query x [x])))) 'x)
-;;         "backward compatible query with generated name")))
-;; 
-;; (deftest test-fm
-;;   (testing "fm"
-;;     (is (= (second (macroexpand-1 '(fm x [y] z))) 'x)
-;;         "fm with explicit name")
-;;     (is (= (second (next (macroexpand-1 '(fm [x] (foo x))))) '[x])
-;;         "fm with generated name")))
+(deftest test-query
+  (use 'anglican.emit)
+  (testing "query"
+    (is (= (second (macroexpand-1 '(query x y z))) 'x)
+        "query with explicit name")
+    (is (= (second (next (macroexpand-1 '(query x (foo x))))) 'x)
+        "query with generated name")
+    (is (= (second (next (macroexpand-1 '(query x [x])))) 'x)
+        "backward compatible query with generated name")))
+
+(deftest test-fm
+  (use 'anglican.emit)
+  (testing "fm"
+    (is (= (second (macroexpand-1 '(fm x [y] z))) 'x)
+        "fm with explicit name")
+    (is (= (second (next (macroexpand-1 '(fm [x] (foo x))))) '[x])
+        "fm with generated name")))
 
 (deftest test-higher-order-functions
   (testing "map in CPS"

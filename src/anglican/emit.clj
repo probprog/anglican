@@ -96,7 +96,7 @@
         (let [x (sample (normal mean sd))]
           (predict x)))"
   [& args]
-  (if (and (seq (nthnext args 2))
+  (if (and (seq (nthnext args 2)) ;; for backward compatibility
            (symbol? (first args)) 
            (or (symbol? (second args)) (vector? (second args))))
     `(query* ~@args)
