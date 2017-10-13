@@ -57,10 +57,26 @@
 ;; macro and can also be immediately bound to a symbol
 ;; using the `defquery' macro.
 
+(defmacro query*
+  "Helper macro called by query and defquery. The name is mandatory."
+  [name & args]
+  (let [[value source]
+        (if (or (symbol? (first args)) (vector? (first args)))
+          [(first args) (rest args)]
+          ['$value args])]
+    (overriding-higher-order-functions
+      (shading-primitive-procedures (if (vector? value) value [value])
+        (binding [*checkpoint-gensym* (make-stable-gensym name)]
+          `(with-meta
+             (~'fn ~name [~value ~'$state]
+               ~(cps-of-expression `(~'do ~@source)
+                                   result-cont))
+             {:source '(~'query ~name ~@args)}))))))
+
 (defmacro query
   "Defines an anglican query. Syntax:
 
-     (query optional-parameter 
+     (query optional-name optional-parameter 
        anglican-expression ...)
 
   Example:
@@ -80,17 +96,11 @@
         (let [x (sample (normal mean sd))]
           (predict x)))"
   [& args]
-  (let [[value source]
-        (if (or (symbol? (first args)) (vector? (first args)))
-          [(first args) (rest args)]
-          ['$value args])]
-    (overriding-higher-order-functions
-      (shading-primitive-procedures (if (vector? value) value [value])
-        `(with-meta
-           (~'fn ~(*gensym* "query") [~value ~'$state]
-             ~(cps-of-expression `(~'do ~@source)
-                                 result-cont))
-           {:source '(~'query ~@args)})))))
+  (if (and (seq (nthnext args 2))
+           (symbol? (first args)) 
+           (or (symbol? (second args)) (vector? (second args))))
+    `(query* ~@args)
+    `(query* ~(*gensym* "query") ~@args)))
 
 (defmacro defquery
   "Binds variable to an anglican query. Syntax:
@@ -109,7 +119,7 @@
           [(first args) (rest args)]
           [(format "anglican program '%s'" name) args])]
     `(def ~(with-meta name {:doc docstring})
-       (query ~@source))))
+       (query* ~name ~@source))))
 
 ;; A query can be seen as a random source, that is a distribution.
 ;; Conditional wraps a query into a parameterised distribution
@@ -198,6 +208,13 @@
 ;; must be in CPS form. fm and defm are like fn and defn but
 ;; automatically transform functions into CPS.
 
+(defmacro fm*
+  "Helper macro called by fm and defm. The name is mandatory."
+  [name & args]
+  (overriding-higher-order-functions
+    (binding [*checkpoint-gensym* (make-stable-gensym name)]
+      (fn-cps args))))
+
 (defmacro fm
   "Defines an anglican function outside of anglican code.
   The syntax is the same as of `fn' with a single parameter list:
@@ -205,8 +222,9 @@
      (fm optional-name [parameter ...] 
         anglican-expression ...)"
   [& args]
-  (overriding-higher-order-functions
-    (fn-cps args)))
+  (if (vector? (first args))
+    `(fm* ~(*gensym* "fn") ~@args)
+    `(fm* ~@args)))
 
 (defmacro defm
   "Binds a variable to an anglican function. The syntax is the same as for
@@ -230,7 +248,7 @@
              {:doc docstring
               :arglists `'([~'$cont ~'$state
                             ~@(first source)])})
-       (fm ~name ~@source))))
+       (fm* ~name ~@source))))
 
 ;; In anglican, memoized computations, which can be impure, are
 ;; created by `mem'. Inside a CPS expression, `mem' is

@@ -252,12 +252,11 @@
   "transforms function definition to CPS form"
   [args]
   (if (vector? (first args))
-    (fn-cps `[nil ~@args])
+    (fn-cps `[~(*gensym* "fn") ~@args])
     (let [[name parms & body] args
           cont (*gensym* "C")]
       (shading-primitive-procedures parms
-        `(~'fn ~(or name (*gensym* "fn"))
-           [~cont ~'$state ~@parms]
+        `(~'fn ~name [~cont ~'$state ~@parms]
            ~(cps-of-do body cont))))))
 
 (defn mem-cps
