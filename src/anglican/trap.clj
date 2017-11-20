@@ -209,6 +209,14 @@
   bound to `symbol' in tests"
   gensym)
 
+(def ^:dynamic *checkpoint-gensym*
+  "gensym used to generate checkpoint identifiers,
+  see comment about stable gensym in emit.clj; 
+  initially redirects to *gensym*"
+  (fn [& args]
+    (apply *gensym* args)))
+
+
 ;;; Literal data structures --- vectors, maps and sets.
 
 ;; Literal vector is a shorthand notation for (vector ... ).
@@ -244,12 +252,11 @@
   "transforms function definition to CPS form"
   [args]
   (if (vector? (first args))
-    (fn-cps `[nil ~@args])
+    (fn-cps `[~(*gensym* "fn") ~@args])
     (let [[name parms & body] args
           cont (*gensym* "C")]
       (shading-primitive-procedures parms
-        `(~'fn ~(or name (*gensym* "fn"))
-           [~cont ~'$state ~@parms]
+        `(~'fn ~name [~cont ~'$state ~@parms]
            ~(cps-of-do body cont))))))
 
 (defn mem-cps
@@ -536,7 +543,7 @@
                   (let [[id dist value]
                         (if (= (count args*) 3)
                           args*
-                          `['~(*gensym* "O") ~@args*])]
+                          `['~(*checkpoint-gensym* "O") ~@args*])]
                     `(->observe ~id ~dist ~value ~cont ~'$state)))))
 
 (defn cps-of-sample
@@ -549,7 +556,7 @@
                   (let [[id dist value]
                         (if (= (count args*) 2)
                           args*
-                          `['~(*gensym* "S") ~@args*])]
+                          `['~(*checkpoint-gensym* "S") ~@args*])]
                     `(->sample ~id ~dist ~cont ~'$state)))))
 
 ;;; State access
