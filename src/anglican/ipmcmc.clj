@@ -18,15 +18,15 @@
        - Threadpool argument for pmap operation over nodes.
          Defaults to creating a pool of containing (+ (ncpus) 2)
          threads. See com.climate.claypoole/pmap for further info."
-  (require [clojure.core.matrix :as mat]
-           [com.climate.claypoole :as cp]
-           [anglican.inference :refer [infer exec]]
-           [anglican.pgibbs :as pgibbs
-            :refer [initial-state release-retained-state
-                    retained-initial-state]]
-           [anglican.runtime :refer [sample* discrete]]
-           [anglican.smc :as smc]
-           [anglican.state :refer [set-log-weight]]))
+  (:require [clojure.core.matrix :as mat]
+            [com.climate.claypoole :as cp]
+            [anglican.inference :refer [infer exec]]
+            [anglican.pgibbs :as pgibbs
+             :refer [initial-state release-retained-state
+                     retained-initial-state]]
+            [anglican.runtime :refer [sample* discrete]]
+            [anglican.smc :as smc]
+            [anglican.state :refer [set-log-weight]]))
 
 (derive ::algorithm :anglican.pgibbs/algorithm)
 
