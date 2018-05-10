@@ -1,6 +1,6 @@
 (ns anglican.trap-test
     (:require [clojure.test :refer [deftest testing is]])
-    (use anglican.trap))
+    (:use anglican.trap))
 
 
 (deftest test-simple?
