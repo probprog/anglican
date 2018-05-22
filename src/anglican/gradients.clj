@@ -7,26 +7,9 @@
 ;;; Math functions required by gradients
 
 (defn digamma
-  "digamma function psi(x): derivative of gammaln(x),
-  apparently bizarrely missing from all Clojure libraries.
-  Not yet implemented for negative values of x.
-  source: http://en.wikipedia.org/wiki/Digamma_function"
+  "digamma function psi(x)"
   [x]
-  (assert (>= x 0.0))
-  (if (<= x 0.0)
-    (Math/log 0.0)
-    (let [partial-sum (if (< x 1) (/ -1. x) 0.0)
-          x (if (< x 1) (+ x 1.0) x)]
-      (+ partial-sum
-         (Math/log x)
-         (/ -1. (* 2 x))
-         (/ -1. (* 12 (Math/pow x 2)))
-         (/ 1. (* 120 (Math/pow x 4)))
-         (/ -1. (* 252 (Math/pow x 6)))
-         (/ 1. (* 240 (Math/pow x 8)))
-         (/ -5. (* 660 (Math/pow x 10)))
-         (/ 691. (* 32760 (Math/pow x 12)))
-         (/ -1. (* 12 (Math/pow x 14)))))))
+  (org.apache.commons.math3.special.Gamma/digamma x))
 
 (defn positive-and-finite?
   "is the numeric value x finite? is it also strictly positive?"
