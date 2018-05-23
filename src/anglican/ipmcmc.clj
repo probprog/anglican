@@ -24,7 +24,7 @@
            [anglican.pgibbs :as pgibbs
             :refer [initial-state release-retained-state
                     retained-initial-state]]
-           [anglican.runtime :refer [sample* discrete]]
+           [anglican.runtime :refer [sample* discrete uniform-discrete]]
            [anglican.smc :as smc]
            [anglican.state :refer [set-log-weight]]))
 
@@ -84,13 +84,15 @@
   "Normalized exponential. Accepts a collection of log weights.
   Returns a pair [ps log-Z] in which ps is a sequence of
   normalized probabilities and log-Z is the log mean weight.
-  If all weights are -infinity then they are assumed to be
-  equal."
+  If all weights are -infinity then they all go to zero."
   [log-weights]
   (let [max-log-weight (reduce max log-weights)]
     (if (= (/ -1. 0.) max-log-weight)
-      (let [M (count log-weights)]
-        [(repeat M (/ 1 M)) (/ -1. 0.)])
+
+      (let [probabilities (repeat (count log-weights) 0.0)
+            log-mean-weight 0.0]
+        [probabilities log-mean-weight])
+
       (let [weights (map #(Math/exp (- % max-log-weight))
                          log-weights)
             total-weight (reduce + weights)
@@ -122,7 +124,14 @@
                             (assoc zs i (+ (zs i) p)))
                             zeta-sums
                             (map vector proposal-indices ps))
-            k (sample* (discrete ps))]
+            k (sample*
+
+                ;; branch. If there are nodes with nonzero probability, then sample among them
+                ;; proportional to their probabilities. If all nodes are zero-probability,
+                ;; then sample uniformly randomly.
+                (if (> 0.0 (apply max ps))
+                  (discrete ps)
+                  (uniform-discrete 0 (count ps))))]
         (if (= k (count smc-indices))
           (recur (inc i)
                  csmc-indices
@@ -152,7 +161,7 @@
           ":number-of-nodes must be larger 1")
   (let [number-of-csmc-nodes
           (or number-of-csmc-nodes
-              (/ number-of-nodes 2))
+              (int (/ number-of-nodes 2)))
         number-of-smc-nodes (- number-of-nodes
                                number-of-csmc-nodes)]
     (assert (< number-of-csmc-nodes
