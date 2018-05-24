@@ -1,7 +1,17 @@
 (ns anglican.trap
   "CPS transformation of Anglican program"
-  (:require anglican.runtime)
-  (:use anglican.state))
+  (:require [anglican.runtime]
+            [anglican.state :refer
+             [initial-state
+              set-log-weight add-log-weight get-log-weight
+              add-predict get-predicts clear-predicts
+              get-result set-result
+              in-mem? get-mem set-mem
+              store retrieve
+              push-catch pop-catch
+              current-catch-cont
+              pop-catch-until-tag]])
+  #?(:cljs (:require-macros anglican.trap)))
 
 ;;;; Trampoline-ready Anglican program
 
@@ -106,11 +116,13 @@
       (and 
         (namespace expr)
         (*primitive-namespaces* (symbol (namespace expr)))
-        (let [expr-var (resolve expr)]
-          ;; either undefined
-          (or (nil? expr-var) 
-              ;; or resolves to a procedure
-              (fn? (deref expr-var))))))))
+        #?(:clj (let [expr-var (resolve expr)]
+                 ;; either undefined
+                 (or (nil? expr-var) 
+                     ;; or resolves to a procedure
+                     (fn? (deref expr-var))))
+          ;; TODO
+          :cljs "resolving does not work for expressions, only symbols")))))
 
 (defn primitive-operator?
   "true if the experssion is converted by clojure 
