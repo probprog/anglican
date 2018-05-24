@@ -4,7 +4,15 @@
      :number-of-particles (1 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use anglican.state
+
+  (:require [anglican.state :refer [add-log-weight
+                                    get-log-weight
+                                    set-log-weight
+                                    initial-state]]
+            [anglican.inference :refer [checkpoint exec infer rand]]
+            [anglican.trap :as trap]
+            [anglican.runtime :refer [observe*]])
+  #_(:use anglican.state
         anglican.inference
         [anglican.runtime :only [observe*]]))
 
