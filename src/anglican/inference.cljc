@@ -2,10 +2,19 @@
   "Inference abstractions"
   (:refer-clojure :exclude [rand rand-nth rand-int])
   (:require [clojure.string :as str]
-            [clojure.data.json :as json]
-            anglican.trap
-            anglican.stat)
-  (:use anglican.state
+            #?(:clj [clojure.data.json :as json])
+
+            [anglican.trap :as trap]
+            [anglican.stat :as stat]
+            [anglican.state :refer [add-log-weight
+                                    get-log-weight
+                                    set-log-weight
+                                    get-predicts
+                                    initial-state]]
+            [anglican.runtime :refer [sample* observe*
+                                      uniform-continuous
+                                      discrete log-sum-exp]])
+  #_(:use anglican.state
         [anglican.runtime :only [sample* observe*
                                  uniform-continuous
                                  discrete log-sum-exp]]))
@@ -166,14 +175,14 @@
 (def ^:deprecated collect-by 
   "alias to anglican.stat/collect-by, provided for backwards
   compatibility previous releases" 
-  anglican.stat/collect-by)
+  stat/collect-by)
 
 (defn log-marginal
   "calculates the empirical estimate of the log marginal likelihood
   (i.e. the log mean importance weight)"
   [samples]
   (- (reduce log-sum-exp (sort (map get-log-weight samples)))
-     (Math/log (count samples))))
+     (#?(:clj Math/log :cljs js/Math.log) (count samples))))
 
 ;;; Output
 
@@ -189,8 +198,8 @@
   (prn [label value log-weight]))
 
 (defmethod print-predict :json [_ label value log-weight]
-  (json/write [(str label) value log-weight] *out*)
-  (println))
+  #?(:clj (json/write [(str label) value log-weight] *out*)
+    :cljs (print (.stringify js/JSON [(str label) value log-weight]))))
 
 (defmethod print-predict :default [_ label value log-weight]
   (print-predict :anglican label value log-weight))

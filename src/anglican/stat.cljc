@@ -1,9 +1,8 @@
 (ns anglican.stat
   "Statistics related functions"
-  (:require [clojure.core.matrix :as m])
-  (:use [anglican
-           runtime
-           [state :only [get-predicts get-log-weight]]]))
+  (:require [clojure.core.matrix :as m]
+            [anglican.runtime :refer [log log-sum-exp exp power]]
+            [anglican.state :refer [get-predicts get-log-weight]]))
 
 (defn collect-by
   "calculates contribution to log marginal by value;
@@ -12,7 +11,7 @@
     each unique value returned when applying f to a sample,
     normalized by the total number of samples"
   [f samples]
-  (let [log-norm (Math/log (count samples))]
+  (let [log-norm (log (count samples))]
     (reduce (fn [weighted sample]
               (let [v (f sample)
                     lw (- (get-log-weight sample)

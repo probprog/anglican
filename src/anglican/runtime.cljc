@@ -2,35 +2,49 @@
   "Runtime library"
   (:require [clojure.string :as str]
             [clojure.core.matrix :as m]
-            [clojure.core.matrix.linear :as ml]))
+            [clojure.core.matrix.linear :as ml]
+
+            #?(:cljs [goog.string.format])))
+
+
+;; TODO move
+#?(:cljs
+  (defn format
+    "Similar to Java String's format function for cljs."
+    [s & args]
+    (goog.string.format s (into-array args))))
+
 
 ;; matrix library uses vectorz for protocol implementations
-(m/set-current-implementation :vectorz)
+#?(:clj (m/set-current-implementation :vectorz))
+
 
 ;;; Anglican core functions beyond clojure.core
 
-(defn abs [x] (Math/abs x))
-(defn floor [x] (Math/floor x))
-(defn ceil [x] (Math/ceil x))
-(defn round [x] (Math/round x))
-(defn rint [x] (Math/rint x))
-(defn signum [x] (Math/signum x))
+(defn abs [x] (#?(:clj Math/abs :cljs js/Math.abs) x))
+(defn floor [x] (#?(:clj Math/floor :cljs js/Math.floor) x))
+(defn ceil [x] (#?(:clj Math/ceil :cljs js/Math.ceil) x))
+(defn round [x] (#?(:clj Math/round :cljs js/Math.round) x))
+(defn rint [x] (#?(:clj Math/rint :cljs js/Math.rint) x))
+(defn signum [x] (#?(:clj Math/signum :cljs js/Math.signum) x))
 
-(defn sin [x] (Math/sin x))
-(defn cos [x] (Math/cos x))
-(defn tan [x] (Math/tan x))
-(defn asin [x] (Math/asin x))
-(defn acos [x] (Math/acos x))
-(defn atan [x] (Math/atan x))
-(defn sinh [x] (Math/sinh x))
-(defn cosh [x] (Math/cosh x))
-(defn tanh [x] (Math/tanh x))
+(defn sin [x] (#?(:clj Math/sin :cljs js/Math.sin) x))
+(defn cos [x] (#?(:clj Math/cos :cljs js/Math.cos) x))
+(defn tan [x] (#?(:clj Math/tan :cljs js/Math.tan) x))
+(defn asin [x] (#?(:clj Math/asin :cljs js/Math.asin) x))
+(defn acos [x] (#?(:clj Math/acos :cljs js/Math.acos) x))
+(defn atan [x] (#?(:clj Math/atan :cljs js/Math.atan) x))
+(defn sinh [x] (#?(:clj Math/sinh :cljs js/Math.sinh) x))
+(defn cosh [x] (#?(:clj Math/cosh :cljs js/Math.cosh) x))
+(defn tanh [x] (#?(:clj Math/tanh :cljs js/Math.tanh) x))
 
-(defn log [x] (Math/log x))
-(defn exp [x] (Math/exp x))
-(defn cbrt [x] (Math/cbrt x))
-(defn sqrt [x] (Math/sqrt x))
-(defn pow [x y] (Math/pow x y))
+(defn log [x] (#?(:clj Math/log :cljs js/Math.log) x))
+(defn exp [x] (#?(:clj Math/exp :cljs js/Math.exp) x))
+(defn cbrt [x] (#?(:clj Math/cbrt :cljs js/Math.cbrt) x))
+(defn sqrt [x] (#?(:clj Math/sqrt :cljs js/Math.sqrt) x))
+(defn pow [x y] (#?(:clj Math/pow :cljs js/Math.pow) x y))
+
+(def PI #?(:clj Math/PI :cljs (.-PI js/Math)))
 
 (defn finite?
   "is the numeric value x finite?
@@ -73,8 +87,8 @@
   (let [log-max (max log-x log-y)]
     (if (< (/ -1. 0.) log-max (/ 1. 0.))
       (+ log-max
-         (Math/log (+ (Math/exp (- log-x log-max))
-                      (Math/exp (- log-y log-max)))))
+         (log (+ (exp (- log-x log-max))
+                 (exp (- log-y log-max)))))
       log-max)))
 
 ;; Distribution types, in alphabetical order.
@@ -148,10 +162,10 @@
   [p] [dist (uniform-continuous 0.0 1.0)]
   (sample* [this] (if (< (sample* dist) p) 1 0))
   (observe* [this value]
-    (Math/log (case value
-                1 p
-                0 (- 1. p)
-                0.))))
+    (log (case value
+           1 p
+           0 (- 1. p)
+           0.))))
 
 (from-apache beta [alpha beta] :continuous
   (Beta (double alpha) (double beta)))
@@ -183,7 +197,7 @@
           (if (< x acc) value
             (recur weights acc (inc value)))))))
   (observe* [this value]
-    (Math/log
+    (log
       (try
         (/ (nth weights value) total-weight)
         ;; any value not in the support has zero probability.
@@ -213,10 +227,10 @@
   [p] [dist (uniform-continuous 0.0 1.0)]
   (sample* [this] (< (sample* dist) p))
   (observe* [this value]
-           (Math/log (case value
-                       true p
-                       false (- 1. p)
-                       0.))))
+           (log (case value
+                  true p
+                  false (- 1. p)
+                  0.))))
 
 (from-apache gamma [shape rate] :continuous
   (Gamma (double shape) (/ 1.0 (double rate))))
@@ -240,11 +254,13 @@
 (defdist mvn
   "multivariate normal"
   [mean cov] [k (m/ecount mean)     ; number of dimensions
+              ;; TODO port cholesky decomposition to al-jabr
+              #?(:cljs _) #?(:cljs (println "Warning: Cholesky not ported yet."))
               Lcov (:L (ml/cholesky (m/matrix cov)))
               unit-normal (normal 0 1)
               Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
-                         (+ (* 0.5 k (Math/log (* 2 Math/PI)))
-                            (Math/log |Lcov|))))
+                         (+ (* 0.5 k (log (* 2 PI)))
+                            (log |Lcov|))))
               iLcov (delay (m/inverse Lcov))
               transform-sample (fn [samples]
                                  (m/add mean (m/mmul Lcov samples)))]
@@ -267,7 +283,7 @@
    [this]
    (let [y (sample* mvn-dist)
          u (sample* chi-sq-dist)]
-     (m/add mu (m/mul y (Math/sqrt (/ nu u))))))
+     (m/add mu (m/mul y (sqrt (/ nu u))))))
   (observe*
    [this y]
    (let [dy (m/sub mu y)
@@ -278,11 +294,11 @@
                      dy))]
      (- (log-gamma-fn (* 0.5 (+ nu dim)))
         (+ (log-gamma-fn (* 0.5 nu))
-           (* 0.5 dim (Math/log nu))
-           (* 0.5 dim (Math/log Math/PI))
-           (* 0.5 (Math/log (m/det sigma)))
+           (* 0.5 dim (log nu))
+           (* 0.5 dim (log PI))
+           (* 0.5 (log (m/det sigma)))
            (* 0.5 (+ nu dim)
-              (Math/log
+              (log
                (+ 1.0
                   (* (/ 1.0 nu)
                      dy-sinv-dy)))))))))
@@ -312,7 +328,7 @@
 (defn log-mv-gamma-fn
   "multivariate Gamma function"
   [p a]
-  (+ (* 0.25 p (- p 1) (Math/log Math/PI))
+  (+ (* 0.25 p (- p 1) (log PI))
      (reduce + (map (fn [j]
                       (log-gamma-fn (- a (* 0.5 j))))
                     (range p)))))
@@ -331,6 +347,7 @@
   "Wishart distribution"
   [n V]
   [p (first (m/shape V))
+   #?(:cljs _) #?(:cljs (println "Warning: Cholesky not ported yet."))
    L (:L (ml/cholesky (m/matrix V)))
    unit-normal (normal 0 1)
    ;; Sample from Chi-squared distribution
@@ -674,3 +691,12 @@
           (map #(power (- %1 %2) 2)
                (m/to-vector a)
                (m/to-vector b))))
+
+
+#?(:cljs
+  (defn on-js-reload []
+    (println "Reloading JS.")))
+
+#?(:cljs
+    (defn main [& args]
+      (println "STD:" (std [1 2 3]))))
