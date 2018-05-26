@@ -17,6 +17,7 @@
                  [org.clojure/clojurescript "1.10.238" :scope "provided"]
                  [thinktopic/aljabr "0.1.1" :scope "provided"]]
   :plugins [[codox "0.8.11"]
+            [lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
   :scm {:name "git"
         :url "https://bitbucket.org/probprog/anglican"}
@@ -33,7 +34,7 @@
                 :figwheel {:on-jsload "anglican.runtime/on-js-reload"
                            :open-urls ["http://localhost:3449/index.html"]}
 
-                :compiler {:main anglican.runtime
+                :compiler {:main anglican.bayes-net
                            :asset-path "js/compiled/out"
                            :output-to "resources/public/js/compiled/anglican.js"
                            :output-dir "resources/public/js/compiled/out"
@@ -44,7 +45,7 @@
                {:id "min"
                 :source-paths ["src"]
                 :compiler {:output-to "resources/public/js/compiled/anglican.js"
-                           :main anglican.runtime
+                           :main anglican.bayes-net
                            :optimizations :advanced
                            :pretty-print false}}]}
 

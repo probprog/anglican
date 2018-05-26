@@ -1,9 +1,13 @@
 (ns anglican.lmh
   "Lightweight Metropolis-Hastings"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [anglican.state :exclude [initial-state]]
-        anglican.inference
-        [anglican.runtime :only [observe* sample*]]))
+  (:require [anglican.state :refer [get-log-weight
+                                    set-log-weight]
+             :as state]
+            [anglican.inference :refer [checkpoint checkpoint-id
+                                        rand-nth rand rand-int
+                                        exec infer]]
+            [anglican.runtime :refer [observe* sample* log]]))
 
 ;;;; Lightweight (single-site) Metropolis-Hastings
 
@@ -13,7 +17,7 @@
 
 (def initial-state
   "initial state for LMH"
-  (into anglican.state/initial-state
+  (into state/initial-state
         ;; The state is extended by the trace ---
         ;; the vector of current random choices,
         ;; and the random database --- random choices
@@ -71,7 +75,8 @@
                 (sample* (:dist smp)))
         log-p (try (observe* (:dist smp) value)
                    ;; NaN is returned if value is not in support.
-                   (catch Exception e (/ 0. 0.)))
+                   (catch #?(:clj Exception
+                            :cljs js/exception) e (/ 0. 0.)))
         value (if (< (/ -1. 0.) log-p (/ 1. 0.)) value
                 ;; The retained value is not in support, resample
                 ;; the value from the prior.  When the value is
@@ -136,14 +141,14 @@
   [state]
   (+ (get-log-weight state)
      (get-log-retained-probability state)
-     (- (Math/log (count (state ::trace))))))
+     (- (log (count (state ::trace))))))
 
 (defn accept?
   "compute acceptance ratio for a sample, given the new state utility
   and the old state utility"
   [u-next u-prev]
   (or (= u-prev (/ -1. 0.))
-      (> (- u-next u-prev) (Math/log (rand)))))
+      (> (- u-next u-prev) (log (rand)))))
 
 (defn correct-log-weight
   "corrects log weight of a sample, setting it to 0
