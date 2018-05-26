@@ -13,7 +13,8 @@
                                     initial-state]]
             [anglican.runtime :refer [sample* observe*
                                       uniform-continuous
-                                      discrete log-sum-exp]])
+                                      discrete log-sum-exp
+                                      log]])
   #_(:use anglican.state
         [anglican.runtime :only [sample* observe*
                                  uniform-continuous
@@ -166,7 +167,7 @@
               ;; Metropolis-Hastings
               (let [sample (if (> (- (get-log-weight snd)
                                      (get-log-weight fst))
-                                  (Math/log (rand)))
+                                  (log (rand)))
                              snd fst)]
                 (cons (set-log-weight sample 0.)
                       (sample-seq (cons sample samples))))))]
@@ -182,7 +183,7 @@
   (i.e. the log mean importance weight)"
   [samples]
   (- (reduce log-sum-exp (sort (map get-log-weight samples)))
-     (#?(:clj Math/log :cljs js/Math.log) (count samples))))
+     (log (count samples))))
 
 ;;; Output
 

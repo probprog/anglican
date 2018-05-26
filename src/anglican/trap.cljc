@@ -11,7 +11,20 @@
               push-catch pop-catch
               current-catch-cont
               pop-catch-until-tag]])
-  #?(:cljs (:require-macros anglican.trap)))
+  #?(:cljs (:require-macros [anglican.trap :refer [cps-of-let cps-of-if
+                                                  cps-of-case cps-of-and
+                                                  cps-of-observe cps-of-sample
+                                                  cps-of-or
+                                                  defn-with-named-cont]])))
+
+;; TODO move
+#?(:cljs
+   (defn format
+     "Similar to Java String's format function for cljs."
+     [s & args]
+     (goog.string.format s (into-array args))))
+
+
 
 ;;;; Trampoline-ready Anglican program
 
@@ -364,6 +377,7 @@
                ~(cps-of-expression thn cont)
                ~(cps-of-expression els cont))))))))
 
+
 ;; `when' is translated into `if'.
 
 (defn cps-of-when
@@ -675,9 +689,14 @@
         runtime-namespaces '[clojure.core anglican.runtime]]
     (set (keep (fn [[k v]]
                  (when (and (not (exclude k))
-                            (fn? (var-get v)))
+                            (fn? #?(:clj (var-get v)
+                                   ;; no Vars in cljs
+                                   :cljs v)))
                    k))
-               (mapcat ns-publics runtime-namespaces)))))
+               #?(:clj (mapcat ns-publics runtime-namespaces)
+                 ;; ns-publics is a macro in cljs
+                 :cljs (merge (ns-publics 'clojure.core)
+                              (ns-publics 'anglican.runtime)))))))
 
 (def ^:dynamic *primitive-namespaces*
   "functions in these namespaces are primitive"
