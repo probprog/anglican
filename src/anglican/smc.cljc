@@ -45,8 +45,10 @@
      (every? #(instance? anglican.trap.result %) particles)
      particles
 
-     :else (throw (AssertionError.
-                   "some `observe' directives are not global")))))
+     :else (throw #_(AssertionError.
+                   "some `observe' directives are not global")
+                  (ex-info "some `observe' directives are not global"
+                           {:particles particles})))))
 
 (defmethod infer :smc [_ prog value
                        & {:keys [number-of-particles]   ; per sweep

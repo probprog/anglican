@@ -1,13 +1,41 @@
 (ns anglican.emit
   "Top-level forms for Anglican programs"
-  (:use [anglican.xlat :only [program alambda]]
-        [anglican.trap :only [*gensym* *checkpoint-gensym*
-                              shading-primitive-procedures
-                              cps-of-expression result-cont 
-                              fn-cps mem-cps primitive-procedure-cps]]
-        anglican.runtime
-        [anglican.inference :only [infer equalize]]
-        [anglican.state :only [get-log-weight get-predicts get-result]]))
+  (:require [anglican.xlat :refer [program alambda]]
+            [anglican.trap :refer [*gensym* *checkpoint-gensym*
+                                   shading-primitive-procedures
+                                   cps-of-expression result-cont 
+                                   fn-cps mem-cps primitive-procedure-cps]]
+            [anglican.runtime :refer [distribution]]
+            [anglican.inference :refer [infer equalize]]
+            [anglican.state :refer [get-log-weight get-predicts get-result]])
+  #?(:cljs (:require-macros [anglican.emit :refer [query query* defquery
+                                                  fm fm* defm
+                                                  with-primitive-procedures]])))
+
+
+;; TODO move or document purpose better
+(defn- cljs-env?
+  "Take the &env from a macro, and tell whether we are expanding into cljs."
+  [env]
+  (boolean (:ns env)))
+
+#?(:clj
+   (defmacro if-cljs
+     "Return then if we are generating cljs code and else for Clojure code.
+     https://groups.google.com/d/msg/clojurescript/iBY5HaQda4A/w1lAQi9_AwsJ"
+     [then else]
+     (if (cljs-env? &env) then else)))
+
+
+
+;; TODO move
+#?(:cljs
+   (defn format
+     "Similar to Java String's format function for cljs."
+     [s & args]
+     (goog.string.format s (into-array args))))
+
+
 
 ;;;; Top-level forms for Anglican programs
 
@@ -70,7 +98,9 @@
           `(with-meta
              (~'fn ~name [~value ~'$state]
                ~(cps-of-expression `(~'do ~@source)
-                                   result-cont))
+                                   `(if-cljs
+                                     anglican.trap/result-cont
+                                     result-cont)))
              {:source '(~'query ~name ~@args)}))))))
 
 (defmacro query
@@ -151,13 +181,19 @@
             source (-> (apply infer algorithm
                               query value options)
                        equalize
-                       ref)
+                       #?(:clj ref
+                         :cljs atom))
             ;; Next sample is the first sample removed
             ;; from the lazy sequence in the source.
-            next-sample #(dosync
+            next-sample #?(:clj
+                          #(dosync
                            (let [[sample & samples] @source]
                              (ref-set source samples)
-                             sample))]
+                             sample))
+                          :cljs
+                          #(let [[sample & samples] @source]
+                            (reset! source samples)
+                            sample))]
       (reify distribution
 
         ;; A sample from the distribution is the collection
@@ -171,7 +207,8 @@
         ;; the source code of query is in the meta-data for
         ;; key `:source'.
         (observe* [this value]
-          (throw (Exception. "not implemented"))))))))
+          (throw (ex-info "not implemented"
+                          {:value value}))))))))
 
 ;; The original Scheme-like syntax is now deprecated, but
 ;; supported for compatibility with older programs.  Programs

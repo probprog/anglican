@@ -4,7 +4,25 @@
             [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]
 
-            #?(:cljs [goog.string.format])))
+            #?(:cljs [goog.string.format]))
+  #?(:cljs (:require-macros [anglican.runtime :refer [defdist]])))
+
+
+;; TODO runtime produce
+
+
+;; TODO move or document purpose better
+(defn- cljs-env?
+  "Take the &env from a macro, and tell whether we are expanding into cljs."
+  [env]
+  (boolean (:ns env)))
+
+#?(:clj
+   (defmacro if-cljs
+     "Return then if we are generating cljs code and else for Clojure code.
+     https://groups.google.com/d/msg/clojurescript/iBY5HaQda4A/w1lAQi9_AwsJ"
+     [then else]
+     (if (cljs-env? &env) then else)))
 
 
 ;; TODO move
@@ -26,7 +44,7 @@
 (defn ceil [x] (#?(:clj Math/ceil :cljs js/Math.ceil) x))
 (defn round [x] (#?(:clj Math/round :cljs js/Math.round) x))
 (defn rint [x] (#?(:clj Math/rint :cljs js/Math.rint) x))
-(defn signum [x] (#?(:clj Math/signum :cljs js/Math.signum) x))
+(defn signum [x] (#?(:clj Math/signum :cljs js/Math.sign) x))
 
 (defn sin [x] (#?(:clj Math/sin :cljs js/Math.sin) x))
 (defn cos [x] (#?(:clj Math/cos :cljs js/Math.cos) x))
@@ -54,14 +72,32 @@
 ;;; Special functions used in distributions
 
 (defn erf
-  "error function"
+  "Error funciton. https://en.wikipedia.org/wiki/Error_function
+
+  Maximum error is in cljs version is 1.5*10^7"
   [x]
-  (org.apache.commons.math3.special.Erf/erf x))
+  #?(:clj (org.apache.commons.math3.special.Erf/erf x)
+    :cljs
+    (let [t (/ 1
+               (+ 1 (* 0.3275911 (abs x))))
+          a1 0.254829592
+          a2 -0.284496736
+          a3 1.421413741
+          a4 -1.453152027
+          a5 1.061405429
+          poly-horner (* t (+ a1 (* t (+ a2 (* t (+ a3 (* t (+ a4 (* t a5)))))))))]
+      (* (signum x) (- 1 (* poly-horner (exp (- (* x x)))))))))
+
+(comment
+  (erf -1))
+;; => -0.8427006897475899
+;; Wolfram Alpha -0.84270079294971486934122063508260925929606699796630
 
 (defn log-gamma-fn
   "log Gamma function"
   [x]
-  (org.apache.commons.math3.special.Gamma/logGamma x))
+  #?(:clj (org.apache.commons.math3.special.Gamma/logGamma x)
+    :cljs :TODO))
 
 ;;; Distributions
 
@@ -88,11 +124,12 @@
 
 ;; Distribution types, in alphabetical order.
 
-(def RNG
-  "random number generator;
+#?(:clj
+   (def RNG
+     "random number generator;
   used by Apache Commons Math distribution objects"
-  (org.apache.commons.math3.random.SynchronizedRandomGenerator.
-    (org.apache.commons.math3.random.Well19937c.)))
+   (org.apache.commons.math3.random.SynchronizedRandomGenerator.
+    (org.apache.commons.math3.random.Well19937c.))))
 
 ;; Distributions are defined as records so that every
 ;; distribution has its own type. The distribution arguments
@@ -120,36 +157,79 @@
     `(do
        (declare ~name)
        (defrecord ~record-name [~@parameters ~@variables]
-         Object
-         (toString [~'this]
-           (str (list '~(qualify name) ~@parameters)))
+         ;; TODO
+;         Object
+;         (toString [~'this]
+;           (str (list '~(qualify name) ~@parameters)))
          distribution
          ~@methods)
        (defn ~name ~docstring ~parameters
          (let ~bindings
            (~(symbol (format "->%s" record-name))
                      ~@parameters ~@variables)))
-       (defmethod print-method ~record-name
-         [~'o ~'m]
-         (print-simple (str ~'o) ~'m)))))
+       (if-cljs
+        (extend-protocol cljs.core/IPrintWithWriter
+          ~record-name
+          (cljs.core/-pr-writer [o# writer# opts#]
+            (cljs.core/-write writer# (str o#))))
+        ;; TODO macro hygene?
+        (defmethod print-method ~record-name
+          [~'o ~'m]
+          (print-simple (str ~'o) ~'m))))))
 
 ;; Many distributions are available in the Apache Commons Math library and
 ;; imported automatically.
 
-(defmacro ^:private from-apache
-  "wraps Apache Commons Math distribution"
-  [name args type [apache-name & apache-args]]
-  (let [dist (gensym "dist")]
-    `(defdist ~(symbol name)
-       ~(format "%s distribution (imported from apache)" name)
-       ~args
-       [~dist (~(symbol (format "org.apache.commons.math3.distribution.%sDistribution." apache-name))
-                        RNG ~@apache-args)]
-       (~'sample* [~'this] (.sample ~dist))
-       (~'observe* [~'this ~'value]
-         ~(case type
-            :discrete `(~'.logProbability ~dist ~'value)
-            :continuous `(~'.logDensity ~dist ~'value))))))
+#?(:clj
+  (defmacro ^:private from-apache
+    "wraps Apache Commons Math distribution"
+    [name args type [apache-name & apache-args]]
+    (let [dist (gensym "dist")]
+      `(defdist ~(symbol name)
+         ~(format "%s distribution (imported from apache)" name)
+         ~args
+         [~dist (~(symbol (format "org.apache.commons.math3.distribution.%sDistribution." apache-name))
+                 RNG ~@apache-args)]
+         (~'sample* [~'this] (.sample ~dist))
+         (~'observe* [~'this ~'value]
+          ~(case type
+             :discrete `(~'.logProbability ~dist ~'value)
+             :continuous `(~'.logDensity ~dist ~'value)))))))
+
+
+#?(:cljs
+  (do
+  ;; bootstrap the uniform distribution
+  ;; was imported from Apache Commons
+  (defrecord uniform-continuous-distribution [min max]
+    anglican.runtime/distribution
+    (sample* [this]
+      (let [len (- max min)]
+        (+ min (* len (rand)))))
+    (observe* [this value]
+      (if (<= min value  max)
+        (log (/ 1 (- max min)))
+        js/Number.NEGATIVE_INFINITY)))
+
+  (defn uniform-continuous
+    "Uniform continuous distribution"
+    [min max]
+    (->uniform-continuous-distribution min max))
+
+
+  (extend-protocol cljs.core/IPrintWithWriter
+    uniform-continuous-distribution
+    (cljs.core/-pr-writer
+      [o writer opts]
+      (cljs.core/-write writer (str (type o)))))))
+
+(comment
+  (def foo (uniform-continuous 2 5))
+
+  (sample* foo)
+
+  (observe* foo 4.5))
+
 
 (declare uniform-continuous)
 (defdist bernoulli
@@ -162,11 +242,18 @@
            0 (- 1. p)
            0.))))
 
-(from-apache beta [alpha beta] :continuous
-  (Beta (double alpha) (double beta)))
+(comment
+  (def bar (bernoulli 0.9))
 
-(from-apache binomial [n p] :discrete
-  (Binomial (int n) (double p)))
+  (sample* bar))
+
+#?(:clj
+  (from-apache beta [alpha beta] :continuous
+    (Beta (double alpha) (double beta))))
+
+#?(:clj
+  (from-apache binomial [n p] :discrete
+    (Binomial (int n) (double p))))
 
 (declare discrete)
 (defdist categorical
@@ -196,26 +283,32 @@
       (try
         (/ (nth weights value) total-weight)
         ;; any value not in the support has zero probability.
-        (catch IndexOutOfBoundsException _ 0.)))))
+        (catch #?(:clj IndexOutOfBoundsException
+                 :cljs js/exception) _
+          0.)))))
 
-(declare gamma)
-(defdist dirichlet
-  "Dirichlet distribution"
-  ;; borrowed from Anglican runtime
-  [alpha] [Z (delay (- (reduce + (map log-gamma-fn alpha))
-                       (log-gamma-fn (reduce + alpha))))]
-  (sample* [this]
-          (let [g (map #(sample* (gamma % 1)) alpha)
-                t (reduce + g)]
-            (map #(/ % t) g)))
-  (observe* [this value]
-           (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1)))
-                             value
-                             alpha))
-              @Z)))
+;; TODO port to cljs
+#?(:clj
+  (declare gamma))
+#?(:clj
+  (defdist dirichlet
+    "Dirichlet distribution"
+    ;; borrowed from Anglican runtime
+    [alpha] [Z (delay (- (reduce + (map log-gamma-fn alpha))
+                         (log-gamma-fn (reduce + alpha))))]
+    (sample* [this]
+             (let [g (map #(sample* (gamma % 1)) alpha)
+                   t (reduce + g)]
+               (map #(/ % t) g)))
+    (observe* [this value]
+              (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1)))
+                                value
+                                alpha))
+                 @Z))))
 
-(from-apache exponential [rate] :continuous
-  (Exponential (/ 1. (double rate))))
+#?(:clj
+  (from-apache exponential [rate] :continuous
+    (Exponential (/ 1. (double rate)))))
 
 (defdist flip
   "flip (Bernoulli boolean) distribution"
@@ -227,106 +320,126 @@
                   false (- 1. p)
                   0.))))
 
-(from-apache gamma [shape rate] :continuous
-  (Gamma (double shape) (/ 1.0 (double rate))))
+#?(:clj
+  (from-apache gamma [shape rate] :continuous
+    (Gamma (double shape) (/ 1.0 (double rate)))))
 
-(defdist chi-squared
-  "Chi-squared distribution. Equivalent to a gamma distribution
+;; TODO port to cljs
+#?(:clj
+  (defdist chi-squared
+    "Chi-squared distribution. Equivalent to a gamma distribution
   with shape nu/2 and rate 1/2."
-  [nu]
-  [;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, rate = 0.5).
-   gamma-dist (gamma (* nu 0.5) 0.5)]
-  (sample* [this] (sample* gamma-dist))
-  (observe* [this value] (observe* gamma-dist value)))
+    [nu]
+    [;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, rate = 0.5).
+     gamma-dist (gamma (* nu 0.5) 0.5)]
+    (sample* [this] (sample* gamma-dist))
+    (observe* [this value] (observe* gamma-dist value))))
 
-(defprotocol multivariate-distribution
-  "additional methods for multivariate distributions"
-  (transform-sample [this samples]
-    "accepts a vector of random values and generates
-    a sample from the multivariate distribution"))
+;; TODO port to cljs
+#?(:clj
+  (defprotocol multivariate-distribution
+    "additional methods for multivariate distributions"
+    (transform-sample [this samples]
+      "accepts a vector of random values and generates
+    a sample from the multivariate distribution")))
 
-(declare normal)
-(defdist mvn
-  "multivariate normal"
-  [mean cov] [k (m/ecount mean)     ; number of dimensions
-              ;; TODO port cholesky decomposition to al-jabr
-              #?(:cljs _) #?(:cljs (println "Warning: Cholesky not ported yet."))
-              Lcov (:L (ml/cholesky (m/matrix cov)))
-              unit-normal (normal 0 1)
-              Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
-                         (+ (* 0.5 k (log (* 2 PI)))
-                            (log |Lcov|))))
-              iLcov (delay (m/inverse Lcov))
-              transform-sample (fn [samples]
-                                 (m/add mean (m/mmul Lcov samples)))]
-  (sample* [this] (transform-sample
-                   (repeatedly k #(sample* unit-normal))))
-  (observe* [this value]
-           (let [dx (m/mmul @iLcov (m/sub value mean))]
-             (- (* -0.5 (m/dot dx dx)) @Z)))
-  multivariate-distribution
-  (transform-sample [this samples] (transform-sample samples)))
+;; TODO port to cljs
+#?(:clj
+  (declare normal))
+#?(:clj
+  (defdist mvn
+    "multivariate normal"
+    [mean cov] [k (m/ecount mean)     ; number of dimensions
+                ;; TODO port cholesky decomposition to al-jabr
+                #?(:cljs _) #?(:cljs (println "Warning: Cholesky not ported yet."))
+                Lcov (:L (ml/cholesky (m/matrix cov)))
+                unit-normal (normal 0 1)
+                Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
+                           (+ (* 0.5 k (log (* 2 PI)))
+                              (log |Lcov|))))
+                iLcov (delay (m/inverse Lcov))
+                transform-sample (fn [samples]
+                                   (m/add mean (m/mmul Lcov samples)))]
+    (sample* [this] (transform-sample
+                     (repeatedly k #(sample* unit-normal))))
+    (observe* [this value]
+              (let [dx (m/mmul @iLcov (m/sub value mean))]
+                (- (* -0.5 (m/dot dx dx)) @Z)))
+    multivariate-distribution
+    (transform-sample [this samples] (transform-sample samples))))
 
-(defdist multivariate-t
-  "Multivariate T-distribution."
-  ; Implemented according to http://en.wikipedia.org/wiki/Multivariate_t-distribution
-  [nu mu sigma]
-  [dim (m/ecount mu)
-   mvn-dist (mvn (m/zero-vector dim) sigma)
-   chi-sq-dist (chi-squared nu)]
-  (sample*
-   [this]
-   (let [y (sample* mvn-dist)
-         u (sample* chi-sq-dist)]
-     (m/add mu (m/mul y (sqrt (/ nu u))))))
-  (observe*
-   [this y]
-   (let [dy (m/sub mu y)
-         dy-sinv-dy (m/mget
-                     (m/mmul
-                      (m/transpose dy)
-                      (m/inverse sigma)
-                     dy))]
-     (- (log-gamma-fn (* 0.5 (+ nu dim)))
-        (+ (log-gamma-fn (* 0.5 nu))
-           (* 0.5 dim (log nu))
-           (* 0.5 dim (log PI))
-           (* 0.5 (log (m/det sigma)))
-           (* 0.5 (+ nu dim)
-              (log
-               (+ 1.0
-                  (* (/ 1.0 nu)
-                     dy-sinv-dy)))))))))
+;; TODO port to cljs
+#?(:clj
+  (defdist multivariate-t
+    "Multivariate T-distribution."
+    ;; Implemented according to http://en.wikipedia.org/wiki/Multivariate_t-distribution
+    [nu mu sigma]
+    [dim (m/ecount mu)
+     mvn-dist (mvn (m/zero-vector dim) sigma)
+     chi-sq-dist (chi-squared nu)]
+    (sample*
+     [this]
+     (let [y (sample* mvn-dist)
+           u (sample* chi-sq-dist)]
+       (m/add mu (m/mul y (sqrt (/ nu u))))))
+    (observe*
+     [this y]
+     (let [dy (m/sub mu y)
+           dy-sinv-dy (m/mget
+                       (m/mmul
+                        (m/transpose dy)
+                        (m/inverse sigma)
+                        dy))]
+       (- (log-gamma-fn (* 0.5 (+ nu dim)))
+          (+ (log-gamma-fn (* 0.5 nu))
+             (* 0.5 dim (log nu))
+             (* 0.5 dim (log PI))
+             (* 0.5 (log (m/det sigma)))
+             (* 0.5 (+ nu dim)
+                (log
+                 (+ 1.0
+                    (* (/ 1.0 nu)
+                       dy-sinv-dy))))))))))
 
-(from-apache normal [mean sd] :continuous
-  (Normal (double mean) (double sd)))
+#?(:clj
+  (from-apache normal [mean sd] :continuous
+    (Normal (double mean) (double sd))))
 
-(from-apache laplace [loc scale] :continuous
-  (Laplace (double loc) (double scale)))
+#?(:clj
+  (from-apache laplace [loc scale] :continuous
+    (Laplace (double loc) (double scale))))
 
-(from-apache poisson [lambda] :discrete
-  (Poisson (double lambda) 1E-12 10000000))
+#?(:clj
+  (from-apache poisson [lambda] :discrete
+    (Poisson (double lambda) 1E-12 10000000)))
 
-(from-apache student-t [nu] :continuous
-  (T (double nu)))
+#?(:clj
+  (from-apache student-t [nu] :continuous
+    (T (double nu))))
 
-(defdist student-t-loc-scale [nu loc scale] [dist (student-t nu)]
-  (sample* [this] (+ (* (sample* dist) scale) loc))
-  (observe* [this value] (- (observe* dist (/ (- value loc) scale)) (Math/log scale))))
+;; TODO port to cljs
+#?(:clj
+  (defdist student-t-loc-scale [nu loc scale] [dist (student-t nu)]
+    (sample* [this] (+ (* (sample* dist) scale) loc))
+    (observe* [this value] (- (observe* dist (/ (- value loc) scale)) (Math/log scale)))))
 
-(from-apache uniform-continuous [min max] :continuous
-  (UniformReal (double min) (double max)))
+#?(:clj
+  (from-apache uniform-continuous [min max] :continuous
+    (UniformReal (double min) (double max))))
 
-(from-apache uniform-discrete [min max] :discrete
-  (UniformInteger (int min) (dec (int max))))
+#?(:clj
+  (from-apache uniform-discrete [min max] :discrete
+    (UniformInteger (int min) (dec (int max)))))
 
-(defn log-mv-gamma-fn
-  "multivariate Gamma function"
-  [p a]
-  (+ (* 0.25 p (- p 1) (log PI))
-     (reduce + (map (fn [j]
-                      (log-gamma-fn (- a (* 0.5 j))))
-                    (range p)))))
+;; TODO port to cljs
+#?(:clj
+  (defn log-mv-gamma-fn
+    "multivariate Gamma function"
+    [p a]
+    (+ (* 0.25 p (- p 1) (log PI))
+       (reduce + (map (fn [j]
+                        (log-gamma-fn (- a (* 0.5 j))))
+                      (range p))))))
 
 (defn gen-matrix
   "creates a matrix, elements of which are initialised
@@ -338,51 +451,53 @@
       (f r c))
     [rows columns]))
 
-(defdist wishart
-  "Wishart distribution"
-  [n V]
-  [p (first (m/shape V))
-   #?(:cljs _) #?(:cljs (println "Warning: Cholesky not ported yet."))
-   L (:L (ml/cholesky (m/matrix V)))
-   unit-normal (normal 0 1)
-   ;; Sample from Chi-squared distribution
-   ;; with the help of Gamma distribution.
-   ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
-   chi-squared-dists
-   ;; Be aware that indexing here starts from 0,
-   ;; while in Wikipedia in the Bartlett decomposition subsection
-   ;; it starts from 1 so they have:
-   ;; c^2_i ~ ChiSq^2_(n - i + 1) where i goes from 1 to p inclusive for them.
-   (mapv (comp chi-squared #(- n %)) (range 0 p))
-   ;; For Bartlett decomposition
-   ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
-   Z (delay (+ (* 0.5 n p (Math/log 2))
-               (* 0.5 n (Math/log (m/det V)))
-               (log-mv-gamma-fn p (* 0.5 n))))
-   transform-sample
-   (fn [A]
-     (let
-       [LA (m/mmul L A)]
-       (m/mmul LA (m/transpose LA))))]
-  (sample* [this]
-          ;; Bartlett decomposition
-          ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
-          ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
-          (let
-            [A (gen-matrix
-                (fn [row column]
-                  (cond
-                   (= row column) (sqrt (sample* (get chi-squared-dists row)))
-                   (> row column) (sample* unit-normal)
-                   :else 0.0))
-                p p)]
-            (transform-sample A)))
-  (observe* [this value]
-           (- (* 0.5 (- n p 1) (Math/log (m/det value)))
-              (* 0.5 (m/trace (m/mmul (m/inverse (m/matrix V)) value)))
-              @Z))
-  multivariate-distribution
-  (transform-sample [this A] (transform-sample A)))
+;; TODO port to cljs
+#?(:clj
+  (defdist wishart
+    "Wishart distribution"
+    [n V]
+    [p (first (m/shape V))
+     #?(:cljs _) #?(:cljs (println "Warning: Cholesky not ported yet."))
+     L (:L (ml/cholesky (m/matrix V)))
+     unit-normal (normal 0 1)
+     ;; Sample from Chi-squared distribution
+     ;; with the help of Gamma distribution.
+     ;; http://en.wikipedia.org/wiki/Chi-squared_distribution#Relation_to_other_distributions
+     chi-squared-dists
+     ;; Be aware that indexing here starts from 0,
+     ;; while in Wikipedia in the Bartlett decomposition subsection
+     ;; it starts from 1 so they have:
+     ;; c^2_i ~ ChiSq^2_(n - i + 1) where i goes from 1 to p inclusive for them.
+     (mapv (comp chi-squared #(- n %)) (range 0 p))
+     ;; For Bartlett decomposition
+     ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
+     Z (delay (+ (* 0.5 n p (Math/log 2))
+                 (* 0.5 n (Math/log (m/det V)))
+                 (log-mv-gamma-fn p (* 0.5 n))))
+     transform-sample
+     (fn [A]
+       (let
+           [LA (m/mmul L A)]
+         (m/mmul LA (m/transpose LA))))]
+    (sample* [this]
+             ;; Bartlett decomposition
+             ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
+             ;; and https://stat.duke.edu/~km68/materials/214.9%20%28Wishart%29.pdf
+             (let
+                 [A (gen-matrix
+                     (fn [row column]
+                       (cond
+                         (= row column) (sqrt (sample* (get chi-squared-dists row)))
+                         (> row column) (sample* unit-normal)
+                         :else 0.0))
+                     p p)]
+               (transform-sample A)))
+    (observe* [this value]
+              (- (* 0.5 (- n p 1) (Math/log (m/det value)))
+                 (* 0.5 (m/trace (m/mmul (m/inverse (m/matrix V)) value)))
+                 @Z))
+    multivariate-distribution
+    (transform-sample [this A] (transform-sample A))))
 
 ;;; Random processes
 
@@ -687,11 +802,3 @@
                (m/to-vector a)
                (m/to-vector b))))
 
-
-#?(:cljs
-  (defn on-js-reload []
-    (println "Reloading JS.")))
-
-#?(:cljs
-    (defn main [& args]
-      (println "STD:" (std [1 2 3]))))
