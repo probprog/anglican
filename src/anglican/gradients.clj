@@ -4,13 +4,6 @@
             [clojure.core.matrix.linear :as linalg])
   (:use [anglican.runtime :refer :all]))
 
-;;; Math functions required by gradients
-
-(defn digamma
-  "digamma function psi(x)"
-  [x]
-  (org.apache.commons.math3.special.Gamma/digamma x))
-
 (defn positive-and-finite?
   "is the numeric value x finite? is it also strictly positive?"
   [x] (and (finite? x) (> x 0.)))
