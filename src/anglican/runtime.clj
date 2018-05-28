@@ -49,6 +49,11 @@
   [x]
   (org.apache.commons.math3.special.Gamma/logGamma x))
 
+(defn digamma
+  "digamma function psi(x)"
+  [x]
+  (org.apache.commons.math3.special.Gamma/digamma x))
+
 ;;; Distributions
 
 (defprotocol distribution
