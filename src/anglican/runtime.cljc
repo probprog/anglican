@@ -4,25 +4,10 @@
             [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]
 
-            #?(:cljs [goog.string.format]))
-  #?(:cljs (:require-macros [anglican.runtime :refer [defdist]])))
-
-
-;; TODO runtime produce
-
-
-;; TODO move or document purpose better
-(defn- cljs-env?
-  "Take the &env from a macro, and tell whether we are expanding into cljs."
-  [env]
-  (boolean (:ns env)))
-
-#?(:clj
-   (defmacro if-cljs
-     "Return then if we are generating cljs code and else for Clojure code.
-     https://groups.google.com/d/msg/clojurescript/iBY5HaQda4A/w1lAQi9_AwsJ"
-     [then else]
-     (if (cljs-env? &env) then else)))
+            #?(:cljs [goog.string.format])
+            [net.cgrand.macrovich :as macros])
+  #?(:cljs (:require-macros [net.cgrand.macrovich :as macros]
+                           [anglican.runtime :refer [defdist defproc]])))
 
 
 ;; TODO move
@@ -146,41 +131,49 @@
   [s]
   (symbol (format "%s/%s" *ns* s)))
 
-(defmacro defdist
-  "defines distribution"
-  [name & args]
-  (let [[docstring parameters & args]
-        (if (string? (first args))
-          args
-          `(~(format "%s distribution" name) ~@args))
-        [bindings & methods]
-        (if (vector? (first args))
-          args
-          `[[] ~@args])
-        record-name (symbol (format "%s-distribution" name))
-        variables (take-nth 2 bindings)]
-    `(do
-       (declare ~name)
-       (defrecord ~record-name [~@parameters ~@variables]
-         ;; TODO
-;         Object
-;         (toString [~'this]
-;           (str (list '~(qualify name) ~@parameters)))
-         distribution
-         ~@methods)
-       (defn ~name ~docstring ~parameters
-         (let ~bindings
-           (~(symbol (format "->%s" record-name))
-                     ~@parameters ~@variables)))
-       (if-cljs
-        (extend-protocol cljs.core/IPrintWithWriter
-          ~record-name
-          (cljs.core/-pr-writer [o# writer# opts#]
-            (cljs.core/-write writer# (str o#))))
-        ;; TODO macro hygene?
-        (defmethod print-method ~record-name
-          [~'o ~'m]
-          (print-simple (str ~'o) ~'m))))))
+
+(macros/deftime
+  (defmacro defdist
+    "defines distribution"
+    [name & args]
+    (let [[docstring parameters & args]
+          (if (string? (first args))
+            args
+            `(~(format "%s distribution" name) ~@args))
+          [bindings & methods]
+          (if (vector? (first args))
+            args
+            `[[] ~@args])
+          record-name (symbol (format "%s-distribution" name))
+          variables (take-nth 2 bindings)]
+      `(do
+         (declare ~name)
+         (macros/case
+             :clj
+             (defrecord ~record-name [~@parameters ~@variables]
+               Object
+               (toString [~'this]
+                 (str (list '~(qualify name) ~@parameters)))
+               distribution
+               ~@methods)
+             :cljs
+             (defrecord ~record-name [~@parameters ~@variables]
+               distribution
+               ~@methods))
+         (defn ~name ~docstring ~parameters
+           (let ~bindings
+             (~(symbol (format "->%s" record-name))
+              ~@parameters ~@variables)))
+         (macros/case
+           :clj
+           (defmethod print-method ~record-name
+             [~'o ~'m]
+             (print-simple (str ~'o) ~'m))
+           :cljs
+           (extend-protocol cljs.core/IPrintWithWriter
+             ~record-name
+             (cljs.core/-pr-writer [o# writer# opts#]
+               (cljs.core/-write writer# (str o#)))))))))
 
 ;; Many distributions are available in the Apache Commons Math library and
 ;; imported automatically.
@@ -202,31 +195,7 @@
              :continuous `(~'.logDensity ~dist ~'value)))))))
 
 
-#?(:cljs
-  (do
-  ;; bootstrap the uniform distribution
-  ;; was imported from Apache Commons
-  (defrecord uniform-continuous-distribution [min max]
-    anglican.runtime/distribution
-    (sample* [this]
-      (let [len (- max min)]
-        (+ min (* len (rand)))))
-    (observe* [this value]
-      (if (<= min value  max)
-        (log (/ 1 (- max min)))
-        js/Number.NEGATIVE_INFINITY)))
 
-  (defn uniform-continuous
-    "Uniform continuous distribution"
-    [min max]
-    (->uniform-continuous-distribution min max))
-
-
-  (extend-protocol cljs.core/IPrintWithWriter
-    uniform-continuous-distribution
-    (cljs.core/-pr-writer
-      [o writer opts]
-      (cljs.core/-write writer (str (type o)))))))
 
 (comment
   (def foo (uniform-continuous 2 5))
@@ -248,7 +217,7 @@
            0.))))
 
 (comment
-  (def bar (bernoulli 0.9))
+  (def bar (bernoulli 0.5))
 
   (sample* bar))
 
@@ -430,7 +399,32 @@
 
 #?(:clj
   (from-apache uniform-continuous [min max] :continuous
-    (UniformReal (double min) (double max))))
+               (UniformReal (double min) (double max)))
+  :cljs
+   (do
+     ;; Bootstrap the uniform distribution
+     ;; In cljs it is imported from Apache Commons.
+     (defrecord uniform-continuous-distribution [min max]
+       anglican.runtime/distribution
+       (sample* [this]
+         (let [len (- max min)]
+           (+ min (* len (rand)))))
+       (observe* [this value]
+         (if (<= min value  max)
+           (log (/ 1 (- max min)))
+           js/Number.NEGATIVE_INFINITY)))
+
+     (defn uniform-continuous
+       "Uniform continuous distribution"
+       [min max]
+       (->uniform-continuous-distribution min max))
+
+
+     (extend-protocol cljs.core/IPrintWithWriter
+       uniform-continuous-distribution
+       (cljs.core/-pr-writer
+         [o writer opts]
+         (cljs.core/-write writer (str (type o)))))))
 
 #?(:clj
   (from-apache uniform-discrete [min max] :discrete
@@ -514,39 +508,53 @@
   (absorb [this sample]
     "absorbs the sample and returns a new process"))
 
-(defmacro defproc
-  "defines random process"
-  [name & args]
-  (let [[docstring parameters & args]
-        (if (string? (first args))
-          args
-          `(~(format "%s random process" name) ~@args))
-        [bindings & methods]
-        (if (vector? (first args))
-          args
-          `[[] ~@args])
-        record-name (symbol (format "%s-process" name))
-        variables (take-nth 2 bindings)
-        values (take-nth 2 (rest bindings))]
-    `(do
-       (declare ~name)
-       (defrecord ~record-name [~@parameters ~@variables]
-         Object
-         (toString [~'this]
-           (str (list '~(qualify name) ~@parameters)))
-         random-process
-         ~@methods)
-       (defn ~name ~docstring
-         ;; Include parameters-only overload only if variables
-         ;; are not empty.
-         ~@(when (seq variables)
-             `((~parameters (~name ~@parameters ~@values))))
-         ([~@parameters ~@variables]
-          (~(symbol (format "->%s" record-name))
-                    ~@parameters ~@variables)))
-       (defmethod print-method ~record-name
-         [~'o ~'m]
-         (print-simple (str ~'o) ~'m)))))
+(macros/deftime
+  (defmacro defproc
+    "defines random process"
+    [name & args]
+    (let [[docstring parameters & args]
+          (if (string? (first args))
+            args
+            `(~(format "%s random process" name) ~@args))
+          [bindings & methods]
+          (if (vector? (first args))
+            args
+            `[[] ~@args])
+          record-name (symbol (format "%s-process" name))
+          variables (take-nth 2 bindings)
+          values (take-nth 2 (rest bindings))]
+      `(do
+         (declare ~name)
+         (macros/case
+             :clj
+           (defrecord ~record-name [~@parameters ~@variables]
+             ~'Object
+             (toString [~'this]
+               (str (list '~(qualify name) ~@parameters)))
+             random-process
+             ~@methods)
+           :cljs
+           (defrecord ~record-name [~@parameters ~@variables]
+             random-process
+             ~@methods))
+         (defn ~name ~docstring
+           ;; Include parameters-only overload only if variables
+           ;; are not empty.
+           ~@(when (seq variables)
+              `((~parameters (~name ~@parameters ~@values))))
+           ([~@parameters ~@variables]
+            (~(symbol (format "->%s" record-name))
+             ~@parameters ~@variables)))
+         (macros/case
+             :clj
+           (defmethod print-method ~record-name
+             [~'o ~'m]
+             (print-simple (str ~'o) ~'m))
+           :cljs
+           (extend-protocol cljs.core/IPrintWithWriter
+             ~record-name
+             (cljs.core/-pr-writer [o# writer# opts#]
+               (cljs.core/-write writer# (str o#)))))))))
 
 ;; Random processes can accept and return functions,
 ;; and translations in and out of CPS form must be performed.

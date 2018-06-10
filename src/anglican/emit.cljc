@@ -7,24 +7,13 @@
                                    fn-cps mem-cps primitive-procedure-cps]]
             [anglican.runtime :refer [distribution]]
             [anglican.inference :refer [infer equalize]]
-            [anglican.state :refer [get-log-weight get-predicts get-result]])
-  #?(:cljs (:require-macros [anglican.emit :refer [query query* defquery
-                                                  fm fm* defm
-                                                  with-primitive-procedures]])))
-
-
-;; TODO move or document purpose better
-(defn- cljs-env?
-  "Take the &env from a macro, and tell whether we are expanding into cljs."
-  [env]
-  (boolean (:ns env)))
-
-#?(:clj
-   (defmacro if-cljs
-     "Return then if we are generating cljs code and else for Clojure code.
-     https://groups.google.com/d/msg/clojurescript/iBY5HaQda4A/w1lAQi9_AwsJ"
-     [then else]
-     (if (cljs-env? &env) then else)))
+            [anglican.state :refer [get-log-weight get-predicts get-result]]
+            [net.cgrand.macrovich :as macros])
+  #?(:cljs (:require-macros
+           [net.cgrand.macrovich :as macros]
+           [anglican.emit :refer [query query* defquery
+                                  fm fm* defm
+                                  with-primitive-procedures]])))
 
 
 
@@ -52,7 +41,7 @@
   "Creates a function which returns a fresh identifier
   of form name-prefix#, where # is a counter starting at 1."
   [name]
-  (let [i (atom 0)]              
+  (let [i (atom 0)]
     (fn [& [prefix]]
       (swap! i inc)
       (symbol (str name "-" (or prefix "G") @i)))))
@@ -85,26 +74,30 @@
 ;; macro and can also be immediately bound to a symbol
 ;; using the `defquery' macro.
 
-(defmacro query*
-  "Helper macro called by query and defquery. The name is mandatory."
-  [name & args]
-  (let [[value source]
-        (if (or (symbol? (first args)) (vector? (first args)))
-          [(first args) (rest args)]
-          ['$value args])]
-    (overriding-higher-order-functions
-      (shading-primitive-procedures (if (vector? value) value [value])
+(macros/deftime
+  (defmacro query*
+    "Helper macro called by query and defquery. The name is mandatory."
+    [name & args]
+    (let [[value source]
+          (if (or (symbol? (first args)) (vector? (first args)))
+            [(first args) (rest args)]
+            ['$value args])]
+      (overriding-higher-order-functions
+       (shading-primitive-procedures
+        (if (vector? value) value [value])
         (binding [*checkpoint-gensym* (make-stable-gensym name)]
           `(with-meta
              (~'fn ~name [~value ~'$state]
-               ~(cps-of-expression `(~'do ~@source)
-                                   `(if-cljs
+              ~(cps-of-expression `(~'do ~@source)
+                                  `(macros/case
+                                       :cljs
                                      anglican.trap/result-cont
+                                     :clj
                                      result-cont)))
              {:source '(~'query ~name ~@args)}))))))
 
-(defmacro query
-  "Defines an anglican query. Syntax:
+  (defmacro query
+    "Defines an anglican query. Syntax:
 
      (query optional-name optional-parameter 
        anglican-expression ...)
@@ -125,15 +118,15 @@
      (query [mean sd]
         (let [x (sample (normal mean sd))]
           (predict x)))"
-  [& args]
-  (if (and (seq (nthnext args 2)) ;; for backward compatibility
-           (symbol? (first args)) 
-           (or (symbol? (second args)) (vector? (second args))))
-    `(query* ~@args)
-    `(query* ~(*gensym* "query") ~@args)))
+    [& args]
+    (if (and (seq (nthnext args 2)) ;; for backward compatibility
+             (symbol? (first args)) 
+             (or (symbol? (second args)) (vector? (second args))))
+      `(query* ~@args)
+      `(query* ~(*gensym* "query") ~@args)))
 
-(defmacro defquery
-  "Binds variable to an anglican query. Syntax:
+  (defmacro defquery
+    "Binds variable to an anglican query. Syntax:
 
       (defquery variable-name optional-doc-string optional-parameter
         anglican-expression ...)
@@ -143,13 +136,13 @@
       (def variable-name optional-doc-string
         (query optional-parameter
           anglican-expression ...)"
-  [name & args]
-  (let [[docstring source]
-        (if (string? (first args))
-          [(first args) (rest args)]
-          [(format "anglican program '%s'" name) args])]
-    `(def ~(with-meta name {:doc docstring})
-       (query* ~name ~@source))))
+    [name & args]
+    (let [[docstring source]
+          (if (string? (first args))
+            [(first args) (rest args)]
+            [(format "anglican program '%s'" name) args])]
+      `(def ~(with-meta name {:doc docstring})
+         (query* ~name ~@source)))))
 
 ;; A query can be seen as a random source, that is a distribution.
 ;; Conditional wraps a query into a parameterised distribution
@@ -215,6 +208,7 @@
 ;; written in the legacy syntax are defined using `anglican' and
 ;; bound to a name using `defanglican'.
 
+#?(:clj
 (defmacro ^:deprecated anglican 
   "macro for embedding anglican programs"
   [& args]
@@ -227,8 +221,9 @@
         `(with-meta
            (~'fn ~(*gensym* "anglican") [~value ~'$state]
              ~(cps-of-expression (program source) result-cont))
-           {:source '(~'anglican ~@args)})))))
+           {:source '(~'anglican ~@args)}))))))
 
+#?(:clj
 (defmacro ^:deprecated defanglican
   "binds variable to anglican program"
   [name & args]
@@ -237,7 +232,7 @@
           [(first args) (rest args)]
           [(format "anglican program '%s'" name) args])]
     `(def ~(with-meta name {:doc docstring})
-       (anglican ~@source))))
+       (anglican ~@source)))))
 
 ;;; Auxiliary macros
 
@@ -245,26 +240,27 @@
 ;; must be in CPS form. fm and defm are like fn and defn but
 ;; automatically transform functions into CPS.
 
-(defmacro fm*
-  "Helper macro called by fm and defm. The name is mandatory."
-  [name & args]
-  (overriding-higher-order-functions
-    (binding [*checkpoint-gensym* (make-stable-gensym name)]
-      (fn-cps args))))
+(macros/deftime
+  (defmacro fm*
+    "Helper macro called by fm and defm. The name is mandatory."
+    [name & args]
+    (overriding-higher-order-functions
+     (binding [*checkpoint-gensym* (make-stable-gensym name)]
+       (fn-cps args))))
 
-(defmacro fm
-  "Defines an anglican function outside of anglican code.
+  (defmacro fm
+    "Defines an anglican function outside of anglican code.
   The syntax is the same as of `fn' with a single parameter list:
 
      (fm optional-name [parameter ...] 
         anglican-expression ...)"
-  [& args]
-  (if (vector? (first args))
-    `(fm* ~(*gensym* "fn") ~@args)
-    `(fm* ~@args)))
+    [& args]
+    (if (vector? (first args))
+      `(fm* ~(*gensym* "fn") ~@args)
+      `(fm* ~@args)))
 
-(defmacro defm
-  "Binds a variable to an anglican function. The syntax is the same as for
+  (defmacro defm
+    "Binds a variable to an anglican function. The syntax is the same as for
   `defn' with a single parameter list:
 
       (defm variable-name optional-doc-string [parameter ...]
@@ -275,28 +271,28 @@
       (def variable-name optional-doc-string
          (fm variable-name [parameter ...]
              anglican-expression ...))"
-  [name & args]
-  (let [[docstring source]
-        (if (string? (first args))
-          [(first args) (rest args)]
-          [(format "CPS function '%s'" name) args])
-        arglist (first source)]
-    `(def ~(with-meta name
-             {:doc docstring
-              :arglists `'([~'$cont ~'$state
-                            ~@(first source)])})
-       (fm* ~name ~@source))))
+    [name & args]
+    (let [[docstring source]
+          (if (string? (first args))
+            [(first args) (rest args)]
+            [(format "CPS function '%s'" name) args])
+          arglist (first source)]
+      `(def ~(with-meta name
+               {:doc docstring
+                :arglists `'([~'$cont ~'$state
+                              ~@(first source)])})
+         (fm* ~name ~@source))))
 
-;; In anglican, memoized computations, which can be impure, are
-;; created by `mem'. Inside a CPS expression, `mem' is
-;; intrepreted as a special form. In a Clojure context, the macro
-;; `mem' replicates the functionality of `mem' in anglican.
+  ;; In anglican, memoized computations, which can be impure, are
+  ;; created by `mem'. Inside a CPS expression, `mem' is
+  ;; intrepreted as a special form. In a Clojure context, the macro
+  ;; `mem' replicates the functionality of `mem' in anglican.
 
-(defmacro mem
-  "creates a memoized computation in CPS form"
-  [& args]
-  (overriding-higher-order-functions
-    (mem-cps args)))
+  (defmacro mem
+    "creates a memoized computation in CPS form"
+    [& args]
+    (overriding-higher-order-functions
+     (mem-cps args))))
 
 ;; The legacy names for fm and defm are cps-fn and def-cps-fn.
 ;; These names are deprecated but preserved for compatibility.
@@ -328,17 +324,18 @@
 ;; Any non-CPS procedures can be used in the code,
 ;; but must be wrapped and re-bound.
 
-(defmacro
-  with-primitive-procedures
-  "binds primitive procedure names to their CPS versions;
+(macros/deftime
+  (defmacro
+    with-primitive-procedures
+    "binds primitive procedure names to their CPS versions;
   if procedure name is qualified, it becomes unqualified in
   the scope of the macro"
-  [procedures & body]
-  `(let [~@(mapcat (fn [proc] 
-                     [(symbol (name proc))
-                      (primitive-procedure-cps proc)])
-                   procedures)]
-     ~@body))
+    [procedures & body]
+    `(let [~@(mapcat (fn [proc] 
+                      [(symbol (name proc))
+                       (primitive-procedure-cps proc)])
+                    procedures)]
+       ~@body)))
 
 ;;;; Program prologue
 
