@@ -10,10 +10,10 @@
                  [com.taoensso/timbre "4.3.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [net.mikera/core.matrix "0.52.0"]
-                 [net.mikera/core.matrix.stats "0.7.0"]
                  [net.mikera/vectorz-clj "0.44.0"]
 
                  ;; cljs
+                 [net.cgrand/macrovich "0.2.1"]
                  [org.clojure/clojurescript "1.10.238" :scope "provided"]
                  [thinktopic/aljabr "0.1.1" :scope "provided"]]
   :plugins [[codox "0.8.11"]
