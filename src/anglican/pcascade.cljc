@@ -5,8 +5,12 @@
      :number-of-particles (number-of-threads/2 by default)
        - number of initial particles"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [anglican.state :exclude [initial-state]]
-        anglican.inference
+  (:require [anglican.state :refer [add-log-weight get-log-weight
+                                    set-log-weight add-predict
+                                    get-predicts]])
+  (:use ;; TODO David [anglican.state :exclude [initial-state]]
+        #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])
         [anglican.runtime :only [log-sum-exp observe* sample*]]))
 
 ;;;; Parallel Cascade

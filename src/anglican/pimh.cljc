@@ -4,11 +4,13 @@
      :number-of-particles (2 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use anglican.state
-        anglican.inference
+  (:use [anglican.state :only [initial-state add-log-weight
+                               set-log-weight]]
+        #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer exec]])
         [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe*]]
-        anglican.smc))
+        [anglican.smc :only [resample particle-weights sweep]]))
 
 ;;; Particle Independent Metropolis-Hastings (PIMH)
 

@@ -19,14 +19,14 @@
          Defaults to creating a pool of containing (+ (ncpus) 2)
          threads. See com.climate.claypoole/pmap for further info."
   (:require [clojure.core.matrix :as mat]
-           [com.climate.claypoole :as cp]
-           [anglican.inference :refer [infer exec]]
-           [anglican.pgibbs :as pgibbs
-            :refer [initial-state release-retained-state
-                    retained-initial-state]]
-           [anglican.runtime :refer [sample* discrete uniform-discrete]]
-           [anglican.smc :as smc]
-           [anglican.state :refer [set-log-weight]]))
+            #?(:clj [com.climate.claypoole :as cp])
+            [anglican.inference :refer [infer exec]]
+            [anglican.pgibbs :as pgibbs
+             :refer [initial-state release-retained-state
+                     retained-initial-state]]
+            [anglican.runtime :refer [sample* discrete uniform-discrete]]
+            [anglican.smc :as smc]
+            [anglican.state :refer [set-log-weight]]))
 
 (derive ::algorithm :anglican.pgibbs/algorithm)
 
@@ -174,10 +174,11 @@
                (let [;; run CSMC and SMC sweeps
                      task (partial sweep ::algorithm prog value
                                    number-of-particles all-particles?)
-                     sweeps (cp/pmap pool task
-                                     (concat retained-states
-                                             (repeat number-of-smc-nodes
-                                                     nil)))
+                     sweeps (#?(:clj cp/pmap :cljs map)
+                             pool task
+                             (concat retained-states
+                                     (repeat number-of-smc-nodes
+                                             nil)))
                      resultss (mapv first sweeps)
                      log-Zs (mapv second sweeps)
                      ;; sample indices for new CSMC nodes

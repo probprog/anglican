@@ -2,7 +2,8 @@
   "Random DB, same as Lightweight Metropolis-Hastings"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require anglican.lmh)
-  (:use anglican.inference))
+  (:use #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])))
 
 ;;;; Alias for Single-site Metropolis-Hastings
 

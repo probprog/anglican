@@ -4,9 +4,11 @@
      :number-of-particles (1 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use anglican.state
-        anglican.inference
-        anglican.smc))
+  (:use [anglican.state :only [initial-state
+                               get-predicts clear-predicts
+                               set-log-weight]]
+        #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])))
 
 ;;; Particle Filter 
 ;;

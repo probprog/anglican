@@ -9,8 +9,9 @@
         - output all samples rather than those with increasing
           log-weight"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [anglican.state :exclude [initial-state]]
-        anglican.inference
+  (:require [anglican.state :as state])
+  (:use #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])
         [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe* sample*]]))
 
