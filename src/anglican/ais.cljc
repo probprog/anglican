@@ -8,9 +8,12 @@
      :end-exponent (1 by default)
         - final exponent in the cooling schedule"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [anglican.state :exclude [initial-state]]
-        anglican.inference
-        [anglican.rmh :exclude [utility]]))
+  (:require [anglican.state :refer [get-log-weight add-log-weight
+                                    set-log-weight]]
+            [anglican.rmh :refer [initial-state get-log-retained-probability
+                                  get-trace next-state prev-state]])
+  (:use #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])))
 
 ;;;; Annealed Importance Sampling
 

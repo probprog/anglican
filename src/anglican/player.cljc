@@ -1,8 +1,9 @@
 (ns anglican.player
     "Replaying choices through the program"
     (:refer-clojure :exclude [rand rand-int rand-nth])
-    (:use [anglican.state :exclude [initial-state]]
-          anglican.inference 
+    (:require [anglican.state :as state])
+    (:use #?(:clj anglican.inference
+            :cljs [anglican.inference :only [infer]])
           [anglican.runtime :only [observe*]]))
 
 (derive ::algorithm :anglican.inference/algorithm)

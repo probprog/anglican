@@ -1,8 +1,10 @@
 (ns anglican.gradients
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [clojure.core.matrix :as m :refer [mul div add sub mmul]]
-            [clojure.core.matrix.linear :as linalg])
-  (:use [anglican.runtime :refer :all]))
+            [clojure.core.matrix.linear :as linalg]
+            [anglican.runtime :refer [finite? log pow exp normal gamma
+                                      exponential beta dirichlet discrete
+                                      poisson]]))
 
 ;;; Math functions required by gradients
 
