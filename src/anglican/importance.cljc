@@ -1,8 +1,9 @@
 (ns anglican.importance
   "Importance sampling"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use anglican.state
-        anglican.inference))
+  (:use [anglican.state :only [initial-state]]
+        #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])))
 
 ;;; Importance samping
 

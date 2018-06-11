@@ -5,8 +5,11 @@
        - number of threads to use"
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :only [set-log-weight]]
-        anglican.inference
-        anglican.lmh))
+        #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])
+        [anglican.lmh :only [get-trace next-state prev-state
+                             accept? utility correct-log-weight
+                             initial-state]]))
 
 ;;;; Parallel Lightweight Metropolis-Hastings
 

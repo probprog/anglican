@@ -1,9 +1,11 @@
 (ns anglican.pgas
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [anglican.smc :as smc :refer [sweep]]
-            [anglican.runtime :refer [sample* observe* discrete exp]])
-  (:use [anglican.state :exclude [initial-state]]
-        anglican.inference))
+            [anglican.runtime :refer [sample* observe* discrete exp]]
+            [anglican.state :refer [add-log-weight get-log-weight
+                                    set-log-weight]])
+  (:use #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])))
 
 ;;;; Particle Gibbs with Ancestor Sampling
 ;;;; (with LMH-style rescoring)

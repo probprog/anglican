@@ -1,11 +1,18 @@
 (ns anglican.almh
   "Adaptive LMH"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [anglican.state :exclude [initial-state]]
-        anglican.inference
-        [anglican.lmh :exclude [initial-state
-                              next-state prev-state
-                              utility]]))
+  (:require [anglican.state :refer [get-predicts get-log-weight add-predict]]
+            [anglican.lmh :refer [get-trace get-log-retained-probability
+                                  correct-log-weight
+                                  accept?]])
+
+  (:use #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])
+        ;; 
+        #_[anglican.lmh :exclude [initial-state
+                                next-state prev-state
+                                utility]]
+        ))
 
 ;;;; Adaptive scheduling single-site Metropolis-Hastings
 ;;

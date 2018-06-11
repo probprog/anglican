@@ -4,9 +4,10 @@
      :number-of-particles (2 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [anglican.state :exclude [initial-state]]
-        anglican.inference
-        anglican.smc
+  (:require [anglican.state :refer [set-log-weight]])
+  (:use #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])
+        [anglican.smc :only [sweep resample]]
         [anglican.runtime :only [sample*]]))
 
 ;;;; Particle Gibbs

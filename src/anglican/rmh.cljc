@@ -1,9 +1,10 @@
 (ns anglican.rmh
   "Random-walk Metropolis-Hastings"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:use [anglican.state :exclude [initial-state]]
-        anglican.inference
-        anglican.rmh-dists
+  (:require [anglican.rmh-dists :as rmh-dists]
+            [anglican.state :refer [get-log-weight set-log-weight]])
+  (:use #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer]])
         [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe* sample*]]))
 
