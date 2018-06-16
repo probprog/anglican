@@ -4,18 +4,11 @@
             [clojure.core.matrix :as m]
             [clojure.core.matrix.linear :as ml]
 
+            #?(:cljs [anglican.util :refer [format]])
             #?(:cljs [goog.string.format])
             [net.cgrand.macrovich :as macros])
   #?(:cljs (:require-macros [net.cgrand.macrovich :as macros]
                            [anglican.runtime :refer [defdist defproc]])))
-
-
-;; TODO move
-#?(:cljs
-  (defn format
-    "Similar to Java String's format function for cljs."
-    [s & args]
-    (goog.string.format s (into-array args))))
 
 
 ;; matrix library uses vectorz for protocol implementations

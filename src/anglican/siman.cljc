@@ -9,9 +9,13 @@
         - output all samples rather than those with increasing
           log-weight"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require [anglican.state :as state])
+  (:require [anglican.state :refer [add-log-weight
+                                    get-log-weight
+                                    add-predict]])
   (:use #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])
+          :cljs [anglican.inference :only [infer exec
+                                           checkpoint checkpoint-id
+                                           rand-nth]])
         [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe* sample*]]))
 
@@ -76,7 +80,8 @@
         log-p (try
                 (observe* (:dist smp) value)
                 ;; NaN is returned if value is not in support.
-                (catch Exception e (/ 0. 0.)))
+                (catch #?(:clj Exception
+                         :cljs js/object) e (/ 0. 0.)))
         [value log-p] (if (< (/ -1. 0.) log-p (/ 1. 0.))
                         [value log-p]
                         ;; The retained value is not in support,

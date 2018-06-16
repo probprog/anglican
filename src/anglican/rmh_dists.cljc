@@ -20,11 +20,13 @@
   [mean std] [folded-normal (folded-normal mean std)]
   (sample* [this]
           (let [x (sample* folded-normal)]
-            (if (= x 0.0) Double/MIN_VALUE x))) ; a bit dodgy...
+            (if (= x 0.0) #?(:clj Double/MIN_VALUE
+                            :cljs js/Number.MIN_VALUE) x))) ; a bit dodgy...
   (observe* [this value]
            (if (<= value 0)
              (log 0)
-             (if (= value Double/MIN_VALUE)
+             (if (= value #?(:clj Double/MIN_VALUE
+                            :cljs js/Number.MIN_VALUE))
                (observe* folded-normal 0)
                (observe* folded-normal value)))))
 

@@ -7,7 +7,7 @@
   (:use [anglican.state :only [initial-state add-log-weight
                                set-log-weight]]
         #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer exec]])
+          :cljs [anglican.inference :only [infer exec checkpoint]])
         [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe*]]
         [anglican.smc :only [resample particle-weights sweep]]))
@@ -35,8 +35,8 @@
      (every? #(instance? anglican.trap.result %) particles)
      particles
 
-     :else (throw (AssertionError.
-                   "some `observe' directives are not global")))))
+     :else (throw (ex-info "some `observe' directives are not global"
+                           {:particles particles})))))
 
 (defmethod infer :pimh [_ prog value
                         & {:keys [number-of-particles]   ; per sweep

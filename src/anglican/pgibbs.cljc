@@ -6,7 +6,8 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [anglican.state :refer [set-log-weight]])
   (:use #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])
+          :cljs [anglican.inference :only [infer exec checkpoint
+                                           rand-nth]])
         [anglican.smc :only [sweep resample]]
         [anglican.runtime :only [sample*]]))
 
@@ -101,12 +102,12 @@
                     (first particles))
                    ;; perform normal resampling as in smc
                    (anglican.smc/resample particles number-of-particles))))
-                       
+
      (every? #(instance? anglican.trap.result %) particles)
      particles
-     
-     :else (throw (AssertionError.
-                   "some `observe' directives are not global")))))
+
+     :else (throw (ex-info "some `observe' directives are not global"
+                           {:particles particles})))))
 
 (defmethod infer :pgibbs [_ prog value
                           & {:keys [number-of-particles]   ; per sweep

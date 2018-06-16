@@ -7,7 +7,7 @@
                                   accept?]])
 
   (:use #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])
+          :cljs [anglican.inference :only [infer exec rand-roulette]])
         ;; 
         #_[anglican.lmh :exclude [initial-state
                                 next-state prev-state
