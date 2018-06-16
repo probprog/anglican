@@ -1,10 +1,10 @@
 (ns anglican.bbvb
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [anglican.gradients :refer [grad-step grad-log]]
-            [clojure.core.matrix :as m :refer [add sub mul div mmul]])
-  (:use [anglican.state :exclude [get-log-weights]]
-        #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])
+            [clojure.core.matrix :as m :refer [add sub mul div mmul]]
+            [anglican.state :refer [get-log-weight add-log-weight]])
+  (:use #?(:clj anglican.inference
+          :cljs [anglican.inference :only [infer checkpoint-id checkpoint exec]])
         [anglican.runtime 
          :only [sample* observe* log-sum-exp 
                 normal get-tag finite? mean]]

@@ -11,7 +11,8 @@
               push-catch pop-catch
               current-catch-cont
               pop-catch-until-tag]]
-            [net.cgrand.macrovich :as macros])
+            [net.cgrand.macrovich :as macros]
+            #?(:cljs [anglican.util :refer [format]]))
   #?(:cljs (:require-macros
            [net.cgrand.macrovich :as macros]
            [anglican.trap :refer [cps-of-let cps-of-if
@@ -19,15 +20,6 @@
                                   cps-of-observe cps-of-sample
                                   cps-of-or
                                   defn-with-named-cont]])))
-
-;; TODO move
-#?(:cljs
-   (defn format
-     "Similar to Java String's format function for cljs."
-     [s & args]
-     (goog.string.format s (into-array args))))
-
-
 
 ;;;; Trampoline-ready Anglican program
 

@@ -4,11 +4,12 @@
      :number-of-particles (1 by default)
        - number of particles per sweep"
   (:refer-clojure :exclude [rand rand-int rand-nth])
+  (:require [anglican.smc :refer [resample]])
   (:use [anglican.state :only [initial-state
                                get-predicts clear-predicts
                                set-log-weight]]
         #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])))
+          :cljs [anglican.inference :only [infer exec]])))
 
 ;;; Particle Filter 
 ;;
@@ -41,9 +42,9 @@
                      ;; that all predicts have the same weight.
                      (set-log-weight state 0))))
                particles)
-             
+
              ;; Continue running the program infinitely.
-             (sample-seq 
+             (sample-seq
                (cond
                  (every? #(instance? anglican.trap.observe %) particles)
                  ;; Resample and continue.
@@ -55,9 +56,7 @@
                  ;; Restart the particles.
                  initial-particles
 
-                 :else (do
-                         (throw (AssertionError.
-                                  (str "some `observe' directives "
-                                       "are not global")))))))))]
+                 :else (throw (ex-info "some `observe' directives are not global"
+                                       {:particles particles})))))))]
 
       (sample-seq initial-particles))))

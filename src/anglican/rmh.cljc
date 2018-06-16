@@ -4,7 +4,8 @@
   (:require [anglican.rmh-dists :as rmh-dists]
             [anglican.state :refer [get-log-weight set-log-weight]])
   (:use #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])
+          :cljs [anglican.inference :only [infer checkpoint-id checkpoint
+                                           exec rand-nth]])
         [anglican.lmh :only [accept?]]
         [anglican.runtime :only [observe* sample*]]))
 
@@ -141,7 +142,9 @@
                 (try (observe* (:dist smp) value)
                   ;; NaN is returned if value is not the same type as the
                   ;; distribution e.g. (observe* (runtime/normal 0 1) false)
-                  (catch Exception e (/ 0. 0.))))
+                  (catch #?(:clj Exception
+                           :cljs js/object) e
+                    (/ 0. 0.))))
         value (if (not use-kernel)
                 ;; Outside of the support when
                 ;;   - probability mass is zero, i.e. log-p is -Infinity

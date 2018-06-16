@@ -13,7 +13,8 @@
             [anglican.rmh :refer [initial-state get-log-retained-probability
                                   get-trace next-state prev-state]])
   (:use #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])))
+          :cljs [anglican.inference :only [infer exec
+                                           rand-nth rand]])))
 
 ;;;; Annealed Importance Sampling
 

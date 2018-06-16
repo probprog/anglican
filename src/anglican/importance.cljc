@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:use [anglican.state :only [initial-state]]
         #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])))
+          :cljs [anglican.inference :only [infer exec]])))
 
 ;;; Importance samping
 

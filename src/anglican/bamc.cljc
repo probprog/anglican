@@ -5,9 +5,10 @@
        - output all samples rather than just those
          with increasing log-weight"
   (:refer-clojure :exclude [rand rand-int rand-nth])
-  (:require [anglican.state :as state])
+  (:require [anglican.state :refer [get-log-weight add-log-weight add-predict]])
   (:use #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])
+          :cljs [anglican.inference :only [infer checkpoint checkpoint-id exec
+                                           rand]])
         [anglican.runtime :only [sample* observe* normal]]))
 
 ;;;;; Maximum a Posteriori Estimation through Sampling
