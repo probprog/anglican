@@ -10,7 +10,8 @@
                                     get-predicts]])
   (:use ;; TODO David [anglican.state :exclude [initial-state]]
         #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])
+          :cljs [anglican.inference :only [infer exec checkpoint
+                                           checkpoint-id rand]])
         [anglican.runtime :only [log-sum-exp observe* sample*]]))
 
 ;;;; Parallel Cascade

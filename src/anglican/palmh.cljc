@@ -3,12 +3,16 @@
    Options:
      :number-of-threads (2 by default) - number of threads"
   (:refer-clojure :exclude [rand rand-int rand-nth])
+  (:require [anglican.state :as state]
+            [anglican.almh :refer [prev-state next-state
+                                   select-entry utility award
+                                   update-choice-count
+                                   add-choice-predicts
+                                   initial-state]])
   (:use #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])
+          :cljs [anglican.inference :only [infer exec]])
         [anglican.lmh :only [accept? get-trace correct-log-weight]]
-        [anglican.plmh :only [ncall]]
-        ;; only included to load namespace
-        anglican.almh))
+        [anglican.plmh :only [ncall]]))
 
 ;;;; Parallel Adaptive Lightweight Metropolis-Hastings
 

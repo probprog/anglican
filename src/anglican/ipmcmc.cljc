@@ -77,8 +77,9 @@
         [checkpoints log-Z]
         ;; select one particle at random
         [(list (rand-nth checkpoints)) log-Z])
-      :else (throw (AssertionError.
-                    "some `observe' directives are not global")))))
+      :else (throw (ex-info
+                    "some `observe' directives are not global"
+                    {:particles checkpoints})))))
 
 (defn norm-exp
   "Normalized exponential. Accepts a collection of log weights.

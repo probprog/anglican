@@ -5,7 +5,8 @@
             [anglican.state :refer [add-log-weight get-log-weight
                                     set-log-weight]])
   (:use #?(:clj anglican.inference
-          :cljs [anglican.inference :only [infer]])))
+          :cljs [anglican.inference :only [infer exec checkpoint
+                                           checkpoint-id rand-nth]])))
 
 ;;;; Particle Gibbs with Ancestor Sampling
 ;;;; (with LMH-style rescoring)
@@ -70,7 +71,8 @@
         value (when id-in-rdb?
                 ((state ::rdb) choice-id))
         log-p (try (observe* (:dist smp) value)
-                (catch Exception e nil))
+                   (catch #?(:clj Exception
+                            :cljs js/object) e nil))
         entry (if (and id-in-rdb? log-p)
                 (->entry choice-id value log-p false)
                 (let [value (sample* (:dist smp))
@@ -162,8 +164,8 @@
                       (set-log-weight 0.))))))
      (every? #(instance? anglican.trap.result %) particles)
      (conj particles retained-particle)
-     :else (throw (AssertionError.
-                   "some `observe' directives are not global")))))
+     :else (throw (ex-info "some `observe' directives are not global"
+                           {:particles particles})))))
 
 (defmethod infer :pgas [_ prog value
                         & {:keys [number-of-particles]
