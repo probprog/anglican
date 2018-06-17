@@ -19,7 +19,10 @@
                                   cps-of-case cps-of-and
                                   cps-of-observe cps-of-sample
                                   cps-of-or
-                                  defn-with-named-cont]])))
+                                  defn-with-named-cont
+                                  shading-primitive-procedures
+                                  adding-primitive-namespaces
+                                  adding-primitive-procedures]])))
 
 ;;;; Trampoline-ready Anglican program
 
@@ -94,7 +97,7 @@
              (do ~@body)
              (let [~'named-cont (*gensym* "C")]
                `(~~''let [~~'named-cont ~~cont]
-                 ~(~cps-of ~@(butlast parms) ~'named-cont))))))))
+                 ~(~cps-of ~@(butlast parms) ~'named-cont)))))))))
 
 ;; When a continuation is called, it is trampolined,
 ;; that is, wrapped in a thunk. This collapses the stack
@@ -698,4 +701,4 @@
     "functions in these namespaces are primitive"
     '#{clojure.core
       anglican.runtime
-      anglican.state}))
+      anglican.state})

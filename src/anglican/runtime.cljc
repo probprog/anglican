@@ -66,6 +66,7 @@
           poly-horner (* t (+ a1 (* t (+ a2 (* t (+ a3 (* t (+ a4 (* t a5)))))))))]
       (* (signum x) (- 1 (* poly-horner (exp (- (* x x)))))))))
 
+;; TODO put into a test
 (comment
   (erf -1))
 ;; => -0.8427006897475899
@@ -187,17 +188,6 @@
              :discrete `(~'.logProbability ~dist ~'value)
              :continuous `(~'.logDensity ~dist ~'value)))))))
 
-
-
-
-(comment
-  (def foo (uniform-continuous 2 5))
-
-  (sample* foo)
-
-  (observe* foo 4.5))
-
-
 (declare uniform-continuous)
 (defdist bernoulli
   "Bernoulli distribution"
@@ -207,12 +197,7 @@
     (log (case value
            1 p
            0 (- 1. p)
-           0.))))
-
-(comment
-  (def bar (bernoulli 0.5))
-
-  (sample* bar))
+           0.)))) ;; TODO why 0.?
 
 #?(:clj
   (from-apache beta [alpha beta] :continuous
@@ -251,7 +236,7 @@
         (/ (nth weights value) total-weight)
         ;; any value not in the support has zero probability.
         (catch #?(:clj IndexOutOfBoundsException
-                 :cljs js/exception) _
+                 :cljs js/object) _
           0.)))))
 
 ;; TODO port to cljs
@@ -310,15 +295,13 @@
       "accepts a vector of random values and generates
     a sample from the multivariate distribution")))
 
-;; TODO port to cljs
+;; TODO port cholesky decomposition to al-jabr
 #?(:clj
   (declare normal))
 #?(:clj
   (defdist mvn
     "multivariate normal"
     [mean cov] [k (m/ecount mean)     ; number of dimensions
-                ;; TODO port cholesky decomposition to al-jabr
-                #?(:cljs _) #?(:cljs (println "Warning: Cholesky not ported yet."))
                 Lcov (:L (ml/cholesky (m/matrix cov)))
                 unit-normal (normal 0 1)
                 Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
@@ -370,7 +353,23 @@
 
 #?(:clj
   (from-apache normal [mean sd] :continuous
-    (Normal (double mean) (double sd))))
+               (Normal (double mean) (double sd)))
+  :cljs
+  (defdist normal [mean sd] [dist (uniform-continuous 0 1)]
+    ;; https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+    (sample* [this]
+     (let [u (sample* dist)
+           v (sample* dist)]
+       (assert (< 0 u 1))
+       (assert (< 0 v 1))
+       (* (sqrt (* -2.0 (log u)))
+          (cos (* 2.0 PI v)))))
+    (observe* [this value]
+              (let [var (pow sd 2)]
+                (- 0.0
+                   (/ (pow (- value mean) 2)
+                      (* 2 var))
+                   (log (sqrt (* 2 PI var))))))))
 
 #?(:clj
   (from-apache laplace [loc scale] :continuous
@@ -396,7 +395,6 @@
   :cljs
    (do
      ;; Bootstrap the uniform distribution
-     ;; In cljs it is imported from Apache Commons.
      (defrecord uniform-continuous-distribution [min max]
        anglican.runtime/distribution
        (sample* [this]
@@ -421,7 +419,20 @@
 
 #?(:clj
   (from-apache uniform-discrete [min max] :discrete
-    (UniformInteger (int min) (dec (int max)))))
+               (UniformInteger (int min) (dec (int max))))
+  :cljs
+   (defdist uniform-discrete [min max] []
+     (sample* [this]
+              (assert (integer? min))
+              (assert (integer? max))
+              (+ (int min)
+                 (rand-int (- max min))))
+     (observe* [this value]
+               (assert (integer? min))
+               (assert (integer? max))
+               (if (and (integer? value) (<= min value (dec max)))
+                 (/ 1 (- max min))
+                 0))))
 
 ;; TODO port to cljs
 #?(:clj
