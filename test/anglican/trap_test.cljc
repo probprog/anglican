@@ -1,6 +1,17 @@
 (ns anglican.trap-test
-    (:require [clojure.test :refer [deftest testing is]])
-    (use anglican.trap))
+  (:require [clojure.test :refer [deftest testing is]]
+            [anglican.trap :refer [*gensym*
+                                   primitive-procedure? simple?
+                                   primitive-procedure-cps
+                                   fn-cps mem-cps
+                                   cps-of-expression cps-of-vector
+                                   cps-of-hash-map cps-of-set
+                                   cps-of-let cps-of-if cps-of-when
+                                   cps-of-cond cps-of-case cps-of-and
+                                   cps-of-or cps-of-apply cps-of-do
+                                   cps-of-catch cps-of-throw
+                                   cps-of-predict cps-of-sample cps-of-observe
+                                   cps-of-store cps-of-retrieve]]))
 
 
 (deftest test-simple?
@@ -212,10 +223,12 @@
   (binding [*gensym* symbol]
     (testing "cps-of-apply"
       (is (= (cps-of-apply '(+ terms) 'ret)
-             '(fn [] (ret (clojure.core/apply + terms) $state)))
+             '(fn [] (ret (#?(:clj clojure.core/apply
+                           :cljs cljs.core/apply) + terms) $state)))
           "simple apply")
       (is (= (cps-of-apply '(foo xs) 'ret)
-             '(clojure.core/apply foo ret $state xs))
+             '(#?(:clj clojure.core/apply
+                 :cljs cljs.core/apply) foo ret $state xs))
           "compound apply"))))
 
 (deftest test-cps-of-catch
@@ -296,7 +309,8 @@
                   (if (anglican.state/in-mem? $state M P)
                     (fn []
                       (C (anglican.state/get-mem $state M P) $state))
-                    (clojure.core/apply
+                    (#?(:clj clojure.core/apply
+                       :cljs cljs.core/apply)
                       (fn fn [C $state x] (fn [] (C x $state)))
                       (fn set-mem [V $state]
                         (fn []
@@ -312,7 +326,8 @@
                         (fn []
                           (C (anglican.state/get-mem $state M P)
                              $state))
-                        (clojure.core/apply
+                        (#?(:clj clojure.core/apply
+                           :cljs cljs.core/apply)
                           (fn fn [C $state x] (fn [] (C x $state)))
                           (fn set-mem [V $state]
                             (fn []
@@ -327,7 +342,8 @@
                   (if (anglican.state/in-mem? $state M P)
                     (fn []
                       (C (anglican.state/get-mem $state M P) $state))
-                    (clojure.core/apply
+                    (#?(:clj clojure.core/apply
+                       :cljs cljs.core/apply)
                       foo
                       (fn set-mem [V $state]
                         (fn []

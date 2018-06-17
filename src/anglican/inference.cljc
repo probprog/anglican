@@ -16,9 +16,9 @@
                                       discrete log-sum-exp
                                       log]])
   #_(:use anglican.state
-        [anglican.runtime :only [sample* observe*
-                                 uniform-continuous
-                                 discrete log-sum-exp]]))
+          [anglican.runtime :only [sample* observe*
+                                   uniform-continuous
+                                   discrete log-sum-exp]]))
 
 ;;; Inference multimethod
 
@@ -199,8 +199,10 @@
   (prn [label value log-weight]))
 
 (defmethod print-predict :json [_ label value log-weight]
-  #?(:clj (json/write [(str label) value log-weight] *out*)
-    :cljs (print (.stringify js/JSON [(str label) value log-weight]))))
+  #?(:clj (do
+           (json/write [(str label) value log-weight] *out*)
+           (println))
+    :cljs (println (.stringify js/JSON [(str label) value log-weight]))))
 
 (defmethod print-predict :default [_ label value log-weight]
   (print-predict :anglican label value log-weight))

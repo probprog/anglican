@@ -9,13 +9,12 @@
                  [com.climate/claypoole "1.1.2"]
                  [com.taoensso/timbre "4.3.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
-                 [net.mikera/core.matrix "0.52.0"]
-                 [net.mikera/vectorz-clj "0.44.0"]
+                 [net.mikera/core.matrix "0.62.0"]
+                 [net.mikera/vectorz-clj "0.47.0"]
 
                  ;; cljs
                  [net.cgrand/macrovich "0.2.1"]
-                 [org.clojure/clojurescript "1.10.238" :scope "provided"]
-                 [thinktopic/aljabr "0.1.1" :scope "provided"]]
+                 [org.clojure/clojurescript "1.10.238" :scope "provided"]]
   :plugins [[codox "0.8.11"]
             [lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
@@ -28,13 +27,14 @@
   :aliases {"publish" ["do" ["clean"] ["test"] ["uberjar"]]}
 
 
+  ;; https://lambdaisland.com/episodes/testing-clojurescript
   :cljsbuild {:builds
               [{:id "dev"
-                :source-paths ["src"]
-                :figwheel {:on-jsload "anglican.runtime/on-js-reload"
+                :source-paths ["src" "test"]
+                :figwheel {;:on-jsload "anglican.runtime/on-js-reload"
                            :open-urls ["http://localhost:3449/index.html"]}
 
-                :compiler {:main anglican.bayes-net
+                :compiler {:main anglican.test-runner
                            :asset-path "js/compiled/out"
                            :output-to "resources/public/js/compiled/anglican.js"
                            :output-dir "resources/public/js/compiled/out"
@@ -42,12 +42,25 @@
                            ;; https://github.com/binaryage/cljs-devtools
                            :preloads [devtools.preload]}}
 
-               {:id "min"
+               #_{:id "min"
                 :source-paths ["src"]
                 :compiler {:output-to "resources/public/js/compiled/anglican.js"
                            :main anglican.bayes-net
                            :optimizations :advanced
-                           :pretty-print false}}]}
+                           :pretty-print false}}
+
+               {:id "test"
+                :source-paths ["src" "test"]
+                :compiler {:main anglican.test-runner
+                           :output-to "resources/private/js/unit-test.js"
+                           :output-dir "resources/public/js/compiled/out/test"
+                           :optimizations :whitespace
+                           :pretty-print true}}]
+
+              :test-commands
+              {"unit" ["phantomjs"
+                       "resources/private/js/unit-test.js"
+                       "phantom/unit-test.html"]}}
 
   :profiles {:uberjar {:aot :all}
 
