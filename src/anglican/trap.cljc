@@ -120,22 +120,25 @@
   "true if the expression is primitive,
   that is, a procedure that does not have a CPS form"
   [expr]
-  (and 
+  (and
     (symbol? expr)
-    (or 
+    (or
       ;; Accept either unqualified names for every procedure,
       (*primitive-procedures* expr)
       ;; or qualified names from primitive namespaces.
-      (and 
+      (and
         (namespace expr)
         (*primitive-namespaces* (symbol (namespace expr)))
-        #?(:clj (let [expr-var (resolve expr)]
-                 ;; either undefined
-                 (or (nil? expr-var) 
-                     ;; or resolves to a procedure
-                     (fn? (deref expr-var))))
-          ;; TODO
-          :cljs "resolving does not work for expressions, only symbols")))))
+        (macros/case
+          :clj
+          (let [expr-var (resolve expr)]
+            ;; either undefined
+            (or (nil? expr-var) 
+                ;; or resolves to a procedure
+                (fn? (deref expr-var))))
+          :cljs ;; no vars in cljs TODO self-hosted?
+          (or (nil? (*primitive-procedures* expr))
+              (fn? (*primitive-procedures* expr))))))))
 
 (defn primitive-operator?
   "true if the experssion is converted by clojure 
@@ -694,11 +697,11 @@
                      k))
                  #?(:clj (mapcat ns-publics runtime-namespaces)
                    ;; ns-publics is a macro in cljs
-                   :cljs (merge (ns-publics 'clojure.core)
+                   :cljs (merge (ns-publics 'cljs.core)
                                 (ns-publics 'anglican.runtime)))))))
 
   (def ^:dynamic *primitive-namespaces*
     "functions in these namespaces are primitive"
-    '#{clojure.core
+    '#{#?(:clj clojure.core :cljs cljs.core)
       anglican.runtime
       anglican.state})
