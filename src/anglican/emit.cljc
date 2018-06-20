@@ -8,22 +8,13 @@
             [anglican.runtime :refer [distribution]]
             [anglican.inference :refer [infer equalize]]
             [anglican.state :refer [get-log-weight get-predicts get-result]]
-            [net.cgrand.macrovich :as macros])
+            [net.cgrand.macrovich :as macros]
+            #?(:cljs [anglican.util :refer [format]]))
   #?(:cljs (:require-macros
            [net.cgrand.macrovich :as macros]
            [anglican.emit :refer [query query* defquery
                                   fm fm* defm
                                   with-primitive-procedures]])))
-
-
-
-;; TODO move
-#?(:cljs
-   (defn format
-     "Similar to Java String's format function for cljs."
-     [s & args]
-     (goog.string.format s (into-array args))))
-
 
 
 ;;;; Top-level forms for Anglican programs
