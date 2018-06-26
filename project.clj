@@ -1,6 +1,6 @@
-(defproject anglican "1.0.0"
+(defproject org.clojars.lsaldyt/anglican "1.0.0"
   :description "Anglican, a probabilistic programming system"
-  :url "http://bitbucket.org/probprog/anglican"
+  :url "https://github.com/LSaldyt/anglican"
   :license {:name "GNU General Public License Version 3"
             :url "http://www.gnu.org/licenses/gpl.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
@@ -14,7 +14,7 @@
                  [net.mikera/vectorz-clj "0.44.0"]]
   :plugins [[codox "0.8.11"]]
   :scm {:name "git"
-        :url "https://bitbucket.org/probprog/anglican"}
+        :url "https://github.com/LSaldyt/anglican"}
   :repl-options {:timeout 600000}
   :main ^:skip-aot anglican.core
   :target-path "target/%s"
