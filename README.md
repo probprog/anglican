@@ -2,7 +2,9 @@
 
 Anglican is a probabilistic programming system
 implemented in Clojure, both the programming environment and
-the language. [Introduction to Anglican](doc/intro.md) explains
+the language. 
+To include Anglican in your Clojure project, add `[anglican "1.0.0"]` to your `project.clj` `:dependencies`.
+[Introduction to Anglican](doc/intro.md) explains
 how to write and run programs in anglican.
 
 Everyone is welcome to write programs which call inference,
