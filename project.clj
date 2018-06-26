@@ -1,4 +1,4 @@
-(defproject org.clojars.lsaldyt/anglican "1.0.0"
+(defproject org.clojars.lsaldyt/anglican "1.0.1"
   :description "Anglican, a probabilistic programming system"
   :url "https://github.com/LSaldyt/anglican"
   :license {:name "GNU General Public License Version 3"
