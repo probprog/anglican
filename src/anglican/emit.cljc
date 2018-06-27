@@ -96,6 +96,7 @@
                                      result-cont)))
              {:source '(~'query ~name ~@args)}))))))
 
+  (declare query-fn) ; for unit testing
   (defmacro query
     "Defines an anglican query. Syntax:
 
@@ -118,6 +119,11 @@
      (query [mean sd]
         (let [x (sample (normal mean sd))]
           (predict x)))"
+    [& args]
+    (apply query-fn args))
+
+  (defn query-fn 
+    "Function implementing the query macro, for unit testing."
     [& args]
     (if (and (seq (nthnext args 2)) ;; for backward compatibility
              (symbol? (first args)) 
@@ -248,12 +254,18 @@
      (binding [*checkpoint-gensym* (make-stable-gensym name)]
        (fn-cps args))))
 
+  (declare fm-fn) ; for unit testing
   (defmacro fm
     "Defines an anglican function outside of anglican code.
   The syntax is the same as of `fn' with a single parameter list:
 
      (fm optional-name [parameter ...] 
         anglican-expression ...)"
+    [& args]
+    (apply fm-fn args))
+
+  (defn fm-fn
+    "Function implementing the fm macro, for unit testing."
     [& args]
     (if (vector? (first args))
       `(fm* ~(*gensym* "fn") ~@args)
