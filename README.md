@@ -1,5 +1,7 @@
 # Anglican
 
+[![Build Status](https://travis-ci.org/LSaldyt/anglican.svg?branch=master)](https://travis-ci.org/LSaldyt/anglican)
+
 Anglican is a probabilistic programming system
 implemented in Clojure, both the programming environment and
 the language. 
