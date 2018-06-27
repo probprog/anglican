@@ -56,7 +56,7 @@
   (sample* [this]
     "draws a sample from the distribution")
   (observe* [this value]
-    "return the probability [density] of the value"))
+    "return the log (using Math/log) probability [density] of the value"))
 
 ;; Log probabilities are used pervasively. A precision-preserving
 ;; way to add probabilities (e.g. for computing union probability)
@@ -175,7 +175,8 @@
       (loop [[weight & weights] weights
              acc 0. value 0]
         (let [acc (+ acc weight)]
-          (if (< x acc) value
+          (if (< x acc) 
+            value
             (recur weights acc (inc value)))))))
   (observe* [this value]
     (Math/log
@@ -183,6 +184,18 @@
         (/ (nth weights value) total-weight)
         ;; any value not in the support has zero probability.
         (catch IndexOutOfBoundsException _ 0.)))))
+
+(declare uniform-discrete)
+(defdist uniform-draw
+  "Uniformly take a value from a vector"
+  [items] [n-items (count items)
+           dist (uniform-discrete 0 n-items)]
+  (sample* [this]
+           (let [i (sample* dist)]
+             (get items i)))
+  (observe* [this value]
+           (Math/log (/ 1 n-items))))
+
 
 (declare gamma)
 (defdist dirichlet
@@ -236,6 +249,9 @@
 
 (from-apache uniform-discrete [min max] :discrete
   (UniformInteger (int min) (dec (int max))))
+
+;(defn )
+;(uniform-discrete 0 10)
 
 (defprotocol multivariate-distribution
   "additional methods for multivariate distributions"

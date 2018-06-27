@@ -1,8 +1,13 @@
 # Anglican
 
+[![Build Status](https://travis-ci.org/LSaldyt/anglican.svg?branch=master)](https://travis-ci.org/LSaldyt/anglican)
+
 Anglican is a probabilistic programming system
 implemented in Clojure, both the programming environment and
-the language. [Introduction to Anglican](doc/intro.md) explains
+the language. 
+To include Anglican in your Clojure project, add `[anglican "1.0.0"]` to your `project.clj` `:dependencies`.
+*This* version of anglican (the LSaldyt fork) can be used with `[org.clojars.lsaldyt/anglican "1.0.1"]`.
+[Introduction to Anglican](doc/intro.md) explains
 how to write and run programs in anglican.
 
 Everyone is welcome to write programs which call inference,
@@ -33,3 +38,7 @@ GNU General Public License for more details.
 You should have received a copy of the [GNU General Public
 License](gpl-3.0.txt) along with Anglican.  If not, see
 <http://www.gnu.org/licenses/>.
+
+## Continuous Integration
+
+Adds TravisCI
