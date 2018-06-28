@@ -59,9 +59,7 @@
                            :pretty-print true}}]
 
               :test-commands
-              {"unit" ["phantomjs"
-                       "resources/private/js/unit-test.js"
-                       "phantom/unit-test.html"]}}
+              {"unit" ["phantom/phantomrunner"]}}
 
   :profiles {:uberjar {:aot :all}
 

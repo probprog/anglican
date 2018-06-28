@@ -8,7 +8,7 @@
             #?(:cljs [goog.string.format])
             [net.cgrand.macrovich :as macros])
   #?(:cljs (:require-macros [net.cgrand.macrovich :as macros]
-                           [anglican.runtime :refer [defdist defproc]])))
+                           [anglican.runtime :refer [defdist defproc from-webppl]])))
 
 
 ;; matrix library uses vectorz for protocol implementations
@@ -52,7 +52,7 @@
 (defn erf
   "Error funciton. https://en.wikipedia.org/wiki/Error_function
 
-  Maximum error is in cljs version is 1.5*10^7"
+  Maximum error in cljs version is 1.5*10^7"
   [x]
   #?(:clj (org.apache.commons.math3.special.Erf/erf x)
     :cljs
@@ -172,7 +172,7 @@
 ;; Many distributions are available in the Apache Commons Math library and
 ;; imported automatically.
 
-#?(:clj
+(macros/deftime
   (defmacro ^:private from-apache
     "wraps Apache Commons Math distribution"
     [name args type [apache-name & apache-args]]
@@ -186,7 +186,19 @@
          (~'observe* [~'this ~'value]
           ~(case type
              :discrete `(~'.logProbability ~dist ~'value)
-             :continuous `(~'.logDensity ~dist ~'value)))))))
+             :continuous `(~'.logDensity ~dist ~'value))))))
+
+  (defmacro ^:private from-webppl
+    [name args [webppl-name & webppl-args]]
+    (let [dist (gensym "dist")]
+      `(defdist ~(symbol name)
+         ~(format "%s distribution (imported from webppl)" name)
+         ~args
+         [~dist (new ~(symbol (str "js/dists." webppl-name))
+                     (cljs.core/clj->js ~@webppl-args))]
+         (~'sample* [~'this] (.sample ~dist))
+         (~'observe* [~'this ~'value] (.score ~dist ~'value))))
+    ))
 
 (declare uniform-continuous)
 (defdist bernoulli
@@ -197,15 +209,21 @@
     (log (case value
            1 p
            0 (- 1. p)
-           0.)))) ;; TODO why 0.?
+           0.))))
 
-#?(:clj
+(macros/case
+  :clj
   (from-apache beta [alpha beta] :continuous
-    (Beta (double alpha) (double beta))))
+               (Beta (double alpha) (double beta)))
+  :cljs
+  (from-webppl beta [alpha beta] (Beta {:a alpha :b beta})))
 
-#?(:clj
+(macros/case
+  :clj
   (from-apache binomial [n p] :discrete
-    (Binomial (int n) (double p))))
+               (Binomial (int n) (double p)))
+  :cljs
+  (from-webppl binomial [n p] (Binomial {:n n :p p})))
 
 (declare discrete)
 (defdist categorical
@@ -232,12 +250,7 @@
             (recur weights acc (inc value)))))))
   (observe* [this value]
     (log
-      (try
-        (/ (nth weights value) total-weight)
-        ;; any value not in the support has zero probability.
-        (catch #?(:clj IndexOutOfBoundsException
-                 :cljs js/object) _
-          0.)))))
+     (/ (nth weights value 0.0) total-weight))))
 
 ;; TODO port to cljs
 #?(:clj
@@ -258,9 +271,12 @@
                                 alpha))
                  @Z))))
 
-#?(:clj
+(macros/case
+  :clj
   (from-apache exponential [rate] :continuous
-    (Exponential (/ 1. (double rate)))))
+               (Exponential (/ 1. (double rate))))
+  :cljs
+  (from-webppl exponential [rate] (Exponential {:a rate})))
 
 (defdist flip
   "flip (Bernoulli boolean) distribution"
@@ -272,28 +288,27 @@
                   false (- 1. p)
                   0.))))
 
-#?(:clj
+(macros/case
+  :clj
   (from-apache gamma [shape rate] :continuous
-    (Gamma (double shape) (/ 1.0 (double rate)))))
+               (Gamma (double shape) (/ 1.0 (double rate))))
+  :cljs
+  (from-webppl gamma [shape rate] (Gamma {:scale rate :shape shape})))
 
-;; TODO port to cljs
-#?(:clj
-  (defdist chi-squared
-    "Chi-squared distribution. Equivalent to a gamma distribution
+(defdist chi-squared
+  "Chi-squared distribution. Equivalent to a gamma distribution
   with shape nu/2 and rate 1/2."
-    [nu]
-    [;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, rate = 0.5).
-     gamma-dist (gamma (* nu 0.5) 0.5)]
-    (sample* [this] (sample* gamma-dist))
-    (observe* [this value] (observe* gamma-dist value))))
+  [nu]
+  [;; Chi-Squared(nu) ~ Gamma(shape = nu / 2, rate = 0.5).
+   gamma-dist (gamma (* nu 0.5) 0.5)]
+  (sample* [this] (sample* gamma-dist))
+  (observe* [this value] (observe* gamma-dist value)))
 
-;; TODO port to cljs
-#?(:clj
-  (defprotocol multivariate-distribution
-    "additional methods for multivariate distributions"
-    (transform-sample [this samples]
-      "accepts a vector of random values and generates
-    a sample from the multivariate distribution")))
+(defprotocol multivariate-distribution
+  "additional methods for multivariate distributions"
+  (transform-sample [this samples]
+    "accepts a vector of random values and generates
+    a sample from the multivariate distribution"))
 
 ;; TODO port cholesky decomposition to al-jabr
 #?(:clj
@@ -351,88 +366,67 @@
                     (* (/ 1.0 nu)
                        dy-sinv-dy))))))))))
 
-#?(:clj
+(macros/case
+  :clj
   (from-apache normal [mean sd] :continuous
                (Normal (double mean) (double sd)))
   :cljs
-  (defdist normal [mean sd] [dist (uniform-continuous 0 1)]
-    ;; https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
-    (sample* [this]
-     (let [u (sample* dist)
-           v (sample* dist)]
-       (assert (< 0 u 1))
-       (assert (< 0 v 1))
-       (* (sqrt (* -2.0 (log u)))
-          (cos (* 2.0 PI v)))))
-    (observe* [this value]
-              (let [var (pow sd 2)]
-                (- 0.0
-                   (/ (pow (- value mean) 2)
-                      (* 2 var))
-                   (log (sqrt (* 2 PI var))))))))
+  (from-webppl normal [mean sd]
+               (Gaussian {:mu mean :sigma sd})))
 
-#?(:clj
+(macros/case
+  :clj
   (from-apache laplace [loc scale] :continuous
-    (Laplace (double loc) (double scale))))
+               (Laplace (double loc) (double scale)))
+  :cljs
+  (from-webppl laplace [loc scale] (Laplace {:location loc :scale scale})))
 
-#?(:clj
+(macros/case
+  :clj
   (from-apache poisson [lambda] :discrete
-    (Poisson (double lambda) 1E-12 10000000)))
+               (Poisson (double lambda) 1E-12 10000000))
+  :cljs
+  (from-webppl poisson [lambda] (Poisson {:mu lambda})))
 
-#?(:clj
+(macros/deftime
+  :clj
   (from-apache student-t [nu] :continuous
     (T (double nu))))
 
 ;; TODO port to cljs
-#?(:clj
+(macros/deftime
+  :clj
   (defdist student-t-loc-scale [nu loc scale] [dist (student-t nu)]
     (sample* [this] (+ (* (sample* dist) scale) loc))
     (observe* [this value] (- (observe* dist (/ (- value loc) scale)) (Math/log scale)))))
 
-#?(:clj
+(macros/case
+  :clj
   (from-apache uniform-continuous [min max] :continuous
                (UniformReal (double min) (double max)))
   :cljs
-   (do
-     ;; Bootstrap the uniform distribution
-     (defrecord uniform-continuous-distribution [min max]
-       anglican.runtime/distribution
-       (sample* [this]
-         (let [len (- max min)]
-           (+ min (* len (rand)))))
-       (observe* [this value]
-         (if (<= min value  max)
-           (log (/ 1 (- max min)))
-           js/Number.NEGATIVE_INFINITY)))
+  (defdist uniform-continuous [min max] []
+    (sample* [this]
+             (let [len (- max min)]
+               (+ min (* len (rand)))))
+    (observe* [this value]
+              (if (<= min value  max)
+                (log (/ 1 (- max min)))
+                js/Number.NEGATIVE_INFINITY))))
 
-     (defn uniform-continuous
-       "Uniform continuous distribution"
-       [min max]
-       (->uniform-continuous-distribution min max))
-
-
-     (extend-protocol cljs.core/IPrintWithWriter
-       uniform-continuous-distribution
-       (cljs.core/-pr-writer
-         [o writer opts]
-         (cljs.core/-write writer (str (type o)))))))
-
-#?(:clj
+(macros/case
+  :clj
   (from-apache uniform-discrete [min max] :discrete
                (UniformInteger (int min) (dec (int max))))
   :cljs
-   (defdist uniform-discrete [min max] []
+  (defdist uniform-discrete [min' max'] [min (int min') max (int max')]
      (sample* [this]
-              (assert (integer? min))
-              (assert (integer? max))
               (+ (int min)
                  (rand-int (- max min))))
      (observe* [this value]
-               (assert (integer? min))
-               (assert (integer? max))
                (if (and (integer? value) (<= min value (dec max)))
-                 (/ 1 (- max min))
-                 0))))
+                 (log (/ 1 (- max min)))
+                 js/Number.NEGATIVE_INFINITY))))
 
 ;; TODO port to cljs
 #?(:clj
@@ -712,25 +706,26 @@
         t-sigma (m/mul psi (/ (inc kappa) (* kappa t-nu)))]
     [t-nu t-mu t-sigma]))
 
-(defproc mvn-niw
-  "Multivariate normal with unknown mean and covariance
+#?(:clj
+  (defproc mvn-niw
+    "Multivariate normal with unknown mean and covariance
   matrix. Parameterized using a normal inverse-Wishart."
-  [mu kappa nu psi]
-  [n 0
-   sum-x (m/zero-vector (first (m/shape psi)))
-   sum-x-sq (apply m/zero-matrix (m/shape psi))]
-  (produce
-   [this]
-   (apply multivariate-t
-          (apply mvn-niw-predictive
-                 (mvn-niw-posterior
-                   mu kappa nu psi n sum-x sum-x-sq))))
-  (absorb [this x]
-   (let [x (m/matrix x)]
-     (mvn-niw mu kappa nu psi
-              (inc n)
-              (m/add sum-x x)
-              (m/add sum-x-sq (m/outer-product x x))))))
+    [mu kappa nu psi]
+    [n 0
+     sum-x (m/zero-vector (first (m/shape psi)))
+     sum-x-sq (apply m/zero-matrix (m/shape psi))]
+    (produce
+     [this]
+     (apply multivariate-t
+            (apply mvn-niw-predictive
+                   (mvn-niw-posterior
+                    mu kappa nu psi n sum-x sum-x-sq))))
+    (absorb [this x]
+            (let [x (m/matrix x)]
+              (mvn-niw mu kappa nu psi
+                       (inc n)
+                       (m/add sum-x x)
+                       (m/add sum-x-sq (m/outer-product x x)))))))
 
 ;;; Add semantic tags to different distribution objects
 
