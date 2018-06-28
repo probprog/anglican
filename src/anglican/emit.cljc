@@ -65,6 +65,15 @@
 ;; macro and can also be immediately bound to a symbol
 ;; using the `defquery' macro.
 
+(defn query-fn 
+  "Function implementing the query macro, for unit testing."
+  [& args]
+  (if (and (seq (nthnext args 2)) ;; for backward compatibility
+           (symbol? (first args)) 
+           (or (symbol? (second args)) (vector? (second args))))
+    `(query* ~@args)
+    `(query* ~(*gensym* "query") ~@args)))
+
 (macros/deftime
   (defmacro query*
     "Helper macro called by query and defquery. The name is mandatory."
@@ -87,7 +96,6 @@
                                      result-cont)))
              {:source '(~'query ~name ~@args)}))))))
 
-  (declare query-fn) ; for unit testing
   (defmacro query
     "Defines an anglican query. Syntax:
 
@@ -112,15 +120,6 @@
           (predict x)))"
     [& args]
     (apply query-fn args))
-
-  (defn query-fn 
-    "Function implementing the query macro, for unit testing."
-    [& args]
-    (if (and (seq (nthnext args 2)) ;; for backward compatibility
-             (symbol? (first args)) 
-             (or (symbol? (second args)) (vector? (second args))))
-      `(query* ~@args)
-      `(query* ~(*gensym* "query") ~@args)))
 
   (defmacro defquery
     "Binds variable to an anglican query. Syntax:
@@ -237,6 +236,13 @@
 ;; must be in CPS form. fm and defm are like fn and defn but
 ;; automatically transform functions into CPS.
 
+(defn fm-fn
+  "Function implementing the fm macro, for unit testing."
+  [& args]
+  (if (vector? (first args))
+    `(fm* ~(*gensym* "fn") ~@args)
+    `(fm* ~@args)))
+
 (macros/deftime
   (defmacro fm*
     "Helper macro called by fm and defm. The name is mandatory."
@@ -245,7 +251,6 @@
      (binding [*checkpoint-gensym* (make-stable-gensym name)]
        (fn-cps args))))
 
-  (declare fm-fn) ; for unit testing
   (defmacro fm
     "Defines an anglican function outside of anglican code.
   The syntax is the same as of `fn' with a single parameter list:
@@ -254,13 +259,6 @@
         anglican-expression ...)"
     [& args]
     (apply fm-fn args))
-
-  (defn fm-fn
-    "Function implementing the fm macro, for unit testing."
-    [& args]
-    (if (vector? (first args))
-      `(fm* ~(*gensym* "fn") ~@args)
-      `(fm* ~@args)))
 
   (defmacro defm
     "Binds a variable to an anglican function. The syntax is the same as for
