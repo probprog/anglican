@@ -3,7 +3,7 @@
   :url "http://bitbucket.org/probprog/anglican"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/tools.cli "0.3.5"]
                  [org.clojure/data.json "0.2.6"]
                  [com.climate/claypoole "1.1.2"]
@@ -58,9 +58,7 @@
                            :pretty-print true}}]
 
               :test-commands
-              {"unit" ["phantomjs"
-                       "resources/private/js/unit-test.js"
-                       "phantom/unit-test.html"]}}
+              {"unit" ["phantom/phantomrunner"]}}
 
   :profiles {:uberjar {:aot :all}
 
