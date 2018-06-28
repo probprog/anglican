@@ -1,8 +1,9 @@
 (ns anglican.test-runner
   (:require  [cljs.test :as t :include-macros true]
-             [anglican.trap-test :as trap-test]
+             [anglican.emit-test :as emit-test]
+             [anglican.runtime-test :as runtime-test]
              [anglican.stat-test :as stat-test]
-             [anglican.runtime-test :as runtime-test]))
+             [anglican.trap-test :as trap-test]))
 
 
 (enable-console-print!)
@@ -13,6 +14,7 @@
 
 (t/run-tests 'anglican.trap-test
              'anglican.stat-test
-             'anglican.runtime-test)
+             'anglican.runtime-test
+             'anglican.emit-test)
 
 
