@@ -14,6 +14,7 @@
 
                  ;; cljs
                  [net.cgrand/macrovich "0.2.1"]
+                 #_[thinktopic/aljabr "0.1.1"]
                  [org.clojure/clojurescript "1.10.238" :scope "provided"]]
   :plugins [[codox "0.8.11"]
             [lein-figwheel "0.5.16"]
