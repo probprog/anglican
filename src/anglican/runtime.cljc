@@ -76,7 +76,8 @@
   "log Gamma function"
   [x]
   #?(:clj (org.apache.commons.math3.special.Gamma/logGamma x)
-    :cljs :TODO))
+    :cljs (js/ad.scalar.logGamma x)))
+
 
 (defn digamma
   "digamma function psi(x)"
@@ -252,24 +253,21 @@
     (log
      (/ (nth weights value 0.0) total-weight))))
 
-;; TODO port to cljs
-#?(:clj
-  (declare gamma))
-#?(:clj
-  (defdist dirichlet
-    "Dirichlet distribution"
-    ;; borrowed from Anglican runtime
-    [alpha] [Z (delay (- (reduce + (map log-gamma-fn alpha))
-                         (log-gamma-fn (reduce + alpha))))]
-    (sample* [this]
-             (let [g (map #(sample* (gamma % 1)) alpha)
-                   t (reduce + g)]
-               (map #(/ % t) g)))
-    (observe* [this value]
-              (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1)))
-                                value
-                                alpha))
-                 @Z))))
+(declare gamma)
+(defdist dirichlet
+  "Dirichlet distribution"
+  ;; borrowed from Anglican runtime
+  [alpha] [Z (delay (- (reduce + (map log-gamma-fn alpha))
+                       (log-gamma-fn (reduce + alpha))))]
+  (sample* [this]
+           (let [g (map #(sample* (gamma % 1)) alpha)
+                 t (reduce + g)]
+             (map #(/ % t) g)))
+  (observe* [this value]
+            (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1)))
+                              value
+                              alpha))
+               @Z)))
 
 (macros/case
   :clj
@@ -388,6 +386,7 @@
   :cljs
   (from-webppl poisson [lambda] (Poisson {:mu lambda})))
 
+;; TODO port to cljs
 (macros/deftime
   :clj
   (from-apache student-t [nu] :continuous
@@ -428,15 +427,14 @@
                  (log (/ 1 (- max min)))
                  js/Number.NEGATIVE_INFINITY))))
 
-;; TODO port to cljs
-#?(:clj
-  (defn log-mv-gamma-fn
-    "multivariate Gamma function"
-    [p a]
-    (+ (* 0.25 p (- p 1) (log PI))
-       (reduce + (map (fn [j]
-                        (log-gamma-fn (- a (* 0.5 j))))
-                      (range p))))))
+
+(defn log-mv-gamma-fn
+  "multivariate Gamma function"
+  [p a]
+  (+ (* 0.25 p (- p 1) (log PI))
+     (reduce + (map (fn [j]
+                      (log-gamma-fn (- a (* 0.5 j))))
+                    (range p)))))
 
 (defn gen-matrix
   "creates a matrix, elements of which are initialised
