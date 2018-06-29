@@ -14,9 +14,15 @@
 
                  ;; cljs
                  [net.cgrand/macrovich "0.2.1"]
+<<<<<<< HEAD
                  [org.clojure/clojurescript "1.10.238" :scope "provided"]
                  [thinktopic/aljabr "0.1.1" :scope "provided"]]
   :plugins [[lein-codox "0.10.3"]
+=======
+                 #_[thinktopic/aljabr "0.1.1"]
+                 [org.clojure/clojurescript "1.10.238" :scope "provided"]]
+  :plugins [[codox "0.8.11"]
+>>>>>>> Implement student-t distribution. Import matrix operators.
             [lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
   :scm {:name "git"
