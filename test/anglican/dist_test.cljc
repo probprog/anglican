@@ -1,7 +1,15 @@
 (ns anglican.dist-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [clojure.core.matrix :as mat]
-            [anglican.runtime :refer :all]
+            [anglican.runtime :refer [erf sqrt exp abs
+                                      sample* observe*
+                                      mean covariance
+                                      #?(:cljs inverse)
+                                      bernoulli beta binomial poisson
+                                      discrete mvn student-t-loc-scale
+                                      student-t uniform-discrete uniform-continuous
+                                      multivariate-t wishart
+                                      gamma exponential chi-squared normal laplace]]
             [anglican.stat :as stat]))
 
 (defn- normal-cdf 
@@ -11,8 +19,10 @@
 
 (defn- chi-squared-cdf 
   [nu x]
-  (let [d (org.apache.commons.math3.distribution.ChiSquaredDistribution. (double nu))]
-    (.cumulativeProbability d (double x))))
+  #?(:clj (let [d (org.apache.commons.math3.distribution.ChiSquaredDistribution. (double nu))]
+           (.cumulativeProbability d (double x)))
+    ;; TODO port to cljs
+    :cljs 0.5))
 
 (defn- sqr 
   [x] 
@@ -23,7 +33,7 @@
   square of the sum and the sum of the squares"
   [log-weights]
   (let [max-log-weight (reduce max log-weights)
-        weights (map #(Math/exp (- % max-log-weight))
+        weights (map #(exp (- % max-log-weight))
                      log-weights)]
     (if (seq weights)
       (let [sum-w (reduce + weights)
@@ -133,14 +143,18 @@
   anglican.runtime.student-t-distribution
     (dmean [d] 0)
     (dvariance [d]
-    (cond (<= (:nu d) 1) Double/NaN
-          (and (> (:nu d) 1) (<= (:nu d) 2)) Double/POSITIVE_INFINITY
+    (cond (<= (:nu d) 1) #?(:clj Double/NaN
+                          :cljs js/Number.NaN)
+          (and (> (:nu d) 1) (<= (:nu d) 2)) #?(:clj Double/POSITIVE_INFINITY
+                                              :cljs js/Number.POSITIVE_INFINITY)
           (> (:nu d) 2) (/ (:nu d) (- (:nu d) 2))))
     anglican.runtime.student-t-loc-scale-distribution
     (dmean [d]
-    (if (> (:nu d) 1) (:loc d) Double/NaN))
+    (if (> (:nu d) 1) (:loc d) #?(:clj Double/NaN
+                                 :cljs js/Number.NaN)))
     (dvariance [d]
-    (if (> (:nu d) 2) (* (:scale d) (:scale d) (/ (:nu d) (- (:nu d) 2))) Double/NaN))
+    (if (> (:nu d) 2) (* (:scale d) (:scale d) (/ (:nu d) (- (:nu d) 2))) #?(:clj Double/NaN
+                                                                            :cljs js/Number.NaN)))
   anglican.runtime.uniform-continuous-distribution
   (dmean [d]
     (* 0.5 (+ (:min d) (:max d))))
@@ -210,7 +224,8 @@
       (let [s (dcovariance d)
             dm (mat/sub sm m)
             r2 (mat/mmul dm 
-                         (mat/mul (mat/inverse s) 
+                         (mat/mul (#?(:clj mat/inverse
+                                     :cljs inverse) s) 
                                   num-samples) 
                          dm)
             q (chi-squared-cdf (mat/ecount m) r2)]
@@ -223,7 +238,8 @@
                  (mat/sub (mat/to-vector m)
                           (mat/to-vector sm)))
             r2 (mat/mmul dm 
-                          (mat/mul (mat/inverse sc) 
+                         (mat/mul (#?(:clj mat/inverse
+                                     :cljs inverse) sc) 
                                    num-samples) 
                           dm)
             q (chi-squared-cdf (mat/ecount m) (mat/mget r2))]
@@ -242,7 +258,8 @@
       ;; return the quantile on the mahalabonis distance
       (let [dm (mat/sub sm m)
             r2 (mat/mmul dm 
-                         (mat/mul (mat/inverse sc) 
+                         (mat/mul (#?(:clj mat/inverse
+                                     :cljs inverse) sc) 
                                   eff-samples) 
                          dm)
             quantile (chi-squared-cdf (mat/ecount m) r2)]
@@ -255,7 +272,8 @@
                  (mat/sub (mat/to-vector m)
                           (mat/to-vector sm)))
             r2 (mat/mmul dm 
-                          (mat/mul (mat/inverse sc) 
+                         (mat/mul (#?(:clj mat/inverse
+                                     :cljs inverse) sc) 
                                    eff-samples) 
                           dm)
             q (chi-squared-cdf (mat/ecount dm) (mat/mget r2))]

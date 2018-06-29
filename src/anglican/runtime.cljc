@@ -66,7 +66,7 @@
           poly-horner (* t (+ a1 (* t (+ a2 (* t (+ a3 (* t (+ a4 (* t a5)))))))))]
       (* (signum x) (- 1 (* poly-horner (exp (- (* x x)))))))))
 
-;; TODO put into a test
+;; TODO put into a cljs test
 (comment
   (erf -1))
 ;; => -0.8427006897475899
@@ -77,6 +77,37 @@
   [x]
   #?(:clj (org.apache.commons.math3.special.Gamma/logGamma x)
     :cljs (js/ad.scalar.logGamma x)))
+
+#?(:cljs
+   (defn cholesky [m]
+     (let [dims (m/shape m)
+           m-js (clj->js m)
+           m-t (.fromArray (new js/ad.tensor.__Tensor (clj->js dims))
+                           m-js)
+           L (.cholesky m-t)]
+       (m/matrix (js->clj (.toArray L))))))
+
+;; TODO move to test
+(comment
+  (cholesky (m/matrix [[2 1] [1 2]])))
+
+#?(:cljs
+   (defn inverse [m]
+     (let [dims (m/shape m)
+           m-js (clj->js m)
+           m-t (.fromArray (new js/ad.tensor.__Tensor (clj->js dims))
+                           m-js)
+           m-1 (.inverse m-t)]
+       (m/matrix (js->clj (.toArray m-1))))))
+
+
+#?(:cljs
+   (defn det [m]
+     (let [dims (m/shape m)
+           m-js (clj->js m)
+           m-t (.fromArray (new js/ad.tensor.__Tensor (clj->js dims))
+                           m-js)]
+       (.determinant m-t))))
 
 
 ;;; Distributions
@@ -303,61 +334,62 @@
     "accepts a vector of random values and generates
     a sample from the multivariate distribution"))
 
-;; TODO port cholesky decomposition to al-jabr
-#?(:clj
-  (declare normal))
-#?(:clj
-  (defdist mvn
-    "multivariate normal"
-    [mean cov] [k (m/ecount mean)     ; number of dimensions
-                Lcov (:L (ml/cholesky (m/matrix cov)))
-                unit-normal (normal 0 1)
-                Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
-                           (+ (* 0.5 k (log (* 2 PI)))
-                              (log |Lcov|))))
-                iLcov (delay (m/inverse Lcov))
-                transform-sample (fn [samples]
-                                   (m/add mean (m/mmul Lcov samples)))]
-    (sample* [this] (transform-sample
-                     (repeatedly k #(sample* unit-normal))))
-    (observe* [this value]
-              (let [dx (m/mmul @iLcov (m/sub value mean))]
-                (- (* -0.5 (m/dot dx dx)) @Z)))
-    multivariate-distribution
-    (transform-sample [this samples] (transform-sample samples))))
 
-;; TODO port to cljs
-#?(:clj
-  (defdist multivariate-t
-    "Multivariate T-distribution."
-    ;; Implemented according to http://en.wikipedia.org/wiki/Multivariate_t-distribution
-    [nu mu sigma]
-    [dim (m/ecount mu)
-     mvn-dist (mvn (m/zero-vector dim) sigma)
-     chi-sq-dist (chi-squared nu)]
-    (sample*
-     [this]
-     (let [y (sample* mvn-dist)
-           u (sample* chi-sq-dist)]
-       (m/add mu (m/mul y (sqrt (/ nu u))))))
-    (observe*
-     [this y]
-     (let [dy (m/sub mu y)
-           dy-sinv-dy (m/mget
-                       (m/mmul
-                        (m/transpose dy)
-                        (m/inverse sigma)
-                        dy))]
-       (- (log-gamma-fn (* 0.5 (+ nu dim)))
-          (+ (log-gamma-fn (* 0.5 nu))
-             (* 0.5 dim (log nu))
-             (* 0.5 dim (log PI))
-             (* 0.5 (log (m/det sigma)))
-             (* 0.5 (+ nu dim)
-                (log
-                 (+ 1.0
-                    (* (/ 1.0 nu)
-                       dy-sinv-dy))))))))))
+(declare normal)
+(defdist mvn
+  "multivariate normal"
+  [mean cov] [k (m/ecount mean)     ; number of dimensions
+              Lcov #?(:clj (:L (ml/cholesky (m/matrix cov)))
+                     :cljs (cholesky (m/matrix cov)))
+              unit-normal (normal 0 1)
+              Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
+                         (+ (* 0.5 k (log (* 2 PI)))
+                            (log |Lcov|))))
+              iLcov (delay (#?(:clj m/inverse
+                              :cljs inverse) Lcov))
+              transform-sample (fn [samples]
+                                 (m/add mean (m/mmul Lcov samples)))]
+  (sample* [this] (transform-sample
+                   (repeatedly k #(sample* unit-normal))))
+  (observe* [this value]
+            (let [dx (m/mmul @iLcov (m/sub value mean))]
+              (- (* -0.5 (m/dot dx dx)) @Z)))
+  multivariate-distribution
+  (transform-sample [this samples] (transform-sample samples)))
+
+
+(defdist multivariate-t
+  "Multivariate T-distribution."
+  ;; Implemented according to http://en.wikipedia.org/wiki/Multivariate_t-distribution
+  [nu mu sigma]
+  [dim (m/ecount mu)
+   mvn-dist (mvn (m/zero-vector dim) sigma)
+   chi-sq-dist (chi-squared nu)]
+  (sample*
+   [this]
+   (let [y (sample* mvn-dist)
+         u (sample* chi-sq-dist)]
+     (m/add mu (m/mul y (sqrt (/ nu u))))))
+  (observe*
+   [this y]
+   (let [dy (m/sub mu y)
+         dy-sinv-dy (m/mget
+                     (m/mmul
+                      (m/transpose dy)
+                      ;; TODO lift to arguments for efficiency?
+                      (#?(:clj m/inverse
+                         :cljs inverse) sigma)
+                      dy))]
+     (- (log-gamma-fn (* 0.5 (+ nu dim)))
+        (+ (log-gamma-fn (* 0.5 nu))
+           (* 0.5 dim (log nu))
+           (* 0.5 dim (log PI))
+           (* 0.5 (log (#?(:clj m/det :cljs det) sigma)))
+           (* 0.5 (+ nu dim)
+              (log
+               (+ 1.0
+                  (* (/ 1.0 nu)
+                     dy-sinv-dy)))))))))
 
 (macros/case
   :clj
@@ -381,18 +413,30 @@
   :cljs
   (from-webppl poisson [lambda] (Poisson {:mu lambda})))
 
-;; TODO port to cljs
-(macros/deftime
+(macros/case
   :clj
   (from-apache student-t [nu] :continuous
-    (T (double nu))))
+               (T (double nu)))
+  :cljs
+  (defdist student-t [nu]
+    ;; http://mathworld.wolfram.com/Studentst-Distribution.html
+    [X (normal 0 1)
+     Y (chi-squared nu)]
+    (sample* [this]
+             (/ (* (sample* X) (sqrt nu))
+                (sqrt (sample* Y))))
+    (observe* [this value]
+              (+ (log-gamma-fn (* 0.5 (inc nu)))
+                 (- (log (sqrt (* nu PI))))
+                 (- (log-gamma-fn (* 0.5 nu)))
+                 (- (* (* 0.5 (inc nu))
+                       (log (inc (/ (* value value)
+                                    nu)))))))))
 
-;; TODO port to cljs
-(macros/deftime
-  :clj
-  (defdist student-t-loc-scale [nu loc scale] [dist (student-t nu)]
-    (sample* [this] (+ (* (sample* dist) scale) loc))
-    (observe* [this value] (- (observe* dist (/ (- value loc) scale)) (Math/log scale)))))
+
+(defdist student-t-loc-scale [nu loc scale] [dist (student-t nu)]
+  (sample* [this] (+ (* (sample* dist) scale) loc))
+  (observe* [this value] (- (observe* dist (/ (- value loc) scale)) (log scale))))
 
 (macros/case
   :clj
@@ -441,14 +485,14 @@
       (f r c))
     [rows columns]))
 
-;; TODO port to cljs
-#?(:clj
-  (defdist wishart
+
+
+(defdist wishart
     "Wishart distribution"
     [n V]
     [p (first (m/shape V))
-     #?(:cljs _) #?(:cljs (println "Warning: Cholesky not ported yet."))
-     L (:L (ml/cholesky (m/matrix V)))
+     L #?(:clj (:L (ml/cholesky (m/matrix V)))
+         :cljs (cholesky (m/matrix V)))
      unit-normal (normal 0 1)
      ;; Sample from Chi-squared distribution
      ;; with the help of Gamma distribution.
@@ -461,8 +505,8 @@
      (mapv (comp chi-squared #(- n %)) (range 0 p))
      ;; For Bartlett decomposition
      ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
-     Z (delay (+ (* 0.5 n p (Math/log 2))
-                 (* 0.5 n (Math/log (m/det V)))
+     Z (delay (+ (* 0.5 n p (log 2))
+                 (* 0.5 n (log (#?(:clj m/det :cljs det) V)))
                  (log-mv-gamma-fn p (* 0.5 n))))
      transform-sample
      (fn [A]
@@ -483,11 +527,12 @@
                      p p)]
                (transform-sample A)))
     (observe* [this value]
-              (- (* 0.5 (- n p 1) (Math/log (m/det value)))
-                 (* 0.5 (m/trace (m/mmul (m/inverse (m/matrix V)) value)))
+              (- (* 0.5 (- n p 1) (log (#?(:clj m/det :cljs det) value)))
+                 (* 0.5 (m/trace (m/mmul (#?(:clj m/inverse
+                                            :cljs inverse) (m/matrix V)) value)))
                  @Z))
     multivariate-distribution
-    (transform-sample [this A] (transform-sample A))))
+    (transform-sample [this A] (transform-sample A)))
 
 ;;; Random processes
 
@@ -641,7 +686,8 @@
     (cps
       (if (seq points)
         (let [xs (mapv first points)
-              isgm (m/inverse (m/matrix (cov k xs xs)))
+              isgm (#?(:clj m/inverse
+                      :cljs inverse) (m/matrix (cov k xs xs)))
               zs (let [ys (mapv second points)
                        ms (mapv m xs)]
                    (m/mmul isgm (m/sub ys ms)))]
@@ -699,26 +745,26 @@
         t-sigma (m/mul psi (/ (inc kappa) (* kappa t-nu)))]
     [t-nu t-mu t-sigma]))
 
-#?(:clj
-  (defproc mvn-niw
-    "Multivariate normal with unknown mean and covariance
+
+(defproc mvn-niw
+  "Multivariate normal with unknown mean and covariance
   matrix. Parameterized using a normal inverse-Wishart."
-    [mu kappa nu psi]
-    [n 0
-     sum-x (m/zero-vector (first (m/shape psi)))
-     sum-x-sq (apply m/zero-matrix (m/shape psi))]
-    (produce
-     [this]
-     (apply multivariate-t
-            (apply mvn-niw-predictive
-                   (mvn-niw-posterior
-                    mu kappa nu psi n sum-x sum-x-sq))))
-    (absorb [this x]
-            (let [x (m/matrix x)]
-              (mvn-niw mu kappa nu psi
-                       (inc n)
-                       (m/add sum-x x)
-                       (m/add sum-x-sq (m/outer-product x x)))))))
+  [mu kappa nu psi]
+  [n 0
+   sum-x (m/zero-vector (first (m/shape psi)))
+   sum-x-sq (apply m/zero-matrix (m/shape psi))]
+  (produce
+   [this]
+   (apply multivariate-t
+          (apply mvn-niw-predictive
+                 (mvn-niw-posterior
+                  mu kappa nu psi n sum-x sum-x-sq))))
+  (absorb [this x]
+          (let [x (m/matrix x)]
+            (mvn-niw mu kappa nu psi
+                     (inc n)
+                     (m/add sum-x x)
+                     (m/add sum-x-sq (m/outer-product x x))))))
 
 ;;; Add semantic tags to different distribution objects
 
