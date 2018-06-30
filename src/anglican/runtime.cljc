@@ -289,7 +289,7 @@
                  t (reduce + g)]
              (map #(/ % t) g)))
   (observe* [this value]
-            (- (reduce + (map (fn [v a] (* (Math/log v) (- a 1)))
+            (- (reduce + (map (fn [v a] (* (log v) (- a 1)))
                               value
                               alpha))
                @Z)))
@@ -316,7 +316,7 @@
   (from-apache gamma [shape rate] :continuous
                (Gamma (double shape) (/ 1.0 (double rate))))
   :cljs
-  (from-webppl gamma [shape rate] (Gamma {:scale rate :shape shape})))
+  (from-webppl gamma [shape rate] (Gamma {:scale (/ 1 rate) :shape shape})))
 
 (defdist chi-squared
   "Chi-squared distribution. Equivalent to a gamma distribution
