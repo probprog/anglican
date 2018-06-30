@@ -9,8 +9,10 @@
             #?(:cljs [anglican.ais :as ais])
             #?(:cljs [anglican.bbvb :as bbvb])
             #?(:cljs [anglican.smc :as smc])
-            #?(:cljs [anglican.ipmcmc :as ipmcmc])
-            )
+            ;;#?(:cljs [anglican.ipmcmc :as ipmcmc]
+            #?(:cljs [anglican.pgibbs :as pgibbs])
+            #?(:cljs [anglican.pgas :as pgas])
+              )
   (:use [anglican.core :only [doquery]]
         [anglican.runtime :only [exp log sqrt l2-norm
                                  normal discrete poisson gamma
@@ -272,9 +274,9 @@
    :bbvb [:number-of-particles 10 :adagrad 0.9 :robbins-monro 0.5 :base-stepsize 0.1]
    :smc [:number-of-particles 100]
    #?@(:clj [:pimh [:number-of-particles 100]])
-   #?@(:clj [:pgibbs [:number-of-particles 100]])
+   :pgibbs [:number-of-particles 100]
    #?@(:clj [:ipmcmc [:number-of-particles 100 :number-of-nodes 10 :all-particles? true]])
-   #?@(:clj [:pgas [:number-of-particles 10]])
+   :pgas [:number-of-particles 10]
    #?@(:clj [:pcascade [:number-of-particles 100 :number-of-threads 200]])})
 
 (def scale-num-samples

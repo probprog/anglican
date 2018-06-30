@@ -9,7 +9,7 @@
         #?(:clj anglican.inference
           :cljs [anglican.inference :only [infer exec checkpoint]])
         [anglican.lmh :only [accept?]]
-        [anglican.runtime :only [observe*]]
+        [anglican.runtime :only [observe* log]]
         [anglican.smc :only [resample particle-weights sweep]]))
 
 ;;; Particle Independent Metropolis-Hastings (PIMH)
@@ -47,7 +47,7 @@
     [;; Compute normalization factor, required for MH.
      (get-log-Z [particles]
        (let [[weights max-log-weight] (particle-weights particles)]
-         (+ (Math/log (reduce + weights)) max-log-weight)))
+         (+ (log (reduce + weights)) max-log-weight)))
 
      ;; Add samples produced by the particles to the sample sequence.
      (add-samples [particles log-Z]
