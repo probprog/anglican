@@ -16,19 +16,19 @@
   [x]
   (assert (>= x 0.0))
   (if (<= x 0.0)
-    (Math/log 0.0)
+    (log 0.0)
     (let [partial-sum (if (< x 1) (/ -1. x) 0.0)
           x (if (< x 1) (+ x 1.0) x)]
       (+ partial-sum
-         (Math/log x)
+         (log x)
          (/ -1. (* 2 x))
-         (/ -1. (* 12 (Math/pow x 2)))
-         (/ 1. (* 120 (Math/pow x 4)))
-         (/ -1. (* 252 (Math/pow x 6)))
-         (/ 1. (* 240 (Math/pow x 8)))
-         (/ -5. (* 660 (Math/pow x 10)))
-         (/ 691. (* 32760 (Math/pow x 12)))
-         (/ -1. (* 12 (Math/pow x 14)))))))
+         (/ -1. (* 12 (pow x 2)))
+         (/ 1. (* 120 (pow x 4)))
+         (/ -1. (* 252 (pow x 6)))
+         (/ 1. (* 240 (pow x 8)))
+         (/ -5. (* 660 (pow x 10)))
+         (/ 691. (* 32760 (pow x 12)))
+         (/ -1. (* 12 (pow x 14)))))))
 
 (defn positive-and-finite?
   "is the numeric value x finite? is it also strictly positive?"
@@ -175,9 +175,11 @@
     (let [w (vec (:weights dist))
           p (div w (reduce + w))
           K (count w)
-          empty (repeat K 0.0)]
+          empty (vec (repeat K 0.0))]
       (fn [x]
-        (let [wx (m/set-indices empty [x] 1.)]
+        (let [wx #?(:clj (m/set-indices empty [x] 1.)
+                   ;; TODO work-around for cljs core.matrix bug
+                   :cljs (assoc empty x 1.))]
           (sub wx p)))))
   (grad-step [dist grad rho]
     (let [z (m/log (:weights dist))
@@ -211,9 +213,11 @@
 
 (def implemented-gradients
   "set of distribution types for which gradients are implemented"
-  (into #{}  (extenders DistGradient)))
+  (into #{}  #?(:clj (extenders DistGradient)
+              :cljs [anglican.runtime.normal-distribution anglican.runtime.gamma-distribution anglican.runtime.exponential-distribution anglican.runtime.beta-distribution anglican.runtime.flip-distribution anglican.runtime.dirichlet-distribution anglican.runtime.discrete-distribution anglican.runtime.categorical-distribution anglican.runtime.poisson-distribution])))
 
 (defn adaptable?
   "test whether gradients are implemented for a distribution type"
   [dist-type]
-  (extends? DistGradient dist-type))
+  #?(:clj (extends? DistGradient dist-type)
+    :cljs (implements? DistGradient dist-type)))

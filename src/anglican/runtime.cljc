@@ -10,7 +10,6 @@
   #?(:cljs (:require-macros [net.cgrand.macrovich :as macros]
                            [anglican.runtime :refer [defdist defproc from-webppl]])))
 
-
 ;; matrix library uses vectorz for protocol implementations
 #?(:clj (m/set-current-implementation :vectorz))
 

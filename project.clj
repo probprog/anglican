@@ -14,7 +14,6 @@
 
                  ;; cljs
                  [net.cgrand/macrovich "0.2.1"]
-                 #_[thinktopic/aljabr "0.1.1"]
                  [org.clojure/clojurescript "1.10.238" :scope "provided"]]
   :plugins [[codox "0.8.11"]
             [lein-figwheel "0.5.16"]
@@ -31,11 +30,11 @@
   ;; https://lambdaisland.com/episodes/testing-clojurescript
   :cljsbuild {:builds
               [{:id "dev"
-                :source-paths ["src" "test"]
+                :source-paths ["src"]
                 :figwheel {;:on-jsload "anglican.runtime/on-js-reload"
                            :open-urls ["http://localhost:3449/index.html"]}
 
-                :compiler {:main anglican.test-runner
+                :compiler {:main anglican.core
                            :asset-path "js/compiled/out"
                            :output-to "resources/public/js/compiled/anglican.js"
                            :output-dir "resources/public/js/compiled/out"
