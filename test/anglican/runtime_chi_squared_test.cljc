@@ -3,7 +3,7 @@
   which implementation is in anglican/runtime"
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.core.matrix.stats :as matrix-stats])
-  (:use anglican.runtime))
+  (:use [anglican.runtime :only [abs log chi-squared sample* observe*]]))
 
 (defn sample-from-chi-squared
   "produces samples from the Chi-squared distribution"
@@ -41,7 +41,7 @@
   "a helper function to calculate the maximum absolute error
   between theoretical and empirical means"
   [nu number-of-samples]
-  (Math/abs
+  (abs
     (-
      (get-empirical-mean-for-chi-squared nu number-of-samples)
      (get-theoretical-mean-for-chi-squared nu))))
@@ -50,7 +50,7 @@
   "a helper function to calculate the maximum absolute error
   between theoretical and empirical variances"
   [nu number-of-samples]
-  (Math/abs
+  (abs
     (-
      (get-empirical-variance-for-chi-squared nu number-of-samples)
      (get-theoretical-variance-for-chi-squared nu))))
@@ -76,13 +76,13 @@
 (deftest test-chi-squared-observe
   (testing "Chi-squared lnpdf (observe*). Deterministic test."
     ;; scipy.stats.chi2.pdf(1.0, 3.5) = 0.1962028031081274
-    (is (chi-squared-lnpdf-test-assertion 3.5 1.0 (Math/log 0.1962028031081274) 0.001))
+    (is (chi-squared-lnpdf-test-assertion 3.5 1.0 (log 0.1962028031081274) 0.001))
 
     ;; scipy.stats.chi2.pdf(5.31, 3.5) = 0.079546575897983585
-    (is (chi-squared-lnpdf-test-assertion 3.5 5.31 (Math/log 0.079546575897983585) 0.001))
+    (is (chi-squared-lnpdf-test-assertion 3.5 5.31 (log 0.079546575897983585) 0.001))
 
     ;; scipy.stats.chi2.pdf(5.31, 5.5) = 0.12068351943379794
-    (is (chi-squared-lnpdf-test-assertion 5.5 5.31 (Math/log 0.12068351943379794) 0.001))))
+    (is (chi-squared-lnpdf-test-assertion 5.5 5.31 (log 0.12068351943379794) 0.001))))
 
 (deftest test-chi-squared-sample
   ;; Nota bene. These tests are very approximate.
@@ -93,7 +93,9 @@
     passes with probability 0 < p < 1."
 
     (let
-      [number-of-samples 100000]
+        ;; TODO find out why chi-squared sampling is slow in cljs
+        [number-of-samples #?(:clj 100000
+                             :cljs 10000)]
       (let
         [nu 10.0]
         (is (chi-squared-mean-test-assertion
@@ -102,7 +104,8 @@
              nu number-of-samples 0.5)))
 
       (let
-        [number-of-samples 100000]
+          [number-of-samples #?(:clj 100000
+                               :cljs 10000)]
         (let
           [nu 5.5]
           (is (chi-squared-mean-test-assertion
@@ -111,7 +114,8 @@
                nu number-of-samples 0.5))))
 
       (let
-        [number-of-samples 100000]
+          [number-of-samples #?(:clj 100000
+                               :cljs 10000)]
         (let
           [nu 7.31]
           (is (chi-squared-mean-test-assertion
@@ -120,7 +124,8 @@
                nu number-of-samples 0.5))))
 
       (let
-        [number-of-samples 100000]
+          [number-of-samples #?(:clj 100000
+                               :cljs 10000)]
         (let
           [nu 3.5]
           (is (chi-squared-mean-test-assertion

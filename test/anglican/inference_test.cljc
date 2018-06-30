@@ -3,21 +3,24 @@
   (:refer-clojure :exclude [rand rand-nth rand-int])
   (:require [clojure.test :refer [deftest testing is]])
   (:use [anglican.emit :only [query]]
-        anglican.inference))
+        [anglican.inference :only [print-predict warmup]]))
 
 (deftest test-print-predict 
     (testing "print-predict"
       (is (= (with-out-str
                (print-predict :anglican :a 1.0 0.0))
-             ":a,1.0,0.0\n")
+             #?(:clj ":a,1.0,0.0\n"
+               :cljs ":a,1,0\n"))
           "anglican")
       (is (= (with-out-str
                (print-predict :json :a 1.0 0.0))
-             "[\":a\",1.0,0.0]\n")
+             #?(:clj "[\":a\",1.0,0.0]\n"
+               :cljs "[\":a\",1,0]\n"))
           "json")
       (is (= (with-out-str
                (print-predict :clojure :a 1.0 0.0))
-             "[:a 1.0 0.0]\n")
+             #?(:clj "[:a 1.0 0.0]\n"
+               :cljs "[:a 1 0]\n"))
           "clojure")
       (is (= (with-out-str
                (print-predict :default :a 1.0 0.0))

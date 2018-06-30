@@ -1,6 +1,6 @@
 (ns anglican.lmh-test
   (:require [clojure.test :refer [deftest testing is]])
-  (:use anglican.lmh))
+  (:use [anglican.lmh :only [rdb ->entry]]))
 
 (deftest test-rdb
   (testing "rdb"

@@ -1,20 +1,24 @@
 (ns anglican.results
   "Processing results"
   (:refer-clojure :exclude [read read-string])
-  (:require [clojure.java.io :as io]
+  (:require [anglican.runtime :refer [abs exp log sqrt]]
+            #?(:cljs [anglican.util :refer [format]])
+            #?(:clj [clojure.java.io :as io])
             [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
-            [clojure.edn :refer [read read-string]]
-            [clojure.data.json :as json]
-            [clojure.tools.cli :as cli]))
+            #?(:clj [clojure.edn :refer [read read-string]]
+              :cljs [cljs.reader :refer [read-string]])
+            #?(:clj [clojure.data.json :as json])
+            #?(:clj [clojure.tools.cli :as cli])))
 
 ;;;; Helper commands for inference results
 
 ;;; Input/output redirection in the REPL.
 
 ;; REPL/command-line command:
-(defmacro redir
-  "Input/output redirection macro,
+#?(:clj
+  (defmacro redir
+    "Input/output redirection macro,
   useful for running inference and processing results
   from the REPL. The syntax is:
 
@@ -24,27 +28,27 @@
   Either :in or :out (or both) can be omitted.
   if the output file name begins with '+', '+' is removed
   and the output is appended to the file."
-  [[& {:keys [in out] :as args}]  & body]
-  (cond
-    in
-    (let [rdr (gensym "rdr")]
-      `(with-open [~rdr (io/reader ~in)]
-         (binding [*in* ~rdr]
-           (redir [~@(flatten (seq (dissoc args :in)))]
-                  ~@body))))
+    [[& {:keys [in out] :as args}]  & body]
+    (cond
+      in
+      (let [rdr (gensym "rdr")]
+        `(with-open [~rdr (io/reader ~in)]
+           (binding [*in* ~rdr]
+             (redir [~@(flatten (seq (dissoc args :in)))]
+                    ~@body))))
 
-    out
-    (let [wtr (gensym "wtr")]
-      `(let [out# ~out]
-         (with-open [~wtr (if (= (subs out# 0 1) "+")
-                            (io/writer (subs out# 1) :append true)
-                            (io/writer out#))]
-           (binding [*out* ~wtr]
-             (redir [~@(flatten (seq (dissoc args :out)))]
-                    ~@body)))))
+      out
+      (let [wtr (gensym "wtr")]
+        `(let [out# ~out]
+           (with-open [~wtr (if (= (subs out# 0 1) "+")
+                              (io/writer (subs out# 1) :append true)
+                              (io/writer out#))]
+             (binding [*out* ~wtr]
+               (redir [~@(flatten (seq (dissoc args :out)))]
+                      ~@body)))))
 
-    :else
-    `(do ~@body)))
+      :else
+      `(do ~@body))))
 
 ;;; Parsing inference output.
 
@@ -62,7 +66,8 @@
   (read-string line))
 
 (defmethod parse-line :json [_ line]
-  (json/read-str line))
+  #?(:clj (json/read-str line)
+    :cljs (.parse js/JSON line)))
 
 ;; The default method is consistent with the default
 ;; for print-predict and compatible with original Anglican.
@@ -122,7 +127,7 @@
            (if (and (countable? value) (number? log-weight))
              (let [weights (update-in
                              weights [label value]
-                             (fnil + 0.) (Math/exp log-weight))]
+                             (fnil + 0.) (exp log-weight))]
                (cons (weights-to-freqs weights)
                      (fq-seq* predicts weights)))
              (fq-seq* predicts weights)))))]
@@ -136,7 +141,7 @@
   [sums]
   (reduce (fn [meansd [label {:keys [sum sum2 weight]}]]
             (let [mean (/ sum weight)
-                  sd (Math/sqrt (- (/ sum2 weight) (* mean mean)))]
+                  sd (sqrt (- (/ sum2 weight) (* mean mean)))]
               (assoc meansd label {:mean mean :sd sd})))
           {} (seq sums)))
 
@@ -150,7 +155,7 @@
          (when-let [[[label value log-weight] & predicts]
                     (seq predicts)]
            (if (and (number? value) (number? log-weight))
-            (let [weight (Math/exp log-weight)
+            (let [weight (exp log-weight)
                   weighted-value (* value weight)
                   sums (-> sums
                            (update-in [label :weight] (fnil + 0.)
@@ -189,19 +194,20 @@
 
 ;;; Total results
 
-(defn totals
-  "reads results from stdin and returns totals filtered by smry-seq"
-  [smry-seq & {:keys [only exclude]
-               :or {only nil
-                    exclude #{}}}]
-  (let [totals (-> (io/reader *in*)
-                   line-seq
-                   parsed-line-seq
-                   smry-seq
-                   last)]
-    (select-keys totals
-                 (filter #(included? only exclude %)
-                         (keys totals)))))
+#?(:clj
+  (defn totals
+    "reads results from stdin and returns totals filtered by smry-seq"
+    [smry-seq & {:keys [only exclude]
+                 :or {only nil
+                      exclude #{}}}]
+    (let [totals (-> (io/reader *in*)
+                    line-seq
+                    parsed-line-seq
+                    smry-seq
+                    last)]
+      (select-keys totals
+                   (filter #(included? only exclude %)
+                           (keys totals))))))
 
 ;;;; Sample distance metrics
 
@@ -214,14 +220,14 @@
             (let [q (q-freqs k)
                   p (p-freqs k)]
               (if (and p q)
-                (+ kl (* p (Math/log (/ p q))))
+                (+ kl (* p (log (/ p q))))
                 kl)))
           0. (keys q-freqs)))
 
 (defn L2
   "computes L2 distance for value frequencies."
   [p-freqs q-freqs] {:pre [(map? p-freqs) (map? q-freqs)]}
-  (Math/sqrt
+  (sqrt
     (reduce (fn [l2 k]
               (let [d (- (p-freqs k 0.) (q-freqs k 0.))]
                 (+ l2 (* d d))))
@@ -253,22 +259,25 @@
         cdf (fn [sx]
               (let [nx (double (count sx))]
                 (map #(/ (double %) nx) (search-sorted sx s))))]
-    (reduce max (map #(Math/abs (- %1 %2)) (cdf sa) (cdf sb)))))
+    (reduce max (map #(abs (- %1 %2)) (cdf sa) (cdf sb)))))
 
 ;;; Multimethods dispatching on metrics
 
-(defmulti get-truth
-  "reads truth from stdin and returns
+#?(:clj
+  (defmulti get-truth
+    "reads truth from stdin and returns
   a structure suitable for diff-seq"
-  (fn [distance-type & options] distance-type))
+    (fn [distance-type & options] distance-type)))
 
 ;; Not all metrics use ground truth.
-(defmethod get-truth :default [_ & _] nil)
+#?(:clj
+  (defmethod get-truth :default [_ & _] nil))
 
-(defmulti diff-seq
-  "reads results from stdin and returns a lazy sequence
+#?(:clj
+  (defmulti diff-seq
+    "reads results from stdin and returns a lazy sequence
   of distances from the truth"
-  (fn [distance-type truth & options] distance-type))
+    (fn [distance-type truth & options] distance-type)))
 
 ;;; Filtering sequences
 
@@ -283,14 +292,15 @@
     (apply concat options)
     options))
 
-(defn read-summaries
-  "reads summaries from standard input"
-  [smry-seq & {:keys [skip step only exclude]
-               :or {skip 0 
-                    step 1
-                    only nil
-                    exclude #{}} :as options}]
-  (->> (io/reader *in*)
+#?(:clj
+  (defn read-summaries
+    "reads summaries from standard input"
+    [smry-seq & {:keys [skip step only exclude]
+                 :or {skip 0 
+                      step 1
+                      only nil
+                      exclude #{}} :as options}]
+    (->> (io/reader *in*)
        line-seq
        parsed-line-seq
        (drop skip)
@@ -300,58 +310,67 @@
        (map (fn [summary] 
               (select-keys summary 
                            (filter #(included? only exclude %)
-                                   (keys summary)))))))
+                                   (keys summary))))))))
 
-(defn distance-seq
-  "reads results from stdin and returns a lazy sequence
+#?(:clj
+  (defn distance-seq
+    "reads results from stdin and returns a lazy sequence
   of distances, skipping first `skip' predict lines and
   then producing a sequence entry each `step' predict lines"
-  [smry-seq distance truth & {:keys [skip step only exclude]
-                              :or {skip 0
-                                   step 1
-                                   only nil
-                                   exclude #{}} :as options}]
-  (map (fn [summary]
-         (reduce + (map #(distance (truth %) (summary %))
-                        (keys summary))))
-       (apply read-summaries smry-seq (unmap options))))
+    [smry-seq distance truth & {:keys [skip step only exclude]
+                                :or {skip 0
+                                     step 1
+                                     only nil
+                                     exclude #{}} :as options}]
+    (map (fn [summary]
+           (reduce + (map #(distance (truth %) (summary %))
+                          (keys summary))))
+         (apply read-summaries smry-seq (unmap options)))))
 
 ;;; Discrete predicts
 
-(defmethod diff-seq :fq
-  [_ _ & options]
-  (apply read-summaries fq-seq (unmap options)))
+#?(:clj
+  (defmethod diff-seq :fq
+    [_ _ & options]
+    (apply read-summaries fq-seq (unmap options))))
 
-(defmethod get-truth :kl [_ & options]
-  (apply totals fq-seq options (unmap options)))
+#?(:clj
+  (defmethod get-truth :kl [_ & options]
+    (apply totals fq-seq options (unmap options))))
 
-(defmethod diff-seq :kl
-  [_ truth & options]
-  (apply distance-seq fq-seq KL truth (unmap options)))
+#?(:clj
+  (defmethod diff-seq :kl
+    [_ truth & options]
+    (apply distance-seq fq-seq KL truth (unmap options))))
 
-(defmethod get-truth :l2 [_ & options]
-  (apply totals fq-seq (unmap options)))
+#?(:clj
+  (defmethod get-truth :l2 [_ & options]
+    (apply totals fq-seq (unmap options))))
 
-(defmethod diff-seq :l2
-  [_ truth & options]
-  (apply distance-seq fq-seq L2 truth (unmap options)))
+#?(:clj
+  (defmethod diff-seq :l2
+    [_ truth & options]
+    (apply distance-seq fq-seq L2 truth (unmap options))))
 
 ;;; Continuous predicts
 
-(defmethod diff-seq :ms
-  [_ _ & {:keys [skip step only exclude]
-          :or {skip 0
-               step 1
-               only nil
-               exclude #{}}:as options}]
-  (apply read-summaries ms-seq (unmap options)))
+#?(:clj
+  (defmethod diff-seq :ms
+    [_ _ & {:keys [skip step only exclude]
+            :or {skip 0
+                 step 1
+                 only nil
+                 exclude #{}}:as options}]
+    (apply read-summaries ms-seq (unmap options))))
 
-(defmethod get-truth :ks [_ & options]
-  (apply totals sm-seq options))
+#?(:clj
+  (defmethod get-truth :ks [_ & options]
+    (apply totals sm-seq options)))
 
-(defmethod diff-seq :ks
-  [_ truth & options]
-  (apply distance-seq sm-seq KS truth (unmap options)))
+#?(:clj
+  (defmethod diff-seq :ks
+    [_ truth & options]
+    (apply distance-seq sm-seq KS truth (unmap options))))
 
 ;;; Diff: difference between prediction and truth
 
@@ -374,26 +393,27 @@
 	  :burn 0
 	  :thin 1})
 
-(def cli-options
-  [["-b" "--burn N" "Skip first N predict lines"
-    :parse-fn #(Integer/parseInt %)]
-   ["-c" "--config CONFIG" "config resource"
-    :default nil]
-   ["-d" "--distance d" "distance type"
-    :parse-fn keyword
-    :validate [#{:fq :ms :kl :l2 :ks} "unrecognized distance"]]
-   ["-e" "--exclude LABELS" "predicts to exclude from statistics"
-    :default #{}
-    :parse-fn (fn [s] (read-string (str "#{" s "}")))]
-   ["-o" "--only LABELS" "predicts to keep in statistics"
-    :default nil
-    :parse-fn (fn [s] (read-string (str "#{" s "}")))]
-   ["-p" "--period N" "number of predicts per sample"
-    :parse-fn #(Integer/parseInt %)]
-   ["-t" "--thin N" "Output distance each N predict lines"
-    :parse-fn #(Integer/parseInt %)]
-   ["-T" "--truth resource" "Resource containing ground truth"]
-   ["-h" "--help" "print usage summary and exit"]])
+#?(:clj
+  (def cli-options
+    [["-b" "--burn N" "Skip first N predict lines"
+      :parse-fn #(Integer/parseInt %)]
+     ["-c" "--config CONFIG" "config resource"
+      :default nil]
+     ["-d" "--distance d" "distance type"
+      :parse-fn keyword
+      :validate [#{:fq :ms :kl :l2 :ks} "unrecognized distance"]]
+     ["-e" "--exclude LABELS" "predicts to exclude from statistics"
+      :default #{}
+      :parse-fn (fn [s] (read-string (str "#{" s "}")))]
+     ["-o" "--only LABELS" "predicts to keep in statistics"
+      :default nil
+      :parse-fn (fn [s] (read-string (str "#{" s "}")))]
+     ["-p" "--period N" "number of predicts per sample"
+      :parse-fn #(Integer/parseInt %)]
+     ["-t" "--thin N" "Output distance each N predict lines"
+      :parse-fn #(Integer/parseInt %)]
+     ["-T" "--truth resource" "Resource containing ground truth"]
+     ["-h" "--help" "print usage summary and exit"]]))
 
 (defn usage [summary]
   (str "Usage:
@@ -405,76 +425,79 @@ Options:
 (defn error-msg [errors]
   (str/join "\n\t" (cons "ERROR parsing the command line:" errors)))
 
-(defn diff
-  "command-line/REPL utility that takes problem configuration
+#?(:clj
+  (defn diff
+    "command-line/REPL utility that takes problem configuration
   and inference output and produces differences between
   the input and the truth"
-  [& args]
-  (let [{:keys [options arguments errors summary] :as parsed-options}
-        (cli/parse-opts args cli-options)]
+    [& args]
+    (let [{:keys [options arguments errors summary] :as parsed-options}
+          (cli/parse-opts args cli-options)]
 
-    ;; Handle help and error conditions.
-    (cond
-      (:help options) (binding [*out* *err*]
-                        (println (usage summary)))
+      ;; Handle help and error conditions.
+      (cond
+        (:help options) (binding [*out* *err*]
+                          (println (usage summary)))
 
-      errors (binding [*out* *err*]
-               (println (error-msg errors)))
+        errors (binding [*out* *err*]
+                 (println (error-msg errors)))
 
-      (seq arguments) (binding [*out* *err*]
-                        (println (usage summary)))
+        (seq arguments) (binding [*out* *err*]
+                          (println (usage summary)))
 
-      :else
-      (let [config (when (:config options)
-                     (apply hash-map
-                            (with-open [in (java.io.PushbackReader.
-                                             (io/reader
+        :else
+        (let [config (when (:config options)
+                       (apply hash-map
+                              (with-open [in (java.io.PushbackReader.
+                                              (io/reader
                                                (io/resource
-                                                 (:config options))))]
-                              (read in))))
-            options (merge default-config config options)]
-        (binding [*out* *err*]
-          (doseq [[option value] (sort-by first options)]
-            (println (format ";; %s %s" option value))))
-        (let [truth
-              (when (:truth options)
-                (redir [:in (io/resource (:truth options))]
-                       (get-truth (:distance options)
-                                  :only (set (:only options))
-                                  :exclude (set (:exclude options)))))
-              period (or (:period options) 1)]
-          (doseq [distance
-                  (diff-seq (:distance options) truth
-                            :skip (* (:burn options) period)
-                            :step (* (:thin options) period)
-                            :only (set (:only options))
-                            :exclude (set (:exclude options)))]
-            (pprint distance)))))))
+                                                (:config options))))]
+                                (read in))))
+              options (merge default-config config options)]
+          (binding [*out* *err*]
+            (doseq [[option value] (sort-by first options)]
+              (println (format ";; %s %s" option value))))
+          (let [truth
+                (when (:truth options)
+                  (redir [:in (io/resource (:truth options))]
+                         (get-truth (:distance options)
+                                    :only (set (:only options))
+                                    :exclude (set (:exclude options)))))
+                period (or (:period options) 1)]
+            (doseq [distance
+                    (diff-seq (:distance options) truth
+                              :skip (* (:burn options) period)
+                              :step (* (:thin options) period)
+                              :only (set (:only options))
+                              :exclude (set (:exclude options)))]
+              (pprint distance))))))))
 
 ;; REPL command
-(defn freqs
-  "reads results from stdin and writes the frequency table
+#?(:clj
+  (defn freqs
+    "reads results from stdin and writes the frequency table
   for every integer-valued predict"
-  []
-  (let [total-freqs (totals fq-seq)]
-    (doseq [label (sort-by str (keys total-freqs))]
-      (doseq [value (sort-by
-                      (fn [value]
-                        (if (instance? java.lang.Comparable value)
-                          value
-                          (str value)))
-                      (keys (total-freqs label)))]
-        (let [weight (get-in total-freqs [label value])]
-          (println
-            (format "%s, %s, %6g, %6g"
-                    label value weight (Math/log weight))))))))
+    []
+    (let [total-freqs (totals fq-seq)]
+      (doseq [label (sort-by str (keys total-freqs))]
+        (doseq [value (sort-by
+                       (fn [value]
+                         (if (instance? java.lang.Comparable value)
+                           value
+                           (str value)))
+                       (keys (total-freqs label)))]
+          (let [weight (get-in total-freqs [label value])]
+            (println
+             (format "%s, %s, %6g, %6g"
+                     label value weight (log weight)))))))))
 
 ;; REPL command
-(defn meansd
-  "reads results from stdin and writes the mean and
+#?(:clj
+  (defn meansd
+    "reads results from stdin and writes the mean and
   standard deviation for each predict"
-  []
-  (let [total-meansd (totals ms-seq)]
-    (doseq [label (sort-by str (keys total-meansd))]
-      (let [{:keys [mean sd]} (get total-meansd label)]
-        (println (format "%s, %6g, %6g" label mean sd))))))
+    []
+    (let [total-meansd (totals ms-seq)]
+      (doseq [label (sort-by str (keys total-meansd))]
+        (let [{:keys [mean sd]} (get total-meansd label)]
+          (println (format "%s, %6g, %6g" label mean sd)))))))
