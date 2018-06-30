@@ -72,7 +72,7 @@
                 ((state ::rdb) choice-id))
         log-p (try (observe* (:dist smp) value)
                    (catch #?(:clj Exception
-                            :cljs js/object) e nil))
+                            :cljs js/Object) e nil))
         entry (if (and id-in-rdb? log-p)
                 (->entry choice-id value log-p false)
                 (let [value (sample* (:dist smp))
