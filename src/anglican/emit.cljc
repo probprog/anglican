@@ -1,6 +1,6 @@
 (ns anglican.emit
   "Top-level forms for Anglican programs"
-  (:require [anglican.xlat :refer [program alambda]]
+  (:require #?(:clj [anglican.xlat :refer [program alambda]])
             [anglican.trap :refer [*gensym* *checkpoint-gensym*
                                    shading-primitive-procedures
                                    cps-of-expression result-cont 
@@ -312,15 +312,17 @@
 ;; than Clojure syntax. Again, this syntax is deprecated
 ;; but preserved for compatibility.
 
-(defmacro ^:deprecated lambda
-  "defines function in Anglican syntax"
-  [& args]
-  `(fm ~@(next (alambda nil args))))
+#?(:clj
+  (defmacro ^:deprecated lambda
+    "defines function in Anglican syntax"
+    [& args]
+    `(fm ~@(next (alambda nil args)))))
 
-(defmacro ^:deprecated defun
-  "binds variable to function in Anglican syntax"
-  [name & args]
-  `(defm ~@(next (alambda name args))))
+#?(:clj
+  (defmacro ^:deprecated defun
+    "binds variable to function in Anglican syntax"
+    [name & args]
+    `(defm ~@(next (alambda name args)))))
 
 ;; Any non-CPS procedures can be used in the code,
 ;; but must be wrapped and re-bound.
