@@ -10,4 +10,5 @@ fi
 
 cp resources/public/js/webppl-v0.9.11.js unit-test.js
 cat resources/private/js/unit-test.js >> unit-test.js
+
 phantomjs unit-test.js
