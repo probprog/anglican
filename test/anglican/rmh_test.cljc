@@ -1,7 +1,9 @@
 (ns anglican.rmh-test
   (:require [clojure.test :refer [deftest testing is]])
-  (:use anglican.rmh
-        anglican.rmh-dists
+  (:use [anglican.rmh :only []]
+        [anglican.rmh-dists :only [folded-normal
+                                   folded-normal-positive
+                                   folded-normal-discrete]]
         [anglican.runtime :only [observe* sample*]]))
 
 (deftest test-rmh-dists

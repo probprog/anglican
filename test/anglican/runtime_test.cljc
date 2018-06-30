@@ -4,6 +4,7 @@
     [clojure.core.matrix :as mat]
     [anglican.stat :as stat])
   (:use [anglican.runtime :only [observe* sample* mean cov sum log
+                                 #?(:cljs inverse)
                                  covariance
                                  produce absorb
                                  categorical
@@ -37,13 +38,12 @@
   (and (> x (- y eps))
        (< x (+ y eps))))
 
-#?(:clj
-  (deftest test-mvn
-    (testing "mvn"
-      (let [dist (mvn [0 0 0] [[2 0 0] [0 1 0] [0 0 3]])]
-        (is (approx (observe* dist [3 4 5]) -18.0694 0.0001))
-        (is (approx (observe* dist [0 0 0]) -3.6527 0.0001))
-        (is (approx (observe* dist [10 20 30]) -378.6527 0.0001))))))
+(deftest test-mvn
+  (testing "mvn"
+    (let [dist (mvn [0 0 0] [[2 0 0] [0 1 0] [0 0 3]])]
+      (is (approx (observe* dist [3 4 5]) -18.0694 0.0001))
+      (is (approx (observe* dist [0 0 0]) -3.6527 0.0001))
+      (is (approx (observe* dist [10 20 30]) -378.6527 0.0001)))))
 
 (deftest test-laplace
   (testing "laplace"
@@ -52,21 +52,19 @@
       (is (approx (observe* dist 2) -1.1011 0.0001))
       (is (approx (observe* dist 10) -6.6725 0.0001)))))
 
-#?(:clj
-  (deftest test-student-t
-    (testing "student-t"
-      (let [dist (student-t 3.1)]
-        (is (approx (observe* dist 1) -1.5715 0.0001))
-        (is (approx (observe* dist 2) -2.6971 0.0001))
-        (is (approx (observe* dist 10) -8.1821 0.0001))))))
+(deftest test-student-t
+  (testing "student-t"
+    (let [dist (student-t 3.1)]
+      (is (approx (observe* dist 1) -1.5715 0.0001))
+      (is (approx (observe* dist 2) -2.6971 0.0001))
+      (is (approx (observe* dist 10) -8.1821 0.0001)))))
 
-#?(:clj
-  (deftest test-student-t-loc-scale
-    (testing "student-t-loc-scale"
-      (let [dist (student-t-loc-scale 3.1 10 2)]
-        (is (approx (observe* dist 1) -5.8308 0.0001))
-        (is (approx (observe* dist 2) -5.4190 0.0001))
-        (is (approx (observe* dist 10) -1.6915 0.0001))))))
+(deftest test-student-t-loc-scale
+  (testing "student-t-loc-scale"
+    (let [dist (student-t-loc-scale 3.1 10 2)]
+      (is (approx (observe* dist 1) -5.8308 0.0001))
+      (is (approx (observe* dist 2) -5.4190 0.0001))
+      (is (approx (observe* dist 10) -1.6915 0.0001)))))
 
 (deftest test-CRP
   (testing  "CRP"
@@ -115,78 +113,76 @@
         (recur (conj samples x)
                (absorb proc x))))))
 
-#?(:clj
-  (deftest test-multivariate-t
-    (testing "sampling"
-      (let [nu 5.0
-            mu (mat/matrix [3.0 1.0])
-            sigma (mat/matrix [[1.0 0.1] [0.1 1.0]])
-            t-dist (multivariate-t nu mu sigma)
-            samples (repeatedly 10000 #(sample* t-dist))]
-        (is (within (mean samples) mu (mat/mul 0.2 mu))
-            "sample mean does not fall within 20% of expected value")
-        (is (within (mat/mul 
-                     (covariance samples) 
-                     (/ (- nu 2) nu))
-                    sigma
-                    (mat/mul 0.5 sigma))
-            "sample covariance does not fall within 50% of expected value")))))
-#?(:clj
-  (defn sample-mvn-niw-generative 
-    [num-params num-samples mu kappa nu psi]
-    (let [prec-prior (wishart nu (mat/inverse psi))
-          sigmas (repeatedly 
-                  num-params 
-                  #(mat/inverse (sample* prec-prior)))
-          means (map (fn [sigma] 
-                       (sample* (mvn mu (mat/div sigma kappa))))
-                     sigmas)
-          likes (map mvn means sigmas)]
-      (reduce (fn [[m c] like]
-                (let [xs (repeatedly num-samples 
-                                     #(sample* like))]
-                  [(mat/add m (mat/div (mean xs) num-params))
-                   (mat/add c (mat/div (covariance xs) num-params))]))
-              [(mat/zero-vector 2)
-               (mat/zero-matrix 2 2)]
-              likes))))
+(deftest test-multivariate-t
+  (testing "sampling"
+    (let [nu 5.0
+          mu (mat/matrix [3.0 1.0])
+          sigma (mat/matrix [[1.0 0.1] [0.1 1.0]])
+          t-dist (multivariate-t nu mu sigma)
+          samples (repeatedly 10000 #(sample* t-dist))]
+      (is (within (mean samples) mu (mat/mul 0.2 mu))
+          "sample mean does not fall within 20% of expected value")
+      (is (within (mat/mul 
+                   (covariance samples) 
+                   (/ (- nu 2) nu))
+                  sigma
+                  (mat/mul 0.5 sigma))
+          "sample covariance does not fall within 50% of expected value"))))
 
-#?(:clj
-  (defn sample-mvn-niw-collapsed
-    [num-params num-samples mu kappa nu psi]
-    (reduce (fn [[m c] proc]
-              (let [xs (multi-sample 
-                        num-samples 
-                        proc)]
+(defn sample-mvn-niw-generative 
+  [num-params num-samples mu kappa nu psi]
+  (let [prec-prior (wishart nu (#?(:clj mat/inverse
+                                  :cljs inverse) psi))
+        sigmas (repeatedly 
+                num-params 
+                #(#?(:clj mat/inverse :cljs inverse) (sample* prec-prior)))
+        means (map (fn [sigma] 
+                     (sample* (mvn mu (mat/div sigma kappa))))
+                   sigmas)
+        likes (map mvn means sigmas)]
+    (reduce (fn [[m c] like]
+              (let [xs (repeatedly num-samples 
+                                   #(sample* like))]
                 [(mat/add m (mat/div (mean xs) num-params))
                  (mat/add c (mat/div (covariance xs) num-params))]))
             [(mat/zero-vector 2)
              (mat/zero-matrix 2 2)]
-            (repeat num-params (mvn-niw mu kappa nu psi)))))
+            likes)))
 
-#?(:clj
-  (deftest test-mvn-niw
-    (let [num-params 100
-          num-samples 100
-          mu (mat/matrix [2.0 3.0])
-          kappa 12.0
-          nu 7.0
-          psi (mat/mul
-               (mat/matrix 
-                [[1.0 0.1] 
-                 [0.1 1.0]]) 
-               nu)
-          [mug cg] (sample-mvn-niw-generative 
-                    num-params num-samples
-                    mu kappa nu psi)
-          [muc cc] (sample-mvn-niw-collapsed
-                    num-params num-samples
-                    mu kappa nu psi)]
-      (is (within mug muc 
-                  (mat/mul 0.125 (mat/add mug muc)))
-          "empirical mean from mvn-niw samples is not within 25% of 
+(defn sample-mvn-niw-collapsed
+  [num-params num-samples mu kappa nu psi]
+  (reduce (fn [[m c] proc]
+            (let [xs (multi-sample 
+                      num-samples 
+                      proc)]
+              [(mat/add m (mat/div (mean xs) num-params))
+               (mat/add c (mat/div (covariance xs) num-params))]))
+          [(mat/zero-vector 2)
+           (mat/zero-matrix 2 2)]
+          (repeat num-params (mvn-niw mu kappa nu psi))))
+
+(deftest test-mvn-niw
+  (let [num-params 100
+        num-samples 100
+        mu (mat/matrix [2.0 3.0])
+        kappa 12.0
+        nu 7.0
+        psi (mat/mul
+             (mat/matrix 
+              [[1.0 0.1] 
+               [0.1 1.0]]) 
+             nu)
+        [mug cg] (sample-mvn-niw-generative 
+                  num-params num-samples
+                  mu kappa nu psi)
+        [muc cc] (sample-mvn-niw-collapsed
+                  num-params num-samples
+                  mu kappa nu psi)]
+    (is (within mug muc 
+                (mat/mul 0.125 (mat/add mug muc)))
+        "empirical mean from mvn-niw samples is not within 25% of 
         empirical mean from uncollapsed generative process")
-      (is (within cg cc
-                  (mat/mul 0.125 (mat/outer-product mug muc)))
-          "empirical covariance from mvn-niw samples is not within 25% of 
-        empirical covariance from uncollapsed generative process"))))
+    (is (within cg cc
+                (mat/mul 0.125 (mat/outer-product mug muc)))
+        "empirical covariance from mvn-niw samples is not within 25% of 
+        empirical covariance from uncollapsed generative process")))

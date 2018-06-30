@@ -1,7 +1,9 @@
 (ns anglican.semantic-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [anglican.state :refer [get-result]])
-  (:use [anglican core emit runtime]))
+  (:use [anglican.core :only [doquery]]
+        [anglican.emit :only [query]]
+        [anglican.runtime :only []]))
 
 
 (deftest catch-throw-test
@@ -24,12 +26,14 @@
                  (let [a 5]
                    (throw :a x)
                    a))]
-    (is (thrown? RuntimeException
+    (is (thrown? #?(:clj RuntimeException
+                   :cljs js/Object)
                  (get-result (first (doquery :importance q [4]))))
         "no catch, one throw should throw a runtime exception")
     (is (try 
           (get-result (first (doquery :importance q [4])))
-          (catch clojure.lang.ExceptionInfo e
+          (catch #?(:clj clojure.lang.ExceptionInfo
+                   :cljs js/Object) e
             (= (ex-data e)
                {:error-type :anglican-uncaught-throw
                 :throw-tag :a
