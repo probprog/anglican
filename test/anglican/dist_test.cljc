@@ -1,7 +1,7 @@
 (ns anglican.dist-test
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.core.matrix :as mat]
-            [anglican.runtime :refer [erf sqrt exp abs
+            [anglican.runtime :refer [erf sqrt exp log abs log-gamma-fn
                                       sample* observe*
                                       mean covariance
                                       #?(:cljs inverse)
@@ -17,12 +17,64 @@
   (* 0.5 (+ 1 (erf (/ (- x mu)
                       (* (sqrt 2) sigma))))))
 
+
+;; cumulative chi squared function ported from
+;; https://github.com/substack/chi-squared.js
+
+(defn- Gcf [X A] ;; good for X>A+1
+  (loop [A0 0
+         B0 1
+         A1 1
+         B1 X
+         AOLD 0
+         N 0]
+    (if (> (abs (/ (- A1 AOLD) A1)) 0.00001)
+      (let [AOLD A1
+            N (inc N)
+            A0 (+ A1 (* (- N A) A0))
+            B0 (+ B1 (* (- N A) B0))
+            A1 (+ (* X A0) (* N A1))
+            B1 (+ (* X B0) (* N B1))
+            A0 (/ A0 B1)
+            B0 (/ B0 B1)
+            A1 (/ A1 B1)
+            B1 1
+            ]
+        (recur A0 B0 A1 B1 AOLD N))
+      (- 1 (* (exp (- (* A (log X))
+                      X
+                      (log-gamma-fn A)))
+              A1)))))
+
+(defn- Gser [X A]
+  (loop [T9 (/ 1 A)
+         G T9
+         I 1]
+    (if (> T9 (* G 0.00001))
+      (let [T9 (/ (* T9 X)
+                  (+ A I))
+            G (+ G T9)
+            I (+ I 1)]
+        (recur T9 G I))
+      (* G (exp (- (* A (log X))
+                   X
+                   (log-gamma-fn A)))))))
+
+(defn- Gammacdf [x a]
+  (cond (<= x 0)
+        0
+
+        (< x (inc a))
+        (Gser x a)
+
+        :else
+        (Gcf x a)))
+
 (defn- chi-squared-cdf 
   [nu x]
   #?(:clj (let [d (org.apache.commons.math3.distribution.ChiSquaredDistribution. (double nu))]
            (.cumulativeProbability d (double x)))
-    ;; TODO port to cljs
-    :cljs 0.5))
+    :cljs (Gammacdf (/ x 2) (/ nu 2))))
 
 (defn- sqr 
   [x] 
