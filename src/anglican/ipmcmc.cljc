@@ -24,7 +24,8 @@
             [anglican.pgibbs :as pgibbs
              :refer [initial-state release-retained-state
                      retained-initial-state]]
-            [anglican.runtime :refer [sample* discrete uniform-discrete]]
+            [anglican.runtime :refer [sample* discrete
+                                      log exp uniform-discrete]]
             [anglican.smc :as smc]
             [anglican.state :refer [set-log-weight]]))
 
@@ -89,16 +90,15 @@
   [log-weights]
   (let [max-log-weight (reduce max log-weights)]
     (if (= (/ -1. 0.) max-log-weight)
-
       (let [probabilities (repeat (count log-weights) 0.0)
             log-mean-weight 0.0]
         [probabilities log-mean-weight])
 
-      (let [weights (map #(Math/exp (- % max-log-weight))
+      (let [weights (map #(exp (- % max-log-weight))
                          log-weights)
             total-weight (reduce + weights)
             probabilities (map #(/ % total-weight) weights)
-            log-mean-weight (+ (Math/log (/ total-weight
+            log-mean-weight (+ (log (/ total-weight
                                             (count log-weights)))
                                max-log-weight)]
         [probabilities log-mean-weight]))))
@@ -193,7 +193,7 @@
                      states (mapcat
                              (fn [results zeta-sum]
                                (let [log-weight
-                                     (Math/log
+                                     (log
                                       (/ zeta-sum
                                          number-of-particles))]
                                  (map

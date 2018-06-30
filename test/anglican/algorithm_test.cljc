@@ -1,11 +1,24 @@
 (ns anglican.algorithm-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is] :as t]
             [clojure.core.matrix :as m]
-            [anglican.stat :as stat])
-  (:use [anglican
-          core runtime emit
-          [state :only [get-predicts get-log-weight]]
-          [stat :only [collect-by]]]))
+            [anglican.stat :as stat]
+            #?(:cljs [anglican.importance :as importance])
+            #?(:cljs [anglican.lmh :as lmh])
+            #?(:cljs [anglican.almh :as almh])
+            #?(:cljs [anglican.rmh :as rmh])
+            #?(:cljs [anglican.ais :as ais])
+            #?(:cljs [anglican.bbvb :as bbvb])
+            #?(:cljs [anglican.smc :as smc])
+            #?(:cljs [anglican.ipmcmc :as ipmcmc])
+            )
+  (:use [anglican.core :only [doquery]]
+        [anglican.runtime :only [exp log sqrt l2-norm
+                                 normal discrete poisson gamma
+                                 CRP
+                                 sample* observe* produce absorb]]
+        [anglican.emit :only [query with-primitive-procedures]]
+        [anglican.state :only [get-predicts get-log-weight]]
+        [anglican.stat :only [collect-by]]))
 
 (defrecord benchmark
   [;; query to be run in benchmark
@@ -252,17 +265,17 @@
   {:importance nil
    :lmh nil
    :almh nil
-   :plmh nil
-   :palmh nil
+   #?@(:clj [:plmh nil])
+   #?@(:clj [:palmh nil])
    :rmh [:alpha 0.5 :sigma 1]
    :ais [:number-of-steps 10]
    :bbvb [:number-of-particles 10 :adagrad 0.9 :robbins-monro 0.5 :base-stepsize 0.1]
    :smc [:number-of-particles 100]
-   :pimh [:number-of-particles 100]
-   :pgibbs [:number-of-particles 100]
-   :ipmcmc [:number-of-particles 100 :number-of-nodes 10 :all-particles? true]
-   :pgas [:number-of-particles 10]
-   :pcascade [:number-of-particles 100 :number-of-threads 200]})
+   #?@(:clj [:pimh [:number-of-particles 100]])
+   #?@(:clj [:pgibbs [:number-of-particles 100]])
+   #?@(:clj [:ipmcmc [:number-of-particles 100 :number-of-nodes 10 :all-particles? true]])
+   #?@(:clj [:pgas [:number-of-particles 10]])
+   #?@(:clj [:pcascade [:number-of-particles 100 :number-of-threads 200]])})
 
 (def scale-num-samples
   "options that allow increase/reduction of number of samples"
@@ -272,13 +285,33 @@
   (doseq [[id benchmark] benchmarks
           [algorithm opts] algorithm-opts]
     (testing [id algorithm]
-      (let [start-time (. System (nanoTime))
+      (let [start-time #?(:clj (. System (nanoTime))
+                         :cljs (js/Date.now))
             error (apply dobenchmark
                          benchmark
                          (* 10000 (get scale-num-samples
                                        algorithm 1.0))
                          algorithm
                          opts)
-            end-time (. System (nanoTime))]
+            end-time #?(:clj (. System (nanoTime))
+                       :cljs (js/Date.now))]
+        (prn id algorithm error (/ (- end-time start-time) 1e6) 'ms)
+        (is (< error (:threshold benchmark)))))))
+
+
+(comment
+  (doseq [[id benchmark] benchmarks
+          [algorithm opts] algorithm-opts]
+    (testing [id algorithm]
+      (let [start-time #?(:clj (. System (nanoTime))
+                         :cljs (js/Date.now))
+            error (apply dobenchmark
+                         benchmark
+                         (* 10000 (get scale-num-samples
+                                       algorithm 1.0))
+                         algorithm
+                         opts)
+            end-time #?(:clj (. System (nanoTime))
+                       :cljs (js/Date.now))]
         (prn id algorithm error (/ (- end-time start-time) 1e6) 'ms)
         (is (< error (:threshold benchmark)))))))

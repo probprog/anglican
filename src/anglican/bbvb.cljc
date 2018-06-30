@@ -1,6 +1,7 @@
 (ns anglican.bbvb
   (:refer-clojure :exclude [rand rand-int rand-nth])
   (:require [anglican.gradients :refer [grad-step grad-log]]
+            [clojure.set :refer [union]]
             [clojure.core.matrix :as m :refer [add sub mul div mmul]]
             [anglican.state :refer [get-log-weight add-log-weight]])
   (:use #?(:clj anglican.inference
@@ -78,7 +79,7 @@
   [gradient-samples log-weights]
   (loop [weight-map {}
          gradient-map {}
-         address-set (reduce clojure.set/union
+         address-set (reduce union
                              (map #(set (keys %))
                                   gradient-samples))]
     (if (empty? address-set)

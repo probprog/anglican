@@ -4,7 +4,8 @@
              [anglican.emit-test :as emit-test]
              [anglican.runtime-test :as runtime-test]
              [anglican.stat-test :as stat-test]
-             [anglican.trap-test :as trap-test]))
+             [anglican.trap-test :as trap-test]
+             [anglican.algorithm-test :as algorithm-test]))
 
 
 (enable-console-print!)
@@ -17,6 +18,7 @@
              'anglican.stat-test
              'anglican.runtime-test
              'anglican.emit-test
-             'anglican.dist-test)
+             'anglican.dist-test
+             'anglican.algorithm-test)
 
 
