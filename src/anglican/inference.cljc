@@ -202,7 +202,7 @@
   #?(:clj (do
            (json/write [(str label) value log-weight] *out*)
            (println))
-    :cljs (println (.stringify js/JSON [(str label) value log-weight]))))
+    :cljs (println (.stringify js/JSON (clj->js [(str label) value log-weight])))))
 
 (defmethod print-predict :default [_ label value log-weight]
   (print-predict :anglican label value log-weight))

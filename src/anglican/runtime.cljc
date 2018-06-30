@@ -344,8 +344,7 @@
               Z (delay (let [|Lcov| (reduce * (m/diagonal Lcov))]
                          (+ (* 0.5 k (log (* 2 PI)))
                             (log |Lcov|))))
-              iLcov (delay (#?(:clj m/inverse
-                              :cljs inverse) Lcov))
+              iLcov (delay ((macros/case :clj m/inverse :cljs inverse) Lcov))
               transform-sample (fn [samples]
                                  (m/add mean (m/mmul Lcov samples)))]
   (sample* [this] (transform-sample
@@ -363,7 +362,8 @@
   [nu mu sigma]
   [dim (m/ecount mu)
    mvn-dist (mvn (m/zero-vector dim) sigma)
-   chi-sq-dist (chi-squared nu)]
+   chi-sq-dist (chi-squared nu)
+   inv-sigma ((macros/case :clj m/inverse :cljs inverse) sigma)]
   (sample*
    [this]
    (let [y (sample* mvn-dist)
@@ -375,9 +375,7 @@
          dy-sinv-dy (m/mget
                      (m/mmul
                       (m/transpose dy)
-                      ;; TODO lift to arguments for efficiency?
-                      (#?(:clj m/inverse
-                         :cljs inverse) sigma)
+                      inv-sigma
                       dy))]
      (- (log-gamma-fn (* 0.5 (+ nu dim)))
         (+ (log-gamma-fn (* 0.5 nu))
@@ -511,7 +509,9 @@
      (fn [A]
        (let
            [LA (m/mmul L A)]
-         (m/mmul LA (m/transpose LA))))]
+         (m/mmul LA (m/transpose LA))))
+     inv-V (#?(:clj m/inverse
+               :cljs inverse) (m/matrix V))]
     (sample* [this]
              ;; Bartlett decomposition
              ;; http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
@@ -527,8 +527,7 @@
                (transform-sample A)))
     (observe* [this value]
               (- (* 0.5 (- n p 1) (log (#?(:clj m/det :cljs det) value)))
-                 (* 0.5 (m/trace (m/mmul (#?(:clj m/inverse
-                                            :cljs inverse) (m/matrix V)) value)))
+                 (* 0.5 (m/trace (m/mmul inv-V value)))
                  @Z))
     multivariate-distribution
     (transform-sample [this A] (transform-sample A)))
@@ -685,8 +684,7 @@
     (cps
       (if (seq points)
         (let [xs (mapv first points)
-              isgm (#?(:clj m/inverse
-                      :cljs inverse) (m/matrix (cov k xs xs)))
+              isgm ((macros/case :clj m/inverse :cljs inverse) (m/matrix (cov k xs xs)))
               zs (let [ys (mapv second points)
                        ms (mapv m xs)]
                    (m/mmul isgm (m/sub ys ms)))]

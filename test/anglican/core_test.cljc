@@ -1,6 +1,8 @@
 (ns anglican.core-test
-  (:require [clojure.test :refer :all])
-  (:use [anglican core emit runtime]))
+  (:require [clojure.test :refer [deftest testing is]])
+  (:use [anglican.core :only [doquery]]
+        [anglican.emit :only [query]]
+        [anglican.runtime :only [normal gamma]]))
 
 (deftest stripdown-test
   (let [q (query []
