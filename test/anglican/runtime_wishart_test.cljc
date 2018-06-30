@@ -202,7 +202,8 @@
              n V number-of-samples 3.0)))
 
       (let
-        [number-of-samples 100000]
+        [number-of-samples #?(:clj 100000
+                             :cljs 10000)]
         (let
           [n 5
            V [[0.7 0] [0 0.07]]]
@@ -212,7 +213,8 @@
                n V number-of-samples 0.3))))
 
       (let
-        [number-of-samples 100000]
+        [number-of-samples #?(:clj 100000
+                             :cljs 10000)]
         (let
           [n 5.5
            V [[0.7 0] [0 0.07]]]
@@ -222,7 +224,8 @@
                n V number-of-samples 0.3))))
 
       (let
-        [number-of-samples 100000]
+        [number-of-samples #?(:clj 100000
+                             :cljs 10000)]
         (let
           [n 3.5
            V [[3 2] [2 7]]]
