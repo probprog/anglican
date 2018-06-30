@@ -228,8 +228,14 @@
          [~dist (new ~(symbol (str "js/dists." webppl-name))
                      (cljs.core/clj->js ~@webppl-args))]
          (~'sample* [~'this] (.sample ~dist))
-         (~'observe* [~'this ~'value] (.score ~dist ~'value))))
-    ))
+         (~'observe* [~'this ~'value]
+          ;; TODO WebPPL's Gamma has returned ##NaN's for negative values
+          (let [s# (.score ~dist ~'value)]
+            (if (js/Number.isNaN s#)
+              ##-Inf
+              s#)))))))
+
+
 
 (declare uniform-continuous)
 (defdist bernoulli
@@ -322,6 +328,7 @@
                (Gamma (double shape) (/ 1.0 (double rate))))
   :cljs
   (from-webppl gamma [shape rate] (Gamma {:scale (/ 1 rate) :shape shape})))
+
 
 (defdist chi-squared
   "Chi-squared distribution. Equivalent to a gamma distribution

@@ -10,6 +10,7 @@
              [anglican.inference-test :as inference-test]
              [anglican.rmh-test :as rmh-test]
              [anglican.runtime-chi-squared-test :as runtime-chi-squared-test]
+             [anglican.runtime-wishart-test :as runtime-wishart-test]
              [anglican.semantic-test :as semantic-test]
              [anglican.results-test :as results-test]))
 
@@ -30,6 +31,7 @@
              'anglican.inference-test
              'anglican.rmh-test
              'anglican.runtime-chi-squared-test
+             'anglican.runtime-wishart-test
              'anglican.semantic-test
              'anglican.results-test)
 
