@@ -169,7 +169,7 @@ function. For example, every `predict` in the following code
     (defquery fact
         (let [fact (mem (fn fact [n]
                             (if (= n 1) 1
-                                * n (fact (- n 1))))))]
+                                (* n (fact (- n 1))))))]
           (predict (fact 1))
           (predict (fact 2))
           (predict (fact 3))
