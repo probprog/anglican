@@ -42,9 +42,9 @@ in a file `example.clj` to create your first Anglican program.
 Anglican can be run from the command line, in the Clojure REPL,
 as well in [other ways](#markdown-header-m-in-gorilla-repl). To run Anglican from the
 command line or in the REPL, use git to download from
-https://bitbucket.org/dtolpin/anglican:
+https://bitbucket.org/probprog/anglican:
 
-    $ git clone https://bitbucket.org/dtolpin/anglican
+    $ git clone https://bitbucket.org/probprog/anglican
 
 Open `project.clj` and add the path to the directory in which
 `example.clj` resides to `:resource-paths`.
